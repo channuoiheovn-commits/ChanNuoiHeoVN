@@ -10,13 +10,13 @@ import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 
 // 🛠 HÃY DÁN CẤU HÌNH FIREBASE CỦA BẠN VÀO ĐÂY
 const firebaseConfig = {
-  apiKey: "AIzaSyCAjBx_PUHLfNEI0iJr-Er1tU9ZYzcZMrs",
-  authDomain: "channuoiheovn-ea76f.firebaseapp.com",
-  projectId: "channuoiheovn-ea76f",
-  storageBucket: "channuoiheovn-ea76f.firebasestorage.app",
-  messagingSenderId: "145385942946",
-  appId: "1:145385942946:web:da9faed815bd759b78ccfb",
-  measurementId: "G-XM4KM1L4DS"
+  apiKey: "AIzaSyDoY-hoyLop6gmhrUOwh0w0jhUt-uqsJF0",
+  authDomain: "channuoiheovs6.firebaseapp.com",
+  projectId: "channuoiheovs6",
+  storageBucket: "channuoiheovs6.firebasestorage.app",
+  messagingSenderId: "340478697796",
+  appId: "1:340478697796:web:f5666e604f81b33b4bb711",
+  measurementId: "G-MZ68B8L813"
 };
 
 // Initialize Firebase
@@ -26,7 +26,7 @@ const auth = getAuth(app); // Cấu hình thêm dòng này để bạn gọi hà
 // ❌ ĐÃ XÓA BỎ DÒNG const analytics = getAnalytics(app); GÂY CRASH APP TẠI ĐÂY!
 
 export default function App() {
-  const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxFgDzer1K0TaWIBqncYmpNpp-YvX8ZJ9hBW_vuTTPRdqMtOY2ZI-06IaFnsEmnasP7/exec';
+  const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxb944toyRceu5j8ppJsTdF-cNZ0zlm00_3SNcP3yElwKJlno-GkjdepNOZDXbHbEp3gg/exec';
 
   // --- STATE ĐĂNG NHẬP VÀ CHỌN TRẠI ---
   const [isLoggedIn, setIsLoggedIn] = useState(false);

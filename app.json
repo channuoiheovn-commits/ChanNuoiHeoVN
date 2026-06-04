@@ -1,12 +1,11 @@
 {
   "expo": {
     "name": "ChanNuoiHeoVN",
-    "slug": "channuoiheovn",
+    "slug": "channuoiheovs6",
     "version": "1.0.6",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "owner": "channuoiheovn",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -21,18 +20,19 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.channuoiheovn.appnhapheo",
-      "googleServicesFile": "./google-services.json"
+      
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "extra": {
       "eas": {
-        "projectId": "e54a39f4-69aa-4c33-a07d-4603a96e81ce"
+        "projectId": "fc9a1ae0-5965-4864-a9d1-ba15163b36f5"
       }
     },
     "plugins": [
       "@react-native-community/datetimepicker"
-    ]
+    ],
+    "owner": "channuoiheo"
   }
 }
