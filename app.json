@@ -19,7 +19,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.channuoiheovn.appnhapheo",
+      "package": "com.channuoiheovn.appnhapheo"
       
     },
     "web": {
