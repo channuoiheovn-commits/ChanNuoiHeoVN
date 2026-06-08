@@ -23,13 +23,13 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app); // Cấu hình thêm dòng này để bạn gọi hàm đăng nhập phía dưới nếu cần
+const auth = getAuth(app); // Cấu hình thêm dòng này để bạn gọi hàm đăng nhập phía dưới nếu cầ
 
 // ❌ ĐÃ XÓA BỎ DÒNG const analytics = getAnalytics(app); GÂY CRASH APP TẠI ĐÂY!
 
 function MainApp() {
   const insets = useSafeAreaInsets();
-  const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzzhHIuHTza48o6Dls2eQiZ02DwxQepqkLCzFJAB_5KrL0rVxoGh52gJzeLDxdTg3uMrA/exec';
+  const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxmepXpq2DEfplU3Ghm58KRPrnaJREL6WMtlJEu1_Z8BOJRh5NrdGDZ-LyM1PEF66zn2A/exec';
 
   // --- STATE ĐĂNG NHẬP VÀ CHỌN TRẠI ---
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -250,19 +250,61 @@ function MainApp() {
   };
   // 🎯 VÁ TỐI ƯU HIỆU NĂNG: Hàm gọi dữ liệu nút Xem đặt độc lập bên ngoài FlatList
 const handleXemChiTietHeo = (item) => {
-  setSelectedHeoDetail(item); 
-  setIsDetailModalVisible(true);
-  setLoadingLichSuDe(true);
-  fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().trim()}&maTrai=${encodeURIComponent(selectedTrai)}&maTai=${item.maTai}`, { method: 'GET', redirect: 'follow' })
-    .then(res => res.json())
-    .then(result => {
-      setLoadingLichSuDe(false);
-      if (result.status === 'success' && result.data) {
-        setMangLichSuDeCuaTai(result.data);
+    setIsDetailModalVisible(true);
+    setLoadingLichSuDe(true);
+
+    // 1. Tạo một Object gộp dữ liệu ban đầu
+    let duLieuGopDayDu = { ...item };
+
+    // 2. 🎯 SỬA CHUẨN ĐÉT: Dùng findLast quét từ dưới đáy mảng lên để bốc trọn lứa đẻ mới nhất của nái
+    if (Array.isArray(danhSachDangDe)) {
+      // Bản Expo/React Native hỗ trợ findLast, nếu không ta dùng logic đảo mảng an toàn
+      const thongTinDeChiTiet = [...danhSachDangDe].reverse().find(heo => 
+        heo && heo.maTai && heo.maTai.toString().toUpperCase().trim() === item.maTai.toString().toUpperCase().trim()
+      );
+      
+      // Nếu tìm thấy lứa mới nhất, tiến hành gộp các thuộc tính sơ sinh vào Pop-up
+      if (thongTinDeChiTiet) {
+        duLieuGopDayDu = {
+          ...duLieuGopDayDu,
+          soHeoCon: thongTinDeChiTiet.soHeoCon || duLieuGopDayDu.soHeoCon || "0",
+          khoThai: thongTinDeChiTiet.khoThai || "0",
+          coiCoc: thongTinDeChiTiet.coiCoc || "0",
+          chetNgop: thongTinDeChiTiet.chetNgop || "0",
+          chonNuoi: thongTinDeChiTiet.chonNuoi || "0",
+          soConCaiSua: thongTinDeChiTiet.soConCaiSua || "0",
+          // Đảm bảo lấy đúng ngày đẻ thực tế từ lứa mới nhất của sheet xử lý heo đẻ
+          ngayDeCotJ: thongTinDeChiTiet.ngayDe || duLieuGopDayDu.ngayDeCotJ || ""
+        };
       }
-    })
-    .catch(() => setLoadingLichSuDe(false));
-};
+    }
+
+    // Nạp toàn bộ cục dữ liệu lứa mới nhất này vào State hiển thị của Pop-up Modal
+    setSelectedHeoDetail(duLieuGopDayDu); 
+
+    // 3. Tự động nhận diện trạng thái Cột H thực tế để mở đúng giao diện tuần bầu hoặc nuôi con
+    const ttH = duLieuGopDayDu.trangThaiCotH ? duLieuGopDayDu.trangThaiCotH.toString().trim().normalize("NFC") : "";
+    if (ttH === "Phối") {
+      setNhomNaiTab2('BAU');
+    } else if (ttH === "Đẻ" || ttH === "Cai Sữa") {
+      setNhomNaiTab2('NUOI_CON');
+    } else if (ttH === "Thải") {
+      setNhomNaiTab2('THAI');
+    } else {
+      setNhomNaiTab2('CHUA_PHOI');
+    }
+
+    // 4. Vẫn phát lệnh gọi mạng kéo thêm danh sách các lứa đẻ cũ trong lịch sử như bình thường
+    fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().trim()}&maTrai=${encodeURIComponent(selectedTrai)}&maTai=${item.maTai}`, { method: 'GET', redirect: 'follow' })
+      .then(res => res.json())
+      .then(result => {
+        setLoadingLichSuDe(false);
+        if (result.status === 'success' && result.data) {
+          setMangLichSuDeCuaTai(result.data);
+        }
+      })
+      .catch(() => setLoadingLichSuDe(false));
+  };
   // 🔑 BƯỚC VÁ TỰ ĐỘNG PHỤC HỒI TRẠNG THÁI ĐĂNG NHẬP CŨ KHI MỞ LẠI APP
   useEffect(() => {
     const kiemTraDangNhapCu = async () => {
@@ -405,16 +447,21 @@ const handleXemChiTietHeo = (item) => {
     if (!laSuKienBanHeo && !maTai.trim()) return Alert.alert("Thông báo", "Vui lòng nhập Mã Tai!");
     if (canNhapSoHeo && !soHeo.trim()) return Alert.alert("Thông báo", "Vui lòng nhập Số Heo!");
 
+    const laySoAnToan = (val) => {
+      if (!val || val.toString().trim() === "" || isNaN(val)) return 0;
+      return Number(val);
+    };
+
     const dongMoi = { 
       id: "ID_" + new Date().getTime(), 
       ngay: ngayHienThi, 
       maTai: laSuKienBanHeo ? "BÁN HEO" : maTai.toUpperCase().trim(), 
       suKien, 
-      soHeo: canNhapSoHeo ? Number(soHeo) : "", 
-      khoThai: suKien === "Đẻ" ? khoThai : "",
-      coiCoc: suKien === "Đẻ" ? coiCoc : "",
-      chetNgop: suKien === "Đẻ" ? chetNgop : "",
-      chonNuoi: suKien === "Đẻ" ? chonNuoi : "",
+      soHeo: canNhapSoHeo ? laySoAnToan(soHeo) : "", 
+      khoThai: suKien === "Đẻ" ? laySoAnToan(khoThai) : "",
+      coiCoc: suKien === "Đẻ" ? laySoAnToan(coiCoc) : "",
+      chetNgop: suKien === "Đẻ" ? laySoAnToan(chetNgop) : "",
+      chonNuoi: suKien === "Đẻ" ? laySoAnToan(chonNuoi) : "",
       ghiChu: ghiChu,
       syncStatus: "waiting", 
       actionType: "create" 
@@ -476,16 +523,21 @@ const handleXemChiTietHeo = (item) => {
   };
 
    const handleSaveEdit = () => {
+    const laySoAnToan = (val) => {
+      if (!val || val.toString().trim() === "" || isNaN(val)) return 0;
+      return Number(val);
+    };
+
     const dongChỉnhSửa = {
       id: editingId,
       ngay: editNgay,
       maTai: editMaTai.toUpperCase().trim(),
       suKien: editSuKien,
-      soHeo: editCanNhapSoHeo ? Number(editSoHeo) : "",
-      khoThai: editKhoThai,   
-      coiCoc: editCoiCoc,     
-      chetNgop: editChetNgop, 
-      chonNuoi: editChonNuoi, 
+      soHeo: editCanNhapSoHeo ? laySoAnToan(editSoHeo) : "",
+      khoThai: editSuKien === "Đẻ" ? laySoAnToan(editKhoThai) : "",   
+      coiCoc: editSuKien === "Đẻ" ? laySoAnToan(editCoiCoc) : "",     
+      chetNgop: editSuKien === "Đẻ" ? laySoAnToan(editChetNgop) : "", 
+      chonNuoi: editSuKien === "Đẻ" ? laySoAnToan(editChonNuoi) : "", 
       ghiChu: editGhiChu,     
       syncStatus: "waiting",
       actionType: "update"
@@ -610,8 +662,10 @@ const handleXemChiTietHeo = (item) => {
 
   return (
     
-   <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.mainWrapper}>
-      
+<KeyboardAvoidingView 
+  behavior={Platform.OS === "ios" ? "padding" : undefined} 
+  style={styles.mainWrapper}
+>      
       {/* 🚀 BANNER TĨNH CỐ ĐỊNH TRÊN ĐỈNH: Luôn luôn hiện ở mọi Tab, không che khuất chữ */}
       <View style={{
         paddingTop: Platform.OS === 'ios' ? 35 : 12, 
@@ -678,6 +732,9 @@ const handleXemChiTietHeo = (item) => {
             {/* TAB 1: NHẬP LIỆU */}
      {currentTab === 'nhap_lieu' && ( 
         <View style={{ flex: 1 }}>
+           <View style={{ paddingHorizontal: 15, marginTop: 12, marginBottom: 5 }}>
+                  <TextInput style={[styles.inputStandard, { marginBottom: 0, borderRadius: 20, paddingHorizontal: 15, height: 42, backgroundColor: '#f2f2f2', borderWidth: 0, color: '#111111', fontSize: 14 }]} placeholder="🔍 Nhập Mã Tai để xem lịch sử" placeholderTextColor="#888888" value={searchTxtTab1} onChangeText={setSearchTxtTab1} autoCapitalize="characters" />
+                </View>
           <FlatList 
             data={danhSachLichSu
               .filter(i => i.actionType !== "delete")
@@ -708,119 +765,108 @@ const handleXemChiTietHeo = (item) => {
             contentContainerStyle={{ paddingBottom: 80 }} 
 
 
-                              ListHeaderComponent={
-              <View style={{ backgroundColor: '#ffffff', paddingBottom: 5 }}>
-                <View style={[styles.formFixedContainer, { 
-                  backgroundColor: '#fffaf5', 
-                  borderWidth: 1.2, 
-                  borderColor: '#ffd3b6', 
-                  borderRadius: 10, 
-                  padding: 12,
-                  shadowColor: "#e65100",
-                  shadowOffset: { width: 0, height: 1 },
-                  shadowOpacity: 0.03,
-                  shadowRadius: 2,
-                  elevation: 1
-                }]}>
-                  
-                  <View style={{ 
-                    alignItems: 'center', 
-                    marginBottom: 12, 
-                    borderBottomWidth: 1, 
-                    borderBottomColor: '#ffe5d4', 
-                    paddingBottom: 6 
-                  }}>
-                    <Text style={{ fontSize: 13, color: '#e65100', fontWeight: 'bold', textAlign: 'center' }}>
-                      📝 HÔM NAY CÓ SỰ KIỆN GÌ MỚI? BẠN HÃY NHẬP Ở ĐÂY
-                    </Text>
-                  </View>
-
-                  <View style={[styles.rowInput, { marginBottom: 10 }]}>
-                    <TouchableOpacity style={[styles.dateButton, { borderColor: '#ffd3b6', backgroundColor: '#ffffff', height: 42, justifyContent: 'center', paddingHorizontal: 10 }]} onPress={() => setDatePickerVisibility(true)}>
-                      <Text style={[styles.dateButtonText, { fontSize: 14 }]}>📅 {ngayHienThi}</Text>
-                    </TouchableOpacity>
-                    {!laSuKienBanHeo ? (
-                      <TextInput style={[styles.inputMaTai, { color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6', height: 42, fontSize: 14, paddingVertical: 0 }]} placeholder="Mã Tai" placeholderTextColor="#777777" value={maTai} onChangeText={setMaTai} autoCapitalize="characters" />
-                    ) : (
-                      <View style={{ flex: 0.5 }} />
-                    )}
-                  </View>
-                  <DateTimePickerModal isVisible={isDatePickerVisible} mode="date" onConfirm={(d) => { setNgayHienThi(formatVNDate(d)); setDatePickerVisibility(false); }} onCancel={() => setDatePickerVisibility(false)} confirmTextConfirm="Xác nhận" cancelTextMagdalene="Hủy" />
-                  
-                  <View style={{ 
-                    marginBottom: 10, 
+                            // 🟢 ĐÃ NÂNG CẤP CHUẨN ĐÉT: Tự động ẩn sạch khối nhập liệu khi người nuôi gõ ô tìm kiếm
+            ListHeaderComponent={
+              !searchTxtTab1 ? (
+                // LỢI ÍCH: Nếu ô tìm kiếm trống, hiển thị Form nhập liệu rộng rãi bình thường
+                <View style={{ backgroundColor: '#ffffff', paddingBottom: 5 }}>
+                  <View style={[styles.formFixedContainer, { 
+                    backgroundColor: '#fffaf5', 
                     borderWidth: 1.2, 
                     borderColor: '#ffd3b6', 
-                    borderRadius: 8, 
-                    backgroundColor: '#ffffff',
-                    justifyContent: 'center',
-                    minHeight: 44
-                  }}>
-                    <Picker 
-                      selectedValue={suKien} 
-                      dropdownIconColor="#111111" 
-                      style={{ color: '#111111', backgroundColor: 'transparent', width: '100%' }} 
-                      onValueChange={(itemValue) => { setSuKien(itemValue); setSoHeo(''); }}
-                    >
-                      {danhSachSuKien.map((item, index) => (
-                        <Picker.Item key={index} label={item} value={item} style={{ color: '#111111', backgroundColor: '#ffffff', fontSize: 14 }} />
-                      ))}
-                    </Picker>
-                  </View>
-
-                  {suKien === "Đẻ" && (
-                    <View style={{ backgroundColor: '#ffffff', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#ffd3b6', marginBottom: 10 }}>
-                      <View style={{ marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Text style={{ fontSize: 13, fontWeight: '600', color: '#28a745', flex: 1 }}>Tổng số heo sơ sinh (con):</Text>
-                        <TextInput style={[styles.inputStandard, { marginBottom: 0, paddingVertical: 6, height: 38, fontSize: 15, fontWeight: 'bold', color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6', flex: 1, textAlign: 'center' }]} value={soHeo} onChangeText={setSoHeo} placeholder="Số con..." keyboardType="numeric" placeholderTextColor="#888888"/>
-                      </View>
-
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <View style={{ flex: 0.48 }}>
-                          <TextInput style={[styles.inputStandard, { marginBottom: 0, height: 38, paddingVertical: 0, paddingHorizontal: 8, fontSize: 13, textAlign: 'center', color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6' }]} placeholder="Khô thai" keyboardType="numeric" placeholderTextColor="#777777" value={khoThai} onChangeText={setKhoThai} />
-                        </View>
-                        <View style={{ flex: 0.48 }}>
-                          <TextInput style={[styles.inputStandard, { marginBottom: 0, height: 38, paddingVertical: 0, paddingHorizontal: 8, fontSize: 13, textAlign: 'center', color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6' }]} placeholder="Còi cọc" keyboardType="numeric" placeholderTextColor="#777777" value={coiCoc} onChangeText={setCoiCoc} />
-                        </View>
-                      </View>
-
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <View style={{ flex: 0.48 }}>
-                          <TextInput style={[styles.inputStandard, { marginBottom: 0, height: 38, paddingVertical: 0, paddingHorizontal: 8, fontSize: 13, textAlign: 'center', color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6' }]} placeholder="Chết ngộp" keyboardType="numeric" placeholderTextColor="#777777" value={chetNgop} onChangeText={setChetNgop} />
-                        </View>
-                        <View style={{ flex: 0.48 }}>
-                          <TextInput style={[styles.inputStandard, { marginBottom: 0, height: 38, paddingVertical: 0, paddingHorizontal: 8, fontSize: 13, textAlign: 'center', color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6' }]} placeholder="Chọn nuôi" keyboardType="numeric" placeholderTextColor="#777777" value={chonNuoi} onChangeText={setChonNuoi} />
-                        </View>
-                      </View>
+                    borderRadius: 10, 
+                    padding: 12,
+                    shadowColor: "#e65100",
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.03,
+                    shadowRadius: 2,
+                    elevation: 1
+                  }]}>
+                    
+                    <View style={{ 
+                      alignItems: 'center', 
+                      marginBottom: 12, 
+                      borderBottomWidth: 1, 
+                      borderBottomColor: '#ffe5d4', 
+                      paddingBottom: 6 
+                    }}>
+                      <Text style={{ fontSize: 13, color: '#e65100', fontWeight: 'bold', textAlign: 'center' }}>
+                        📝 HÔM NAY CÓ SỰ KIỆN GÌ MỚI? BẠN HÃY NHẬP Ở ĐÂY
+                      </Text>
                     </View>
-                  )}
 
-                  {canNhapSoHeo && suKien !== "Đẻ" && (
-                    <TextInput style={[styles.inputStandard, { color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6', marginBottom: 10, height: 42, fontSize: 14, paddingVertical: 0 }]} value={soHeo} onChangeText={setSoHeo} placeholder={`Nhập Số Heo ${suKien.toLowerCase()} (con)`} keyboardType="numeric" placeholderTextColor="#888888"/>
-                  )}
+                    <View style={[styles.rowInput, { marginBottom: 10 }]}>
+                      <TouchableOpacity style={[styles.dateButton, { borderColor: '#ffd3b6', backgroundColor: '#ffffff', height: 42, justifyContent: 'center', paddingHorizontal: 10 }]} onPress={() => setDatePickerVisibility(true)}>
+                        <Text style={[styles.dateButtonText, { fontSize: 14 }]}>📅 {ngayHienThi}</Text>
+                      </TouchableOpacity>
+                      {!laSuKienBanHeo ? (
+                        <TextInput style={[styles.inputMaTai, { color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6', height: 42, fontSize: 14, paddingVertical: 0 }]} placeholder="Mã Tai" placeholderTextColor="#777777" value={maTai} onChangeText={setMaTai} autoCapitalize="characters" />
+                      ) : (
+                        <View style={{ flex: 0.5 }} />
+                      )}
+                    </View>
+                    <DateTimePickerModal isVisible={isDatePickerVisible} mode="date" onConfirm={(d) => { setNgayHienThi(formatVNDate(d)); setDatePickerVisibility(false); }} onCancel={() => setDatePickerVisibility(false)} confirmTextConfirm="Xác nhận" cancelTextMagdalene="Hủy" />
+                    
+                    <View style={{ 
+                      marginBottom: 10, 
+                      borderWidth: 1.2, 
+                      borderColor: '#ffd3b6', 
+                      borderRadius: 8, 
+                      backgroundColor: '#ffffff',
+                      justifyContent: 'center',
+                      minHeight: 44
+                    }}>
+                      <Picker 
+                        selectedValue={suKien} 
+                        dropdownIconColor="#111111" 
+                        style={{ color: '#111111', backgroundColor: 'transparent', width: '100%' }} 
+                        onValueChange={(itemValue) => { setSuKien(itemValue); setSoHeo(''); }}
+                      >
+                        {danhSachSuKien.map((item, index) => (
+                          <Picker.Item key={index} label={item} value={item} style={{ color: '#111111', backgroundColor: '#ffffff', fontSize: 14 }} />
+                        ))}
+                      </Picker>
+                    </View>
 
-                  <TextInput style={[styles.inputStandard, { color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6', marginBottom: 10, height: 42, fontSize: 14, paddingVertical: 0 }]} placeholder="Nhập Ghi chú (nếu có)" placeholderTextColor="#888888" value={ghiChu} onChangeText={setGhiChu} />
+                    {suKien === "Đẻ" && (
+                      <View style={{ backgroundColor: '#ffffff', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#ffd3b6', marginBottom: 10 }}>
+                        <View style={{ marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <Text style={{ fontSize: 13, fontWeight: '600', color: '#28a745', flex: 1 }}>Tổng số heo sơ sinh (con):</Text>
+                          <TextInput style={[styles.inputStandard, { marginBottom: 0, paddingVertical: 6, height: 38, fontSize: 15, fontWeight: 'bold', color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6', flex: 1, textAlign: 'center' }]} value={soHeo} onChangeText={setSoHeo} placeholder="Số con..." keyboardType="numeric" placeholderTextColor="#888888"/>
+                        </View>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                          <View style={{ flex: 0.48 }}>
+                            <TextInput style={[styles.inputStandard, { marginBottom: 0, height: 38, paddingVertical: 0, paddingHorizontal: 8, fontSize: 13, textAlign: 'center', color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6' }]} placeholder="Khô thai" keyboardType="numeric" placeholderTextColor="#777777" value={khoThai} onChangeText={setKhoThai} />
+                          </View>
+                          <View style={{ flex: 0.48 }}>
+                            <TextInput style={[styles.inputStandard, { marginBottom: 0, height: 38, paddingVertical: 0, paddingHorizontal: 8, fontSize: 13, textAlign: 'center', color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6' }]} placeholder="Còi cọc" keyboardType="numeric" placeholderTextColor="#777777" value={coiCoc} onChangeText={setCoiCoc} />
+                          </View>
+                        </View>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                          <View style={{ flex: 0.48 }}>
+                            <TextInput style={[styles.inputStandard, { marginBottom: 0, height: 38, paddingVertical: 0, paddingHorizontal: 8, fontSize: 13, textAlign: 'center', color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6' }]} placeholder="Chết ngộp" keyboardType="numeric" placeholderTextColor="#777777" value={chetNgop} onChangeText={setChetNgop} />
+                          </View>
+                          <View style={{ flex: 0.48 }}>
+                            <TextInput style={[styles.inputStandard, { marginBottom: 0, height: 38, paddingVertical: 0, paddingHorizontal: 8, fontSize: 13, textAlign: 'center', color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6' }]} placeholder="Chọn nuôi" keyboardType="numeric" placeholderTextColor="#777777" value={chonNuoi} onChangeText={setChonNuoi} />
+                          </View>
+                        </View>
+                      </View>
+                    )}
 
-                 <TouchableOpacity 
-                    onPress={handleSaveNew} 
-                    activeOpacity={0.5} 
-                    style={{ 
-                      backgroundColor: '#e65100', 
-                      paddingVertical: 9, 
-                      borderRadius: 6, 
-                      alignItems: 'center',
-                      marginTop: 4
-                    }}
-                  >
-                    <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 14 }}>Thêm Mới Nhật Ký</Text>
-                  </TouchableOpacity>
+                    {canNhapSoHeo && suKien !== "Đẻ" && (
+                      <TextInput style={[styles.inputStandard, { color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6', marginBottom: 10, height: 42, fontSize: 14, paddingVertical: 0 }]} value={soHeo} onChangeText={setSoHeo} placeholder={`Nhập Số Heo ${suKien.toLowerCase()} (con)`} keyboardType="numeric" placeholderTextColor="#888888"/>
+                    )}
+
+                    <TextInput style={[styles.inputStandard, { color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6', marginBottom: 10, height: 42, fontSize: 14, paddingVertical: 0 }]} placeholder="Nhập Ghi chú (nếu có)" placeholderTextColor="#888888" value={ghiChu} onChangeText={setGhiChu} />
+
+                    <TouchableOpacity onPress={handleSaveNew} activeOpacity={0.5} style={{ backgroundColor: '#e65100', paddingVertical: 9, borderRadius: 6, alignItems: 'center', marginTop: 4 }}>
+                      <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 14 }}>Thêm Mới Nhật Ký</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-
-                <View style={{ paddingHorizontal: 15, marginTop: 12, marginBottom: 5 }}>
-                  <TextInput style={[styles.inputStandard, { marginBottom: 0, borderRadius: 20, paddingHorizontal: 15, height: 42, backgroundColor: '#f2f2f2', borderWidth: 0, color: '#111111', fontSize: 14 }]} placeholder="🔍 Nhập Mã Tai để xem lịch sử" placeholderTextColor="#888888" value={searchTxtTab1} onChangeText={setSearchTxtTab1} autoCapitalize="characters" />
-                </View>
-              </View>
+              ) : null // Nếu ô tìm kiếm có chữ, trả về null (Form lập tức ẩn biến mất tăm, dành trọn không gian hiện danh sách)
             }
+
 
 
 
@@ -840,7 +886,39 @@ const handleXemChiTietHeo = (item) => {
                       const d = new Date(str);
                       if (isNaN(d.getTime())) return str.substring(0, 10);
                       return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-                    })()} | Mã Tai: <Text style={{color:'#007bff', fontWeight:'bold'}}>{item.maTai}</Text>
+                    })()} |                   {/* 🟢 ĐÃ VÁ THẨM MỸ CAO CẤP: Đồng bộ lề hàng và phông nền tinh tế cho dòng Bán Heo */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
+                    <Text style={styles.cardBody}>Mã Tai: </Text>
+                    {item.maTai === "BÁN HEO" ? (
+                      // 1. Nhãn phẳng màu xám nhạt tinh tế cho sự kiện Bán Heo (Không có kính lúp)
+                      <View style={{ backgroundColor: '#f1f2f6', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 0.5, borderColor: '#ced4da' }}>
+                        <Text style={{ color: '#4f5d73', fontWeight: 'bold', fontSize: 12 }}>
+                          BÁN HEO
+                        </Text>
+                      </View>
+                    ) : (
+                      // 2. Nhãn bấm chuyên nghiệp cho Mã tai heo nái thực tế
+                      <TouchableOpacity 
+                        activeOpacity={0.5}
+                        style={{ backgroundColor: '#e7f1ff', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 0.5, borderColor: '#b8daff' }}
+                        onPress={() => {
+                          let thongTinDayDuCuaNai = { maTai: item.maTai }; 
+                          if (Array.isArray(danhSachMaTai)) {
+                            const naiTimDuoc = danhSachMaTai.find(heo => heo && heo.maTai && heo.maTai.toString().toUpperCase().trim() === item.maTai.toString().toUpperCase().trim());
+                            if (naiTimDuoc) {
+                              thongTinDayDuCuaNai = naiTimDuoc;
+                            }
+                          }
+                          handleXemChiTietHeo(thongTinDayDuCuaNai);
+                        }}
+                      >
+                        <Text style={{ color: '#007bff', fontWeight: 'bold', fontSize: 12 }}>
+                          {item.maTai} 🔎
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
                   </Text>
 
                   <Text style={styles.cardBody}>
@@ -848,7 +926,20 @@ const handleXemChiTietHeo = (item) => {
 </Text>
 
 {/* 🎯 SỬA CHUẨN: Bỏ ngoặc tròn, dùng toán tử && và bọc khít dòng chữ */}
-{item.suKien === "Đẻ" && !!(item.khoThai || item.coiCoc || item.chetNgop || item.chonNuoi) && <Text style={{ fontSize: 12, color: '#666666', marginTop: 2 }}>🍂 Khô: {String(item.khoThai || 0)} | 🐹 Còi: {String(item.coiCoc || 0)} | ❌ Ngộp: {String(item.chetNgop || 0)} | 🐷 Nuôi: {String(item.chonNuoi || 0)}</Text>}
+{/* ĐÃ LƯU THÀNH CÔNG: Tách hàng Chọn Nuôi đen đậm và loại bỏ hoàn toàn các icon */}
+{item.suKien === "Đẻ" && !!(item.khoThai || item.coiCoc || item.chetNgop || item.chonNuoi) && (
+  <View style={{ marginTop: 4 }}>
+    {/* Hàng 1: Các chỉ số hao hụt sơ sinh dạng chữ phẳng gọn gàng */}
+    <Text style={{ fontSize: 12, color: '#666666', lineHeight: 18 }}>
+      Khô: {String(item.khoThai || 0)} | Còi: {String(item.coiCoc || 0)} | Ngộp: {String(item.chetNgop || 0)}
+    </Text>
+    
+    {/* Hàng 2: Chỉ số Chọn Nuôi nằm hàng dưới, chữ đen và đậm nét hơn */}
+    <Text style={{ fontSize: 13, color: '#111111', fontWeight: 'bold', marginTop: 2, lineHeight: 18 }}>
+      Chọn Nuôi: <Text style={{ color: '#28a745', fontWeight: 'bold' }}>{String(item.chonNuoi || 0)} con</Text>
+    </Text>
+  </View>
+)}
 
 {/* 🎯 SỬA CHUẨN: Bỏ ngoặc tròn, dùng toán tử && ép kiểu Boolean để chặn chữ rỗng */}
 {!!item.ghiChu && <Text style={{ fontSize: 12, color: '#e65100', fontStyle: 'italic', marginTop: 2 }}>📌 Ghi chú: {String(item.ghiChu)}</Text>}
@@ -903,15 +994,58 @@ const handleXemChiTietHeo = (item) => {
       {/* TAB 2: MÃ TAI */}
       {currentTab === 'ma_tai' && (
         <View style={{ flex: 1 }}>
+           <View style={{ paddingHorizontal: 15, marginTop: 12, marginBottom: 5 }}>
+                  <TextInput 
+                    style={[styles.inputStandard, { marginBottom: 0, borderRadius: 20, paddingHorizontal: 15, height: 42, backgroundColor: '#f2f2f2', borderWidth: 0, color: '#111111' }]} 
+                    placeholder="🔍 Nhập Mã Tai để tìm kiếm..." 
+                    placeholderTextColor="#888888" 
+                    value={searchTxtTab2} 
+onChangeText={(text) => {
+                      // 1. Vẫn cập nhật chữ gõ vào ô tìm kiếm như bình thường
+                      setSearchTxtTab2(text);
+
+                      // 2. Nếu gõ chữ rỗng thì không xử lý tìm nái cụ thể
+                      if (!text || text.trim() === "") return;
+
+                      // 3. Quét nhanh mảng dữ liệu để tìm con heo khớp chuẩn đét mã số đang gõ
+                      if (Array.isArray(danhSachMaTai)) {
+                        const maTaiGoc = text.toUpperCase().trim();
+                        const naiTimDuoc = danhSachMaTai.find(heo => heo && heo.maTai && heo.maTai.toString().toUpperCase().trim() === maTaiGoc);
+                        
+                        // 4. Nếu tìm thấy con nái này, đọc trạng thái cột H để tự kích hoạt nhảy Tab phân loại tương ứng
+                        if (naiTimDuoc) {
+                          const ttH = naiTimDuoc.trangThaiCotH ? naiTimDuoc.trangThaiCotH.toString().trim().normalize("NFC") : "";
+                          if (ttH === "Phối") {
+                            setNhomNaiTab2('BAU');
+                          } else if (ttH === "Chờ Phối" || ttH === "Lốc" || ttH === "Sảy Thai" || ttH === "") {
+                            setNhomNaiTab2('CHUA_PHOI');
+                          } else if (ttH === "Đẻ" || ttH === "Cai Sữa") {
+                            setNhomNaiTab2('NUOI_CON');
+                          } else if (ttH === "Thải") {
+                            setNhomNaiTab2('THAI');
+                          }
+                        }
+                      }
+                    }}                    autoCapitalize="characters" 
+                    disableFullscreenUI={true}
+                  />
+                </View>
           <FlatList 
+                      // 🟢 ĐÃ NÂNG CẤP: Thuật toán tìm kiếm tổng lực xuyên suốt cả 4 nhóm đàn khi gõ ô tìm kiếm
             data={Array.isArray(danhSachMaTai) ? danhSachMaTai.filter(item => {
               if (!item) return false;
               
-              // 🎯 Loại bỏ heo vừa nhập khỏi danh sách dưới để nó chỉ hiện duy nhất ở khung ghim trên đỉnh Header
+              // 1. Loại bỏ heo vừa gõ nhập mới khỏi danh sách cuộn dưới (vì đã ghim trên Header)
               if (item.vuaNhapMoi) return false;
 
+              // 🟢 2. KHỐI LOGIC THÔNG MINH: Nếu đang gõ tìm kiếm, bỏ qua bộ lọc nhóm để tìm xuyên suốt 4 tab
+              if (searchTxtTab2 && searchTxtTab2.trim() !== "") {
+                // Chỉ lọc theo từ khóa gõ nhập, bất kể heo đang mang thai hay đã thải
+                return (item.maTai ? item.maTai.toString().toLowerCase().trim() : "").includes(searchTxtTab2.toLowerCase().trim());
+              }
+
+              // 3. Nếu Ô TÌM KIẾM TRỐNG: Quay về cơ chế lọc rạch ròi theo 4 nhóm nút bấm màu cam bình thường
               const ttH = item.trangThaiCotH ? item.trangThaiCotH.toString().trim().normalize("NFC") : "";
-              
               if (nhomNaiTab2 === 'BAU') {
                 if (ttH !== "Phối") return false;
               } else if (nhomNaiTab2 === 'CHUA_PHOI') {
@@ -922,9 +1056,10 @@ const handleXemChiTietHeo = (item) => {
                 if (ttH !== "Thải") return false;
               }
 
-              if (!searchTxtTab2) return true;
-              return (item.maTai ? item.maTai.toString().toLowerCase().trim() : "").includes(searchTxtTab2.toLowerCase().trim());
+              return true;
             })
+            // Giữ nguyên đoạn .sort() sắp xếp thời gian đẻ cận ngày nhất đẩy lên đầu mà bạn đã viết phía dưới...
+
                 // 🎯 THUẬT TOÁN ĐÃ ĐỒNG BỘ: Đổi hoàn toàn sang biến ngayDuKienDeMoi bốc từ Cột L mới của bạn
                                // 🎯 THUẬT TOÁN ĐÃ TỐI ƯU: Đưa ca đẻ sát ngày hôm nay nhất lên đầu đàn, heo chưa phối xuống cuối
                 .sort((a, b) => {
@@ -972,137 +1107,75 @@ const handleXemChiTietHeo = (item) => {
 
               
             // 🎯 GỘP FORM VÀ Ô TÌM KIẾM VÀO LIST HEADER ĐỂ TỰ ĐỘNG ẨN KHI CUỘN XUỐNG
-                               ListHeaderComponent={
+                              // 🟢 ĐÃ NÂNG CẤP TAB 2: Tự động ẩn Khung tạo mới khi người nuôi gõ ô tìm kiếm
+            ListHeaderComponent={
               <View style={{ backgroundColor: '#ffffff', paddingBottom: 5 }}>
                 
-                <View style={[styles.formFixedContainer, { 
-                  backgroundColor: '#fffaf5', 
-                  borderWidth: 1.2, 
-                  borderColor: '#ffd3b6', 
-                  borderRadius: 10, 
-                  padding: 12,
-                  shadowColor: "#e65100",
-                  shadowOffset: { width: 0, height: 1 },
-                  shadowOpacity: 0.03,
-                  shadowRadius: 2,
-                  elevation: 1
-                }]}>
-                  
-                  <View style={{ 
-                    alignItems: 'center', 
-                    marginBottom: 12, 
-                    borderBottomWidth: 1, 
-                    borderBottomColor: '#ffe5d4', 
-                    paddingBottom: 6 
-                  }}>
-                    <Text style={{ fontSize: 13, color: '#e65100', fontWeight: 'bold' }}>
-                      📌 TẠO MỚI HEO NÁI VÀO SỔ
-                    </Text>
-                  </View>
-
-                  <View style={[styles.rowInput, { marginBottom: 10 }]}>
-                    <TextInput 
-                      style={[styles.inputStandard, { flex: 1, marginBottom: 0, marginRight: 8, color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6', height: 42, fontSize: 14, paddingVertical: 0 }]} 
-                      placeholder="Mã Tai" 
-                      placeholderTextColor="#777777" 
-                      value={mtMaTai} 
-                      onChangeText={setMtMaTai} 
-                      autoCapitalize="characters" 
-                    />
-                    <TextInput 
-                      style={[styles.inputStandard, { flex: 1, marginBottom: 0, color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6', height: 42, fontSize: 14, paddingVertical: 0 }]} 
-                      placeholder="Giống heo" 
-                      placeholderTextColor="#777777" 
-                      value={mtGiong} 
-                      onChangeText={setMtGiong} 
-                    />
-                  </View>
-                  
-                  <View style={{ 
-                    marginBottom: 10, 
-                    borderWidth: 1.2, 
-                    borderColor: '#ffd3b6', 
-                    borderRadius: 8, 
-                    backgroundColor: '#ffffff',
-                    justifyContent: 'center',
-                    minHeight: 44
-                  }}>
-                    <Picker 
-                      selectedValue={mtLua} 
-                      dropdownIconColor="#111111" 
-                      style={{ color: '#111111', backgroundColor: 'transparent', width: '100%' }} 
-                      onValueChange={(itemValue) => setMtLua(itemValue)}
-                    >
-                      {danhSachLuaHeo.map((item, index) => (
-                        <Picker.Item key={index} label={item} value={item} style={{ color: '#111111', backgroundColor: '#ffffff', fontSize: 14 }} />
-                      ))}
-                    </Picker>
-                  </View>
-                  
-                  <TouchableOpacity 
-                    onPress={handleSaveMaTai} 
-                    activeOpacity={0.5} 
-                    style={{ 
-                      backgroundColor: '#e65100', 
-                      paddingVertical: 9, 
-                      borderRadius: 6, 
-                      alignItems: 'center',
-                      marginTop: 4
-                    }}
-                  >
-                    <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 14 }}>THÊM MÃ TAI MỚI VÀO SỔ</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <View style={{ paddingHorizontal: 15, marginTop: 12, marginBottom: 5 }}>
-                  <TextInput 
-                    style={[styles.inputStandard, { marginBottom: 0, borderRadius: 20, paddingHorizontal: 15, height: 42, backgroundColor: '#f2f2f2', borderWidth: 0, color: '#111111' }]} 
-                    placeholder="🔍 Nhập Mã Tai để tìm kiếm..." 
-                    placeholderTextColor="#888888" 
-                    value={searchTxtTab2} 
-                    onChangeText={setSearchTxtTab2} 
-                    autoCapitalize="characters" 
-                    disableFullscreenUI={true}
-                  />
-                </View>
-
-                {Array.isArray(danhSachMaTai) && danhSachMaTai.some(i => i && i.vuaNhapMoi) && <View style={{ paddingHorizontal: 15, marginTop: 5, marginBottom: 5 }}>
-                  <Text style={{ fontSize: 12, color: '#e65100', fontWeight: 'bold', marginBottom: 4 }}>🆕 Heo nái vừa thêm vào hệ thống:</Text>
-                  {danhSachMaTai.filter(i => i && i.vuaNhapMoi).map((item, idx) => <View key={`vuanhap_${item.id || idx}`} style={[{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fffdf6', borderColor: '#fbc48c', opacity: 0.8 }, styles.historyCard, { marginHorizontal: 0, marginTop: 4, padding: 10 }]}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.cardHeader}>🔑 Mã số: <Text style={{color: '#007bff', fontWeight: 'bold'}}>{item.maTai || "---"}</Text></Text>
-                      <Text style={styles.cardBody} numberOfLines={1}>🧬 Giống: {item.giong || "---"} | 🎂 Lứa: {item.lua || "---"}</Text>
-                      <Text style={{ fontSize: 11, color: '#e65100', marginTop: 2, fontWeight: 'bold' }}>✨ Heo vừa tạo thành công</Text>
+                {/* 1. KHỐI LOGIC ẨN FORM TẠO MỚI VÀ HEO VỪA NHẬP */}
+                {!searchTxtTab2 ? (
+                  <View>
+                    {/* Khung tạo mới heo nái vào sổ */}
+                    <View style={[styles.formFixedContainer, { 
+                      backgroundColor: '#fffaf5', 
+                      borderWidth: 1.2, 
+                      borderColor: '#ffd3b6', 
+                      borderRadius: 10, 
+                      padding: 12,
+                      shadowColor: "#e65100",
+                      shadowOffset: { width: 0, height: 1 },
+                      shadowOpacity: 0.03,
+                      shadowRadius: 2,
+                      elevation: 1
+                    }]}>
+                      <View style={{ alignItems: 'center', marginBottom: 12, borderBottomWidth: 1, borderBottomColor: '#ffe5d4', paddingBottom: 6 }}>
+                        <Text style={{ fontSize: 13, color: '#e65100', fontWeight: 'bold' }}>📌 TẠO MỚI HEO NÁI VÀO SỔ</Text>
+                      </View>
+                      <View style={[styles.rowInput, { marginBottom: 10 }]}>
+                        <TextInput style={[styles.inputStandard, { flex: 1, marginBottom: 0, marginRight: 8, color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6', height: 42, fontSize: 14, paddingVertical: 0 }]} placeholder="Mã Tai" placeholderTextColor="#777777" value={mtMaTai} onChangeText={setMtMaTai} autoCapitalize="characters" />
+                        <TextInput style={[styles.inputStandard, { flex: 1, marginBottom: 0, color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6', height: 42, fontSize: 14, paddingVertical: 0 }]} placeholder="Giống heo" placeholderTextColor="#777777" value={mtGiong} onChangeText={setMtGiong} />
+                      </View>
+                      <View style={{ marginBottom: 10, borderWidth: 1.2, borderColor: '#ffd3b6', borderRadius: 8, backgroundColor: '#ffffff', justifyContent: 'center', minHeight: 44 }}>
+                        <Picker selectedValue={mtLua} dropdownIconColor="#111111" style={{ color: '#111111', backgroundColor: 'transparent', width: '100%' }} onValueChange={(itemValue) => setMtLua(itemValue)}>
+                          {danhSachLuaHeo.map((item, index) => (
+                            <Picker.Item key={index} label={item} value={item} style={{ color: '#111111', backgroundColor: '#ffffff', fontSize: 14 }} />
+                          ))}
+                        </Picker>
+                      </View>
+                      <TouchableOpacity onPress={handleSaveMaTai} activeOpacity={0.5} style={{ backgroundColor: '#e65100', paddingVertical: 9, borderRadius: 6, alignItems: 'center', marginTop: 4 }}>
+                        <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 14 }}>THÊM MÃ TAI MỚI VÀO SỔ</Text>
+                      </TouchableOpacity>
                     </View>
-                  </View>)}
-                </View>}
 
+                    {/* Khối ghim heo nái vừa thêm vào hệ thống */}
+                    {Array.isArray(danhSachMaTai) && danhSachMaTai.some(i => i && i.vuaNhapMoi) && (
+                      <View style={{ paddingHorizontal: 15, marginTop: 5, marginBottom: 5 }}>
+                        <Text style={{ fontSize: 12, color: '#e65100', fontWeight: 'bold', marginBottom: 4 }}>🆕 Heo nái vừa thêm vào hệ thống:</Text>
+                        {danhSachMaTai.filter(i => i && i.vuaNhapMoi).map((item, idx) => (
+                          <View key={`vuanhap_${item.id || idx}`} style={[{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fffdf6', borderColor: '#fbc48c', opacity: 0.8 }, styles.historyCard, { marginHorizontal: 0, marginTop: 4, padding: 10 }]}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.cardHeader}>🔑 Mã số: <Text style={{color: '#007bff', fontWeight: 'bold'}}>{item.maTai || "---"}</Text></Text>
+                              <Text style={styles.cardBody} numberOfLines={1}>🧬 Giống: {item.giong || "---"} | 🎂 Lứa: {item.lua || "---"}</Text>
+                              <Text style={{ fontSize: 11, color: '#e65100', marginTop: 2, fontWeight: 'bold' }}>✨ Heo vừa tạo thành công</Text>
+                            </View>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                ) : null}
+
+                {/* 2. KHỐI LUÔN LUÔN HIỂN THỊ: Thanh 4 nút phân loại nhóm đàn (Được giữ lại để người nuôi vừa gõ tìm vừa đổi nhóm nhanh) */}
                 <View style={{ flexDirection: 'row', paddingHorizontal: 15, marginTop: 8, marginBottom: 10, gap: 5 }}>
-                  <TouchableOpacity 
-                    onPress={() => setNhomNaiTab2('BAU')}
-                    style={{ flex: 1, backgroundColor: nhomNaiTab2 === 'BAU' ? '#e65100' : '#f2f2f2', paddingVertical: 8, borderRadius: 15, alignItems: 'center' }}
-                  >
+                  <TouchableOpacity onPress={() => setNhomNaiTab2('BAU')} style={{ flex: 1, backgroundColor: nhomNaiTab2 === 'BAU' ? '#e65100' : '#f2f2f2', paddingVertical: 8, borderRadius: 15, alignItems: 'center' }}>
                     <Text style={{ color: nhomNaiTab2 === 'BAU' ? '#ffffff' : '#555555', fontSize: 11, fontWeight: 'bold' }}>Mang Thai</Text>
                   </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    onPress={() => setNhomNaiTab2('CHUA_PHOI')}
-                    style={{ flex: 1, backgroundColor: nhomNaiTab2 === 'CHUA_PHOI' ? '#e65100' : '#f2f2f2', paddingVertical: 8, borderRadius: 15, alignItems: 'center' }}
-                  >
+                  <TouchableOpacity onPress={() => setNhomNaiTab2('CHUA_PHOI')} style={{ flex: 1, backgroundColor: nhomNaiTab2 === 'CHUA_PHOI' ? '#e65100' : '#f2f2f2', paddingVertical: 8, borderRadius: 15, alignItems: 'center' }}>
                     <Text style={{ color: nhomNaiTab2 === 'CHUA_PHOI' ? '#ffffff' : '#555555', fontSize: 11, fontWeight: 'bold' }}>Chưa Phối</Text>
                   </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    onPress={() => setNhomNaiTab2('NUOI_CON')}
-                    style={{ flex: 1, backgroundColor: nhomNaiTab2 === 'NUOI_CON' ? '#e65100' : '#f2f2f2', paddingVertical: 8, borderRadius: 15, alignItems: 'center' }}
-                  >
+                  <TouchableOpacity onPress={() => setNhomNaiTab2('NUOI_CON')} style={{ flex: 1, backgroundColor: nhomNaiTab2 === 'NUOI_CON' ? '#e65100' : '#f2f2f2', paddingVertical: 8, borderRadius: 15, alignItems: 'center' }}>
                     <Text style={{ color: nhomNaiTab2 === 'NUOI_CON' ? '#ffffff' : '#555555', fontSize: 11, fontWeight: 'bold' }}>Nuôi Con</Text>
                   </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    onPress={() => setNhomNaiTab2('THAI')}
-                    style={{ flex: 1, backgroundColor: nhomNaiTab2 === 'THAI' ? '#6c757d' : '#f2f2f2', paddingVertical: 8, borderRadius: 15, alignItems: 'center' }}
-                  >
+                  <TouchableOpacity onPress={() => setNhomNaiTab2('THAI')} style={{ flex: 1, backgroundColor: nhomNaiTab2 === 'THAI' ? '#6c757d' : '#f2f2f2', paddingVertical: 8, borderRadius: 15, alignItems: 'center' }}>
                     <Text style={{ color: nhomNaiTab2 === 'THAI' ? '#ffffff' : '#555555', fontSize: 11, fontWeight: 'bold' }}>Đã Thải</Text>
                   </TouchableOpacity>
                 </View>
@@ -1113,19 +1186,43 @@ const handleXemChiTietHeo = (item) => {
 
 
 
-                                              renderItem={({ item }) => (
+
+       renderItem={({ item }) => (
               <View style={[
                 { flexDirection: 'row', alignItems: 'center' }, 
                 styles.historyCard, 
                 item.syncStatus === "waiting" && { backgroundColor: '#fef1d6', borderColor: '#fbc48c', opacity: 0.4 }
               ]}>
-                <View style={{ flex: 1, paddingRight: 5 }}>
-                  {/* 🎯 ĐÃ XÓA ICON: Loại bỏ toàn bộ biểu tượng cảm xúc ở khối chữ trái */}
+                                {/* 🟢 ĐÃ NÂNG CẤP THÀNH CÔNG: Chạm thẳng vào vùng chữ bên trái để xem nhanh lịch sử đẻ */}
+                <TouchableOpacity 
+                  activeOpacity={0.6}
+                  style={{ flex: 1, paddingRight: 5 }}
+                  onPress={() => {
+                    // Kích hoạt cấu trúc tra cứu thông tin chi tiết
+                    setSelectedHeoDetail(item);
+                    setIsDetailModalVisible(true);
+                    setLoadingLichSuDe(true);
+                    
+                    // Gọi API kéo lịch sử lứa đẻ ngầm từ server trung tâm
+                    fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().trim()}&maTrai=${encodeURIComponent(selectedTrai)}&maTai=${item.maTai}`, { method: 'GET', redirect: 'follow' })
+                      .then(res => res.json())
+                      .then(result => {
+                        setLoadingLichSuDe(false);
+                        if (result.status === 'success' && result.data) {
+                          setMangLichSuDeCuaTai(result.data);
+                        }
+                      }).catch(() => setLoadingLichSuDe(false));
+                  }}
+                >
+                  {/* Tiêu đề hiển thị Số Mã số có icon lúp phẳng nhỏ */}
                   <Text style={[styles.cardHeader, { marginBottom: 4 }]}>
-                    Mã số: <Text style={{color: '#e65100', fontWeight: 'bold'}}>{item.maTai || "---"}</Text>
+                    Mã số: <Text style={{ color: '#e65100', fontWeight: 'bold' }}>{item.maTai || "---"}</Text> 🔎
                   </Text>
                   
-                  <Text style={styles.cardBody} numberOfLines={1}>Giống: {item.giong || "---"} | <Text style={{fontWeight: 'bold', color: '#e83e8c'}}>{item.lua || "---"}</Text></Text>
+                  {/* 🟢 ĐÃ VÁ LẬP TRÌNH HẠNG MỤC 6: Ưu tiên hiển thị lứa cập nhật thông minh thay vì ép cứng hậu bị */}
+                  <Text style={styles.cardBody} numberOfLines={1}>
+                    Giống: {item.giong || "---"} | Lứa: <Text style={{ fontWeight: 'bold', color: '#e83e8c' }}>{item.luaHienThiThongMinh || item.lua || "---"}</Text>
+                  </Text>
                   
                   {item.trangThaiCotH && !(nhomNaiTab2 === 'BAU' && item.trangThaiCotH.toString().trim().normalize("NFC") === "Phối") ? (
                     <Text style={{ fontSize: 12, color: '#007bff', marginTop: 2, fontWeight: 'bold' }}>Trạng thái: {item.trangThaiCotH}</Text>
@@ -1163,28 +1260,11 @@ const handleXemChiTietHeo = (item) => {
                       })()}
                     </Text>
                   ) : null}
-                </View>
+                </TouchableOpacity>
+
 
                 <View style={{ flexDirection: 'column', gap: 6, minWidth: 60 }}>
-               <TouchableOpacity 
-                    onPress={()=>{
-                      // 🎯 KHÔI PHỤC CHUẨN: Tất cả các Tab (kể cả Chưa Phối) khi bấm Xem đều kích hoạt gọi mạng kéo lịch sử Pop-up Modal về máy
-                      setSelectedHeoDetail(item);
-                      setIsDetailModalVisible(true);
-                      setLoadingLichSuDe(true);
-                      fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().trim()}&maTrai=${encodeURIComponent(selectedTrai)}&maTai=${item.maTai}`,{method:'GET',redirect:'follow'})
-                        .then(res=>res.json())
-                        .then(result=>{
-                          setLoadingLichSuDe(false);
-                          if(result.status==='success'&&result.data){
-                            setMangLichSuDeCuaTai(result.data);
-                          }
-                        }).catch(()=>setLoadingLichSuDe(false));
-                    }} 
-                    style={{ backgroundColor: '#17a2b8', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 5, alignItems: 'center' }}
-                  >
-                    <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 12 }}>Xem</Text>
-                  </TouchableOpacity>
+              
                   
                   <TouchableOpacity 
                     onPress={() => handleMtEditClick(item)} 
@@ -1253,100 +1333,139 @@ const handleXemChiTietHeo = (item) => {
           {/* ======================================================== */}
       {/* 📊 TAB 3: THỐNG KÊ NÁI & CÁM                              */}
       {/* ======================================================== */}
-      {currentTab === 'thong_ke' && (
-        <ScrollView style={{ flex: 1, backgroundColor: '#ffffff' }} contentContainerStyle={{ padding: 15 }}>
+     {currentTab === 'thong_ke' && (
+        <ScrollView style={{ flex: 1, backgroundColor: '#ffffff' }} contentContainerStyle={{ padding: 15, paddingBottom: 100 }}>
           {dataThongKe && dataThongKe[0] ? (
             <View>
-              {/* 🌾 NHÓM CÁM TIÊU THỤ THÁNG NÀY */}
-              <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#0056b3', marginBottom: 8 }}>🌾 DỰ KIẾN TIÊU THỤ CÁM THÁNG NÀY</Text>
-              <View style={{ backgroundColor: '#f8f9fa', borderRadius: 8, padding: 5, marginBottom: 15, borderWidth: 1, borderColor: '#eee' }}>
-                <View style={styles.detailRow}><Text style={styles.detailLabel}>Dự kiến cám Heo Thịt:</Text><Text style={styles.detailVal}>{dataThongKe[0].heoThit} Kg</Text></View>
-                <View style={styles.detailRow}><Text style={styles.detailLabel}>Dự kiến cám Heo Nái:</Text><Text style={styles.detailVal}>{dataThongKe[0].heoNaiCam} Kg</Text></View>
-                <View style={[styles.detailRow, { backgroundColor: '#e7f1ff', borderBottomWidth: 0 }]}>
-                  <Text style={[styles.detailLabel, { fontWeight: 'bold', color: '#0056b3' }]}>📊 Tổng Dự Kiến Cám:</Text>
-                  <Text style={[styles.detailVal, { color: '#0056b3', fontSize: 16, fontWeight: 'bold' }]}>{dataThongKe[0].duKienCam} Kg</Text>
+              
+            
+              {/* KHỐI 2: TỔNG QUAN CƠ SỞ ĐÀN NÁI HIỆN TẠI */}
+              <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#e65100', marginBottom: 8, letterSpacing: 0.5 }}>📈 TỔNG QUAN CƠ SỞ ĐÀN NÁI</Text>
+              <View style={{ backgroundColor: '#fffaf5', borderRadius: 10, padding: 12, marginBottom: 20, borderWidth: 1, borderColor: '#ffd3b6' }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1.2, borderBottomColor: '#ffd3b6', marginBottom: 6 }}>
+                  <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#111111' }}>Tổng Số Heo Nái</Text>
+                  <Text style={{ color: '#007bff', fontWeight: 'bold', fontSize: 17 }}>{dataThongKe[0].tongHeoNai} con</Text>
+                </View>
+                
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#ffe5d4' }}>
+                  <Text style={{ fontSize: 13, color: '#555555' }}>Số Heo Đang Đẻ</Text>
+                  <Text style={{ fontSize: 14, color: '#111111', fontWeight: 'bold' }}>{dataThongKe[0].dangDe} con</Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#ffe5d4' }}>
+                  <Text style={{ fontSize: 13, color: '#555555' }}>Số Con Mang Bầu</Text>
+                  <Text style={{ fontSize: 14, color: '#28a745', fontWeight: 'bold' }}>{dataThongKe[0].daPhoi} con</Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#ffe5d4' }}>
+                  <Text style={{ fontSize: 13, color: '#555555' }}>Số Con Chưa Phối</Text>
+                  <Text style={{ fontSize: 14, color: '#6c757d', fontWeight: 'bold' }}>{dataThongKe[0].chuaPhoi} con</Text>
+                </View>
+
+                {/* Khối thụt lề phân cấp chi tiết cho nhóm Chưa Phối */}
+                <View style={{ paddingLeft: 12, marginTop: 4, borderLeftWidth: 2, borderLeftColor: '#fbc48c' }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 }}>
+                    <Text style={{ fontSize: 12.5, color: '#666666' }}>Chờ Phối</Text>
+                    <Text style={{ fontSize: 13, color: '#111111', fontWeight: '600' }}>{dataThongKe[0].choPhoi} con</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 }}>
+                    <Text style={{ fontSize: 12.5, color: '#666666' }}>Cai Sữa (Chờ lên giống)</Text>
+                    <Text style={{ fontSize: 13, color: '#111111', fontWeight: '600' }}>{dataThongKe[0].caiSua} con</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 }}>
+                    <Text style={{ fontSize: 12.5, color: '#dc3545' }}>Lốc (Phối hỏng)</Text>
+                    <Text style={{ fontSize: 13, color: '#dc3545', fontWeight: 'bold' }}>{dataThongKe[0].loc} con</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 }}>
+                    <Text style={{ fontSize: 12.5, color: '#dc3545' }}>Sảy Thai</Text>
+                    <Text style={{ fontSize: 13, color: '#dc3545', fontWeight: 'bold' }}>{dataThongKe[0].sayThai} con</Text>
+                  </View>
                 </View>
               </View>
 
-              {/* 📈 NHÓM 1: TỔNG QUAN ĐÀN NÁI */}
-<Text style={{ fontSize: 16, fontWeight: 'bold', color: '#0056b3', marginBottom: 10, marginTop: 10 }}>
-  📈 TỔNG QUAN CƠ SỞ ĐÀN
-</Text>
-
-<View style={{ backgroundColor: '#ffffff', borderRadius: 12, padding: 12, marginBottom: 15, borderWidth: 1, borderColor: '#e9ecef', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 }}>
-  
-  {/* Hàng chính: Tổng số heo nái */}
-  <View style={[styles.detailRow, { paddingBottom: 10, marginBottom: 10, borderBottomWidth: 1, borderBottomColor: '#eee' }]}>
-    <Text style={[styles.detailLabel, { fontWeight: 'bold', color: '#333' }]}>Tổng Số Heo Nái:</Text>
-    <Text style={[styles.detailVal, { color: '#007bff', fontWeight: 'bold', fontSize: 16 }]}>{dataThongKe[0].tongHeoNai} con</Text>
-  </View>
-   {/* Hàng Số Heo Đang Đẻ*/}
-<View style={styles.detailRow}><Text style={styles.detailLabel}>Số Heo Đang Đẻ:</Text><Text style={styles.detailVal}>{dataThongKe[0].dangDe} con</Text></View>
-  {/* Các hàng thông tin chi tiết */}
-  <View style={styles.detailRow}>
-    <Text style={styles.detailLabel}>Số Con Đã Phối:</Text>
-    <Text style={[styles.detailVal, { fontWeight: '600', color: '#28a745' }]}>{dataThongKe[0].daPhoi} con</Text>
-  </View>
-
-  <View style={styles.detailRow}>
-    <Text style={styles.detailLabel}>Số Con Chưa Phối:</Text>
-    <Text style={[styles.detailVal, { fontWeight: '600' }]}>{dataThongKe[0].chuaPhoi} con</Text>
-  </View>
-
-  {/* Nhóm chỉ số phụ (Thụt lề nhẹ để phân cấp thông tin) */}
-  <View style={{ paddingLeft: 12, marginTop: 4, borderLeftWidth: 2, borderLeftColor: '#dee2e6' }}>
-    <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>Chờ Phối:</Text>
-      <Text style={styles.detailVal}>{dataThongKe[0].choPhoi} con</Text>
-    </View>
-
-    <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>Cai Sữa:</Text>
-      <Text style={styles.detailVal}>{dataThongKe[0].caiSua} con</Text>
-    </View>
-
-    <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>Lốc:</Text>
-      <Text style={[styles.detailVal, { color: '#dc3545', fontWeight: '600' }]}>{dataThongKe[0].loc} con</Text>
-    </View>
-
-    <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>Sảy Thai:</Text>
-      <Text style={[styles.detailVal, { color: '#dc3545', fontWeight: '600' }]}>{dataThongKe[0].sayThai} con</Text>
-    </View>
-  </View>
-
-</View>
-
-
-            
-
-              {/* 📊 NHÓM 3: CHỈ SỐ CHẤT LƯỢNG & NĂNG SUẤT */}
-              <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#28a745', marginBottom: 8 }}>📊 CHỈ SỐ NĂNG SUẤT TRẠI</Text>
-              <View style={{ backgroundColor: '#f8f9fa', borderRadius: 8, padding: 5, marginBottom: 15, borderWidth: 1, borderColor: '#eee' }}>
-                <View style={styles.detailRow}><Text style={styles.detailLabel}>Tỉ Lệ Đẻ Thành Công:</Text><Text style={[styles.detailVal, {color:'#28a745'}]}>{dataThongKe[0].tiLeDe}</Text></View>
-                <View style={styles.detailRow}><Text style={styles.detailLabel}>Tỉ Lệ Cai Sữa Đạt:</Text><Text style={[styles.detailVal, {color:'#28a745'}]}>{dataThongKe[0].tiLeCaiSua}</Text></View>
-                <View style={styles.detailRow}><Text style={styles.detailLabel}>Khô Thai / Gỗ:</Text><Text style={styles.detailVal}>{dataThongKe[0].khoThai} con</Text></View>
-                <View style={styles.detailRow}><Text style={styles.detailLabel}>Heo Con Còi Cọc:</Text><Text style={styles.detailVal}>{dataThongKe[0].coiCoc} con</Text></View>
-                <View style={styles.detailRow}><Text style={styles.detailLabel}>Heo Chết Ngộp:</Text><Text style={styles.detailVal}>{dataThongKe[0].chetNgop} con</Text></View>
+              {/* KHỐI 3: TIÊU CHUẨN TỈ LỆ NĂNG SUẤT NĂM HIỆN TẠI */}
+              <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#28a745', marginBottom: 8, letterSpacing: 0.5 }}>📊 CHỈ SỐ NĂNG SUẤT (NĂM HIỆN TẠI)</Text>
+              <View style={{ backgroundColor: '#f4fbf7', borderRadius: 10, padding: 12, marginBottom: 20, borderWidth: 1, borderColor: '#c3e6cb' }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#d4edda' }}>
+                  <Text style={{ fontSize: 13, color: '#444444', fontWeight: '500' }}>Tỉ Lệ Đẻ Thành Công</Text>
+                  <Text style={{ fontSize: 15, color: '#28a745', fontWeight: 'bold' }}>{dataThongKe[0].tiLeDe}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 }}>
+                  <Text style={{ fontSize: 13, color: '#444444', fontWeight: '500' }}>Tỉ Lệ Cai Sữa Đạt</Text>
+                  <Text style={{ fontSize: 15, color: '#007bff', fontWeight: 'bold' }}>{dataThongKe[0].tiLeCaiSua}</Text>
+                </View>
               </View>
 
-              {/* 🤰 NHÓM 4: CHI TIẾT THEO DÕI TUẦN BẦU */}
-              <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#6f42c1', marginBottom: 8 }}>🐷 CHI TIẾT THEO DÕI TUẦN BẦU ({dataThongKe[0].tuanBauTotal} con)</Text>
-              <View style={{ backgroundColor: '#f8f9fa', borderRadius: 8, padding: 5, marginBottom: 25, borderWidth: 1, borderColor: '#eee' }}>
-                <View style={styles.detailRow}><Text style={styles.detailLabel}>🆕 Mới Phối (Tuần 0):</Text><Text style={styles.detailVal}>{dataThongKe[0].moiPhoi} con</Text></View>
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map((t) => (
-                  <View key={t} style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>📅 Bầu Tuần {t}:</Text>
-                    <Text style={[styles.detailVal, t >= 15 && {color: '#dc3545', fontWeight: 'bold'}]}>
-                      {dataThongKe[0]["t" + t] || "0"} con {t >= 15 ? "🔥 (Sắp đẻ)" : ""}
+                           {/* KHỐI 4: CHI TIẾT THEO DÕI TUẦN BẦU ĐỂ DỰ BÁO ĐẺ (ĐÃ GỘP TUẦN 17-18 CHI CHI TIẾT) */}
+              <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#6f42c1', marginBottom: 8, letterSpacing: 0.5 }}>🐷 THEO DÕI TUẦN BẦU</Text>
+              <View style={{ backgroundColor: '#fbf9ff', borderRadius: 10, padding: 12, marginBottom: 15, borderWidth: 1, borderColor: '#e2d6f5' }}>
+                
+                {/* 🟢 ĐÃ VÁ LỖI: Gọi đúng biến dataThongKe[0].moiPhoi để hiển thị số lượng heo mới phối */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#ede7f6' }}>
+                  <Text style={{ fontSize: 13, color: '#555555' }}>Mới Phối (Tuần 0)</Text>
+                  <Text style={{ fontSize: 13, color: '#111111', fontWeight: 'bold' }}>{dataThongKe[0].moiPhoi || "0"} con</Text>
+                </View>
+
+                {/* Vòng lặp chạy từ Tuần 1 đến Tuần 16 của chu kỳ mang thai bình thường */}
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16].map((t) => (
+                  <View key={t} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5, borderBottomWidth: 0.5, borderBottomColor: '#ede7f6' }}>
+                    <Text style={{ fontSize: 13, color: t >= 15 ? '#28a745' : '#555555', fontWeight: t >= 15 ? 'bold' : '400' }}>
+                      Bầu Tuần {t}
+                    </Text>
+                    <Text style={[
+                      { fontSize: 13, color: '#111111', fontWeight: '500' },
+                      t >= 15 && { color: '#28a745', fontWeight: 'bold' }
+                    ]}>
+                      {dataThongKe[0]["t" + t] || "0"} con {t >= 15 ? " (Sắp đẻ)" : ""}
                     </Text>
                   </View>
                 ))}
+
+                {/* 🟢 ĐÃ GỘP CHUẨN ĐÉT: Tính tổng số lượng của Tuần 17 và 18 thành 1 hàng Cảnh Báo Nguy Hiểm */}
+                <View style={{ marginTop: 8, backgroundColor: '#fff5f5', padding: 10, borderRadius: 8, borderWidth: 0.5, borderColor: '#fbc4c4' }}>
+                  
+                  {/* Hàng trên: Phân bổ Mã tuần bên trái và Số lượng con bên phải thẳng hàng tăm tắp */}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 13, color: '#dc3545', fontWeight: 'bold' }}>
+                      Bầu Trên 17 Tuần
+                    </Text>
+                    <Text style={{ fontSize: 14, color: '#dc3545', fontWeight: 'bold' }}>
+                      {(() => {
+                        const t17 = Number(dataThongKe.t17 || 0);
+                        const t18 = Number(dataThongKe.t18 || 0);
+                        return t17 + t18;
+                      })()} con
+                    </Text>
+                  </View>
+
+                  {/* Hàng dưới: Dòng chữ nhắc nhở nghiệp vụ thú y phẳng, rộng rãi, không lo bị tràn */}
+                  <Text style={{ fontSize: 12, color: '#c82333', fontWeight: '600', marginTop: 4, lineHeight: 18 }}>
+                    ⚠️ Cần Kiểm Tra Ngay
+                  </Text>
+                  
+                </View>
+
+              </View>
+
+ {/* KHỐI 1: DỰ KIẾN TIÊU THỤ CÁM THÁNG NÀY */}
+              <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#0056b3', marginBottom: 8, letterSpacing: 0.5 }}>🌾 DỰ KIẾN TIÊU THỤ CÁM THÁNG NÀY</Text>
+              <View style={{ backgroundColor: '#f8f9fa', borderRadius: 10, padding: 12, marginBottom: 20, borderWidth: 1, borderColor: '#e9ecef' }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#dee2e6' }}>
+                  <Text style={{ fontSize: 13, color: '#495057', fontWeight: '500' }}>Dự kiến cám Heo Thịt</Text>
+                  <Text style={{ fontSize: 14, color: '#111111', fontWeight: 'bold' }}>{dataThongKe[0].heoThit} Kg</Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#dee2e6' }}>
+                  <Text style={{ fontSize: 13, color: '#495057', fontWeight: '500' }}>Dự kiến cám Heo Nái</Text>
+                  <Text style={{ fontSize: 14, color: '#111111', fontWeight: 'bold' }}>{dataThongKe[0].heoNaiCam} Kg</Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, marginTop: 4, backgroundColor: '#e7f1ff', paddingHorizontal: 8, borderRadius: 6 }}>
+                  <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#0056b3' }}>Tổng Dự Kiến Cám</Text>
+                  <Text style={{ color: '#0056b3', fontSize: 16, fontWeight: 'bold' }}>{dataThongKe[0].duKienCam} Kg</Text>
+                </View>
               </View>
             </View>
+
+            
           ) : (
-            <Text style={styles.emptyText}>Trại này hiện tại chưa có dữ liệu báo cáo Báo Cáo Thống Kê tổng hợp trên Sever.</Text>
+            <Text style={styles.emptyText}>Trại hiện tại chưa có dữ liệu báo cáo Thống Kê tổng hợp trên Server.</Text>
           )}
         </ScrollView>
       )}
@@ -1358,66 +1477,156 @@ const handleXemChiTietHeo = (item) => {
         <View style={{ flex: 1, backgroundColor: '#ffffff' }}>
           <View style={{ paddingHorizontal: 15, marginTop: 10, marginBottom: 5 }}>
             <TextInput
-              style={[styles.inputStandard, { marginBottom: 0, borderRadius: 20, paddingHorizontal: 15, height: 40, backgroundColor: '#f0f0f0', borderWidth: 0, color: '#111111' }]}
-              placeholder="🔍 Nhập Mã Tai để tra cứu heo đang đẻ..."
+              style={[styles.inputStandard, { marginBottom: 0, borderRadius: 20, paddingHorizontal: 15, height: 44, backgroundColor: '#f0f0f0', borderWidth: 0, color: '#111111' }]}
+              placeholder="🔍 Tìm Heo Đang Đẻ"
               placeholderTextColor="#888888"
               value={searchTxtTab4}
               onChangeText={setSearchTxtTab4}
               autoCapitalize="characters"
             />
           </View>
-                       <FlatList
+         <FlatList
             data={
               Array.isArray(danhSachDangDe) ? danhSachDangDe.filter(i => {
-                // 🎯 LỌC CHUẨN ĐÉT NGOÀI CHUỒNG: Cột H Ngày Cai Sữa trống thì MỚI HIỆN ở Tab 4
                 const ngayCaiSua = i.ngayCaiSua ? i.ngayCaiSua.toString().trim() : "";
-                return ngayCaiSua === "" || ngayCaiSua === "---";
+                if (ngayCaiSua !== "" && ngayCaiSua !== "---") return false;
+
+                const trangThaiNai = i.trangThaiCotH ? i.trangThaiCotH.toString().trim().normalize("NFC") : "";
+                if (trangThaiNai === "Thải") return false;
+
+                return true;
               }).filter(i => {
                 if (!searchTxtTab4) return true;
                 if (!i || !i.maTai) return false;
                 return i.maTai.toLowerCase().includes(searchTxtTab4.toLowerCase());
               }) : []
             }
-            keyExtractor={(item, index) => item && item.id ? item.id.toString() : index.toString()}
-            contentContainerStyle={{ paddingBottom: 20 }}
-            ListEmptyComponent={
-              <Text style={styles.emptyText}>
-                Trại hiện tại trống danh sách theo dõi heo đang đẻ.
-              </Text>
-            }
+            keyExtractor={(item, index) => item.id || index.toString()}
+            
+            // 🎯 VÁ CHUẨN LỀ ĐÁY: Đẩy dòng cuối cùng lên cao hẳn 110px, không bao giờ bị thanh 5 Tab che khuất
+            contentContainerStyle={{ paddingBottom: 110 }}
+            showsVerticalScrollIndicator={false}
+            
             renderItem={({ item }) => {
               return (
-                <View style={styles.historyCard}>
+                /* 🟢 THIẾT KẾ THẺ ĐỔ BÓNG PHẲNG CAO CẤP: Phân ô chuồng rạch ròi, chống lóa mắt */
+                <View style={{ 
+                  backgroundColor: '#ffffff', 
+                  marginHorizontal: 15, 
+                  marginTop: 10, 
+                  borderRadius: 10, 
+                  padding: 14,
+                  borderWidth: 1, 
+                  borderColor: '#eef2f5',
+                  // Tạo hiệu ứng đổ bóng mờ nguyên khối cho từng ô chuồng
+                  shadowColor: "#000000",
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.05,
+                  shadowRadius: 4,
+                  elevation: 3
+                }}>
                   <View style={{ flex: 1 }}>
-                    {/* 1. Mã số nái */}
-                    <Text style={[styles.cardHeader, { color: '#111111' }]}>
-                      🔑 Mã số nái: <Text style={{ color: '#007bff', fontWeight: 'bold' }}>{item.maTai || "---"}</Text> ✅
-                    </Text>
-
-                    {/* 2. Giống và Lứa Đẻ bốc từ sheet Xu_li_Heo_De */}
-                    <Text style={[styles.cardBody, { color: '#444444', marginTop: 4 }]}>
-                      🧬 Giống: {item.giong || "---"} | 🎂 Lứa đẻ: <Text style={{ fontWeight: 'bold', color: '#e83e8c' }}>{item.luaDe || "---"}</Text>
-                    </Text>
                     
-                    {/* 3. Ngày thực tế đẻ (Dùng đúng logic tự tính toán ngày chuẩn gốc của bác) */}
-                    {item.ngayDe ? (
-                      <Text style={{ fontSize: 13, color: '#e65100', marginTop: 4, fontWeight: '500' }}>
-                        📅 Ngày thực tế đẻ: <Text style={{ fontWeight: 'bold', color: '#111111' }}>{(() => {
-                          const str = item.ngayDe.toString().trim();
-                          if (str.includes('/') && str.split('/').length === 3) return str.substring(0, 10);
-                          const d = new Date(str);
-                          if (isNaN(d.getTime())) return str.substring(0, 10);
-                          return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-                        })()}</Text>
+                    {/* Hàng 1: Mã số nái được đóng khung phẳng tinh tế */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <Text style={{ fontSize: 13, color: '#6c757d', fontWeight: '500' }}>Mã số nái</Text>
+                      <View style={{ backgroundColor: '#e7f1ff', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 0.5, borderColor: '#b8daff' }}>
+                        <Text style={{ color: '#007bff', fontWeight: 'bold', fontSize: 13 }}>{item.maTai || "---"}</Text>
+                      </View>
+                    </View>
+
+                    {/* Hàng 2: Giống và Lứa Đẻ */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5, borderBottomWidth: 0.5, borderBottomColor: '#f1f2f6' }}>
+                      <Text style={{ fontSize: 13, color: '#555555' }}>Giống / Lứa đẻ</Text>
+                      <Text style={{ fontSize: 13, color: '#111111', fontWeight: '500' }}>
+                        {item.giong || "---"} | lứa <Text style={{ fontWeight: 'bold', color: '#e83e8c' }}>{item.luaDe || "---"}</Text>
                       </Text>
+                    </View>
+
+                    {/* Hàng 3: Ngày thực tế đẻ */}
+                    {item.ngayDe ? (
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5, borderBottomWidth: 0.5, borderBottomColor: '#f1f2f6' }}>
+                        <Text style={{ fontSize: 13, color: '#555555' }}>Ngày thực tế đẻ</Text>
+                        <Text style={{ fontSize: 13, color: '#111111', fontWeight: '600' }}>
+                          {(() => {
+                            const str = item.ngayDe.toString().trim();
+                            if (str.includes('/') && str.split('/').length === 3) return str.substring(0, 10);
+                            const d = new Date(str);
+                            if (isNaN(d.getTime())) return str.substring(0, 10);
+                            return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+                          })()}
+                        </Text>
+                      </View>
                     ) : null}
 
-                    {/* 4. Số heo con sơ sinh sống */}
-                    {item.soHeoCon && item.soHeoCon !== "" && item.soHeoCon !== "0" ? (
-                      <Text style={{ fontSize: 13, color: '#28a745', marginTop: 4, fontWeight: 'bold' }}>
-                        🐷 Số heo con sơ sinh: <Text style={{ fontSize: 15, color: '#28a745' }}>{item.soHeoCon}</Text> con
-                      </Text>
+                    {/* Hàng 4: Số ngày đã đẻ & Số tuần tuổi heo con */}
+                   {item.ngayDe ? (
+                      <View style={{ backgroundColor: '#f8f9fa', borderRadius: 6, padding: 8, marginTop: 5, marginBottom: 5, borderWidth: 0.5, borderColor: '#dee2e6' }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 }}>
+                          <Text style={{ fontSize: 12.5, color: '#495057', fontWeight: '500' }}>Số ngày đã đẻ:</Text>
+                          <Text style={{ fontSize: 13, color: '#111111', fontWeight: 'bold' }}>
+                            {(() => {
+                              let strDe = item.ngayDe.toString().trim();
+                              if (strDe.includes('/')) {
+                                let p = strDe.split('/');
+                                if (p.length === 3) strDe = `${p[2]}-${p[1]}-${p[0]}`;
+                              }
+                              const dDe = new Date(strDe); const dNay = new Date(); dDe.setHours(0,0,0,0); dNay.setHours(0,0,0,0);
+                              const khoangCachNgay = Math.floor((dNay.getTime() - dDe.getTime()) / (1000*60*60*24));
+                              
+                              // 🎯 TỰ ĐỘNG ĐỔI CHỮ CHUẨN NGHỆP VỤ:
+                              if (khoangCachNgay === 0) return "Hôm nay";
+                              return khoangCachNgay > 0 ? `${khoangCachNgay} ngày` : "---";
+                            })()}
+                          </Text>
+                        </View>
+                        
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                          <Text style={{ fontSize: 12.5, color: '#495057', fontWeight: '500' }}>Tuổi heo con ngoài ô:</Text>
+                          <Text style={{ fontSize: 13, color: '#111111', fontWeight: 'bold' }}>
+                            {(() => {
+                              let strDe = item.ngayDe.toString().trim();
+                              if (strDe.includes('/')) {
+                                let p = strDe.split('/');
+                                if (p.length === 3) strDe = `${p[2]}-${p[1]}-${p[0]}`;
+                              }
+                              const dDe = new Date(strDe); const dNay = new Date(); dDe.setHours(0,0,0,0); dNay.setHours(0,0,0,0);
+                              const khoangCachNgay = Math.floor((dNay.getTime() - dDe.getTime()) / (1000*60*60*24));
+                              const soTuan = Math.floor(khoangCachNgay / 7);
+                              
+                              if (khoangCachNgay === 0) return "Sơ sinh mới đẻ";
+                              return soTuan > 0 ? `${soTuan} tuần tuổi` : "Dưới 1 tuần tuổi";
+                            })()}
+                          </Text>
+                        </View>
+                      </View>
                     ) : null}
+
+                    {/* Hàng 5: Tổng số con đẻ ra */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5, borderBottomWidth: 0.5, borderBottomColor: '#f1f2f6' }}>
+                      <Text style={{ fontSize: 13, color: '#555555' }}>Tổng số con đẻ ra</Text>
+                      <Text style={{ fontSize: 13, color: '#111111', fontWeight: 'bold' }}>{item.soHeoCon || "0"} con</Text>
+                    </View>
+
+                    {/* Hàng 6: Khối hiển thị chi tiết số con Khô, Còi, Ngộp, Chọn Nuôi phẳng sạch sẽ */}
+                    <View style={{ backgroundColor: '#f8f9fa', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 8, marginTop: 4, borderWidth: 0.5, borderColor: '#dee2e6' }}>
+                      <Text style={{ fontSize: 12, color: '#666666', lineHeight: 18 }}>
+                        Khô thai: <Text style={{fontWeight:'600', color:'#111111'}}>{item.khoThai || 0}</Text> | Còi cọc: <Text style={{fontWeight:'600', color:'#111111'}}>{item.coiCoc || 0}</Text> | Chết ngộp: <Text style={{fontWeight:'600', color:'#111111'}}>{item.chetNgop || 0}</Text>
+                      </Text>
+                      <Text style={{ fontSize: 12, color: '#111111', fontWeight: 'bold', marginTop: 4, borderTopWidth: 0.5, borderTopColor: '#e9ecef', paddingTop: 4 }}>
+                        Chọn Nuôi Thực Tế: <Text style={{color:'#28a745'}}>{item.chonNuoi || 0} con</Text>
+                      </Text>
+                    </View>
+
+                    {/* Hàng 7: Khối hiển thị Ghi chú đẻ */}
+                    {item.ghiChuDe && item.ghiChuDe.toString().trim() !== "" && item.ghiChuDe.toString().trim() !== "---" ? (
+                      <View style={{ marginTop: 8, paddingTop: 6, borderTopWidth: 0.5, borderTopColor: '#f1f2f6' }}>
+                        <Text style={{ fontSize: 12, color: '#6c757d', fontStyle: 'italic', lineHeight: 16 }}>
+                          Ghi chú: <Text style={{ color: '#e65100', fontWeight: '500', fontStyle: 'normal' }}>{item.ghiChuDe}</Text>
+                        </Text>
+                      </View>
+                    ) : null}
+
                   </View>
                 </View>
               );
@@ -1441,7 +1650,7 @@ const handleXemChiTietHeo = (item) => {
           <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#212529' }}>Tổng Số Heo Thịt:</Text>
           <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#1e7e34' }}> {dataHeoThit.tongHeoThit || "0"} con </Text>
         </View>
-
+        
         {/* Bảng Thống Kê Gộp 6 Giai Đoạn */}
         <View style={{ backgroundColor: '#ffffff', borderRadius: 8, marginBottom: 25, borderWidth: 1, borderColor: '#dee2e6' }}>
           
@@ -1551,9 +1760,10 @@ const handleXemChiTietHeo = (item) => {
           <View style={[styles.popupCard, { width: '92%', maxHeight: '85%' }]}>
             <Text style={[styles.popupTitle, { fontSize: 18, color: '#007bff', marginBottom: 5 }]}>CHI TIẾT HEO NÁI: {selectedHeoDetail?.maTai}</Text>
             
-            <ScrollView showsVerticalScrollIndicator={false}>
+             <ScrollView showsVerticalScrollIndicator={false} style={{ marginTop: 10 }}>
+              
               {/* THÔNG TIN TRẠNG THÁI HIỆN TẠI TRONG SỔ MÃ TAI */}
-              <View style={{ borderWidth: 1, borderColor: '#eeeeee', borderRadius: 8, overflow: 'hidden', backgroundColor: '#ffffff', marginBottom: 15 }}>
+              <View style={{ marginBottom: 15 }}>
                 {(() => {
                   const epNgayChuanVietNam = (str) => {
                     if (!str || str.toString().trim() === "" || str.toString().trim() === "---") return "---";
@@ -1565,110 +1775,138 @@ const handleXemChiTietHeo = (item) => {
                   };
 
                   return (
-                                       <View>
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>🧬 Giống Heo Nái:</Text>
-                        <Text style={styles.detailVal}>{selectedHeoDetail?.giong || "---"}</Text>
+                    <View>
+                      {/* KHỐI 1: THÔNG TIN CHUNG CỦA NÁI ĐƯỢC CHIA HỘP PHẲNG SẠCH SẼ */}
+                      <View style={{ backgroundColor: '#f8f9fa', borderRadius: 8, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#e9ecef' }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#dee2e6' }}>
+                          <Text style={{ fontSize: 13, color: '#6c757d', fontWeight: '500' }}>Giống Heo Nái</Text>
+                          <Text style={{ fontSize: 13, color: '#111111', fontWeight: 'bold' }}>{selectedHeoDetail?.giong || "---"}</Text>
+                        </View>
+                        
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#dee2e6' }}>
+                          <Text style={{ fontSize: 13, color: '#6c757d', fontWeight: '500' }}>Lứa hiện tại</Text>
+                          <Text style={{ fontSize: 13, color: '#e83e8c', fontWeight: 'bold' }}>{selectedHeoDetail?.luaHienThiThongMinh || selectedHeoDetail?.lua || "0"}</Text>
+                        </View>
+                        
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 }}>
+                          <Text style={{ fontSize: 13, color: '#6c757d', fontWeight: '500' }}>Trạng Thái Hiện Tại</Text>
+                          <Text style={{ fontSize: 13, color: '#e65100', fontWeight: 'bold' }}>{selectedHeoDetail?.trangThaiCotH || "Trống"}</Text>
+                        </View>
                       </View>
-                      
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Lứa hiện tại:</Text>
-                        <Text style={[styles.detailVal, {color:'#e83e8c', fontWeight:'bold'}]}>{selectedHeoDetail?.lua || "0"}</Text>
-                      </View>
-                      
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Trạng Thái:</Text>
-                        <Text style={[styles.detailVal, {color:'#e65100', fontWeight:'bold'}]}>{selectedHeoDetail?.trangThaiCotH || "Trống"}</Text>
-                      </View>
+                       {/* KHỐI 2: CHI TIẾT THEO DÕI ĐỘNG CHO NHÓM MANG THAI */}
+                      {nhomNaiTab2 === 'BAU' && (
+                        <View style={{ backgroundColor: '#fffaf5', borderRadius: 8, padding: 12, marginBottom: 5, borderWidth: 1, borderColor: '#ffd3b6' }}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#ffe5d4' }}>
+                            <Text style={{ fontSize: 13, color: '#555555' }}>Ngày Phối Giống</Text>
+                            <Text style={{ fontSize: 13, color: '#111111', fontWeight: '600' }}>{epNgayChuanVietNam(selectedHeoDetail?.ngayCotI)}</Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#ffe5d4' }}>
+                            <Text style={{ fontSize: 13, color: '#555555' }}>Ngày Dự Kiến Đẻ</Text>
+                            <Text style={{ fontSize: 13, color: '#28a745', fontWeight: 'bold' }}>{epNgayChuanVietNam(selectedHeoDetail?.ngayDuKienDeMoi)}</Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#ffe5d4' }}>
+                            <Text style={{ fontSize: 13, color: '#555555' }}>Thời Gian Bầu (Ngày)</Text>
+                            <Text style={{ fontSize: 13, color: '#007bff', fontWeight: 'bold' }}>
+                              {(() => {
+                                let strPhoi = selectedHeoDetail?.ngayCotI ? selectedHeoDetail.ngayCotI.toString().trim() : "";
+                                if (strPhoi === "" || strPhoi === "---") return "0 ngày";
+                                if (strPhoi.includes('/')) { let p = strPhoi.split('/'); if (p.length === 3) strPhoi = `${p[2]}-${p[1]}-${p[0]}`; }
+                                const dPhoi = new Date(strPhoi); const dNay = new Date(); dPhoi.setHours(0,0,0,0); dNay.setHours(0,0,0,0);
+                                return Math.floor((dNay.getTime() - dPhoi.getTime()) / (1000*60*60*24)) + " ngày";
+                              })()}
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 }}>
+                            <Text style={{ fontSize: 13, color: '#555555' }}>Thời Gian Bầu (Tuần)</Text>
+                            <Text style={{ fontSize: 13, color: '#007bff', fontWeight: 'bold' }}>
+                              {(() => {
+                                let strPhoi = selectedHeoDetail?.ngayCotI ? selectedHeoDetail.ngayCotI.toString().trim() : "";
+                                if (strPhoi === "" || strPhoi === "---") return "0 tuần";
+                                if (strPhoi.includes('/')) { let p = strPhoi.split('/'); if (p.length === 3) strPhoi = `${p[2]}-${p[1]}-${p[0]}`; }
+                                const dPhoi = new Date(strPhoi); const dNay = new Date(); dPhoi.setHours(0,0,0,0); dNay.setHours(0,0,0,0);
+                                return Math.floor((dNay.getTime() - dPhoi.getTime()) / (1000*60*60*24*7)) + " tuần";
+                              })()}
+                            </Text>
+                          </View>
+                        </View>
+                      )}
 
-                      {nhomNaiTab2 === 'BAU' && <View>
-                        <View style={styles.detailRow}>
-                          <Text style={styles.detailLabel}>📅 Ngày Phối Giống:</Text>
-                          <Text style={styles.detailVal}>{epNgayChuanVietNam(selectedHeoDetail?.ngayCotI)}</Text>
-                        </View>
-                        <View style={styles.detailRow}>
-                          <Text style={styles.detailLabel}>📅 Ngày Dự Kiến Đẻ:</Text>
-                          <Text style={[styles.detailVal, {color:'#28a745', fontWeight:'bold'}]}>{epNgayChuanVietNam(selectedHeoDetail?.ngayDuKienDeMoi)}</Text>
-                        </View>
-                        <View style={styles.detailRow}>
-                          <Text style={styles.detailLabel}>Số Ngày Bầu:</Text>
-                          <Text style={[styles.detailVal, {color:'#007bff', fontWeight:'bold'}]}>
-                            {(() => {
-                              let strPhoi = selectedHeoDetail?.ngayCotI ? selectedHeoDetail.ngayCotI.toString().trim() : "";
-                              if (strPhoi === "" || strPhoi === "---") return "0 ngày";
-                              if (strPhoi.includes('/')) {
-                                let p = strPhoi.split('/');
-                                if (p.length === 3) strPhoi = `${p[2]}-${p[1]}-${p[0]}`;
-                              }
-                              const dPhoi = new Date(strPhoi);
-                              const dNay = new Date();
-                              dPhoi.setHours(0,0,0,0); dNay.setHours(0,0,0,0);
-                              const days = Math.floor((dNay.getTime() - dPhoi.getTime()) / (1000*60*60*24));
-                              return days >= 0 ? days + " ngày" : "0 ngày";
-                            })()}
+                      {/* KHỐI 3: CHÚ Ý CHO NHÓM CHƯA PHỐI */}
+                      {nhomNaiTab2 === 'CHUA_PHOI' && (
+                        <View style={{ paddingVertical: 12, backgroundColor: '#fff3cd', borderRadius: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: '#ffeeba' }}>
+                          <Text style={{ fontSize: 13, color: '#856404', fontWeight: 'bold', textAlign: 'center', lineHeight: 18 }}>
+                            Chú ý: Heo nái đang Chờ Phối / Lốc. Hãy theo dõi chu kỳ lên giống để phối kịp thời!
                           </Text>
                         </View>
-                        <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
-                          <Text style={styles.detailLabel}>⏳ Số Tuần Bầu:</Text>
-                          <Text style={[styles.detailVal, {color:'#007bff', fontWeight:'bold'}]}>
-                            {(() => {
-                              let strPhoi = selectedHeoDetail?.ngayCotI ? selectedHeoDetail.ngayCotI.toString().trim() : "";
-                              if (strPhoi === "" || strPhoi === "---") return "0 tuần";
-                              if (strPhoi.includes('/')) {
-                                let p = strPhoi.split('/');
-                                if (p.length === 3) strPhoi = `${p[2]}-${p[1]}-${p[0]}`;
-                              }
-                              const dPhoi = new Date(strPhoi);
-                              const dNay = new Date();
-                              dPhoi.setHours(0,0,0,0); dNay.setHours(0,0,0,0);
-                              const weeks = Math.floor((dNay.getTime() - dPhoi.getTime()) / (1000*60*60*24*7));
-                              return weeks >= 0 ? weeks + " tuần" : "0 tuần";
-                            })()}
-                          </Text>
-                        </View>
-                      </View>}
+                      )}
 
-                      {nhomNaiTab2 === 'CHUA_PHOI' && <View>
-                        <View style={{ paddingVertical: 10, backgroundColor: '#fff3cd', borderRadius: 6, marginTop: 12, paddingHorizontal: 8, borderWidth: 1, borderColor: '#ffeeba', alignItems: 'center' }}>
-                          <Text style={{ fontSize: 13, color: '#856404', fontWeight: 'bold', textAlign: 'center' }}>
-                            ⚠️ Chú ý: Heo nái đang Chờ Phối/Lốc. Hãy theo dõi chu kỳ lên giống để phối kịp thời!
-                          </Text>
-                        </View>
-                      </View>}
+                      {/* KHỐI 4: CHI TIẾT SẢN XUẤT CHO NHÓM NUÔI CON HOẶC ĐÃ CAI SỮA */}
+                      {nhomNaiTab2 === 'NUOI_CON' && (
+                        <View style={{ backgroundColor: '#f4fbf7', borderRadius: 8, padding: 12, borderWidth: 1, borderColor: '#c3e6cb' }}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#d4edda' }}>
+                            <Text style={{ fontSize: 13, color: '#555555' }}>Ngày Đẻ Thực Tế</Text>
+                            <Text style={{ fontSize: 13, color: '#111111', fontWeight: '600' }}>{epNgayChuanVietNam(selectedHeoDetail?.ngayDeCotJ)}</Text>
+                          </View>
+                          
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#d4edda' }}>
+                            <Text style={{ fontSize: 13, color: '#555555' }}>Tổng Số Heo Sơ Sinh</Text>
+                            <Text style={{ fontSize: 13, color: '#28a745', fontWeight: 'bold' }}>{selectedHeoDetail?.soHeoCon || "0"} con</Text>
+                          </View>
 
-                      {nhomNaiTab2 === 'NUOI_CON' && <View>
-                        <View style={styles.detailRow}>
-                          <Text style={styles.detailLabel}>📅 Ngày Đẻ Thực Tế:</Text>
-                          <Text style={[styles.detailVal, {color:'#28a745', fontWeight:'bold'}]}>{epNgayChuanVietNam(selectedHeoDetail?.ngayDeCotJ)}</Text>
-                        </View>
-                        <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
-                          <Text style={styles.detailLabel}>📅 Ngày Cai Sữa:</Text>
-                          <Text style={styles.detailVal}>{epNgayChuanVietNam(selectedHeoDetail?.ngayCaiSuaCotKhat)}</Text>
-                        </View>
-                      </View>}
+                          {/* Hộp phụ chi tiết hao hụt sơ sinh phẳng sạch sẽ */}
+                          <View style={{ backgroundColor: '#ffffff', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 8, marginTop: 4, marginBottom: 4, borderWidth: 0.5, borderColor: '#dee2e6' }}>
+                            <Text style={{ fontSize: 12, color: '#666666', lineHeight: 18 }}>
+                              Khô thai: <Text style={{fontWeight:'600', color:'#111111'}}>{selectedHeoDetail?.khoThai || 0}</Text> | Còi cọc: <Text style={{fontWeight:'600', color:'#111111'}}>{selectedHeoDetail?.coiCoc || 0}</Text> | Chết ngộp: <Text style={{fontWeight:'600', color:'#111111'}}>{selectedHeoDetail?.chetNgop || 0}</Text>
+                            </Text>
+                            <Text style={{ fontSize: 12, color: '#111111', fontWeight: 'bold', marginTop: 5 }}>
+                              Chọn Nuôi Thực Tế: <Text style={{color:'#28a745'}}>{selectedHeoDetail?.chonNuoi || 0} con</Text>
+                            </Text>
+                          </View>
 
-                      {nhomNaiTab2 === 'THAI' && <View>
-                        <View style={styles.detailRow}>
-                          <Text style={styles.detailLabel}>📅 Ngày Đẻ Thực Tế:</Text>
-                          <Text style={[styles.detailVal, {color:'#28a745', fontWeight:'bold'}]}>{epNgayChuanVietNam(selectedHeoDetail?.ngayDeCotJ)}</Text>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#d4edda' }}>
+                            <Text style={{ fontSize: 13, color: '#555555' }}>Ngày Cai Sữa Đàn</Text>
+                            <Text style={{ fontSize: 13, color: '#111111', fontWeight: '600' }}>{epNgayChuanVietNam(selectedHeoDetail?.ngayCaiSuaCotKhat)}</Text>
+                          </View>
+
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 }}>
+                            <Text style={{ fontSize: 13, color: '#555555', fontWeight: '600' }}>Số Con Cai Sữa Đạt</Text>
+                            <Text style={{ fontSize: 14, color: '#007bff', fontWeight: 'bold' }}>{selectedHeoDetail?.soConCaiSua || "0"} con</Text>
+                          </View>
                         </View>
-                        <View style={styles.detailRow}>
-                          <Text style={styles.detailLabel}>📅 Ngày Cai Sữa:</Text>
-                          <Text style={styles.detailVal}>{epNgayChuanVietNam(selectedHeoDetail?.ngayCaiSuaCotKhat)}</Text>
+                      )}
+                      {/* KHỐI 5: CHI TIẾT SẢN XUẤT CHO NHÓM HEO ĐÃ THẢI */}
+                      {nhomNaiTab2 === 'THAI' && (
+                        <View style={{ backgroundColor: '#f8f9fa', borderRadius: 8, padding: 12, borderWidth: 1, borderColor: '#dee2e6' }}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#dee2e6' }}>
+                            <Text style={{ fontSize: 13, color: '#555555' }}>Ngày Đẻ Thực Tế</Text>
+                            <Text style={{ fontSize: 13, color: '#6c757d', fontWeight: 'bold' }}>{epNgayChuanVietNam(selectedHeoDetail?.ngayDeCotJ)}</Text>
+                          </View>
+                          
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#dee2e6' }}>
+                            <Text style={{ fontSize: 13, color: '#555555' }}>Ngày Cai Sữa</Text>
+                            <Text style={{ fontSize: 13, color: '#6c757d', fontWeight: 'bold' }}>{epNgayChuanVietNam(selectedHeoDetail?.ngayCaiSuaCotKhat)}</Text>
+                          </View>
+
+                          {selectedHeoDetail?.ngayCaiSuaCotKhat && selectedHeoDetail?.ngayCaiSuaCotKhat.toString().trim() !== "" && selectedHeoDetail?.ngayCaiSuaCotKhat.toString().trim() !== "---" && (
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#dee2e6' }}>
+                              <Text style={{ fontSize: 13, color: '#555555' }}>Số Con Cai Sữa Đạt</Text>
+                              <Text style={{ fontSize: 13, color: '#6c757d', fontWeight: 'bold' }}>{selectedHeoDetail?.soConCaiSua || "0"} con</Text>
+                            </View>
+                          )}
+
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 }}>
+                            <Text style={{ fontSize: 13, color: '#555555' }}>Tháng Đẻ Ghi Nhận</Text>
+                            <Text style={{ fontSize: 13, color: '#111111', fontWeight: '600' }}>{selectedHeoDetail?.thangDeCotK || "---"}</Text>
+                          </View>
                         </View>
-                        <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
-                          <Text style={styles.detailLabel}>Tháng Đẻ:</Text>
-                          <Text style={styles.detailVal}>{selectedHeoDetail?.thangDeCotK || "---"}</Text>
-                        </View>
-                      </View>}
+                      )}
                     </View>
-
                   );
                 })()}
               </View>
 
-              {/* 📜 KHỐI LỊCH SỬ TRA CỨU ĐẺ OFFLINE CHUẨN XỊN */}
-                              <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#2c3e50', marginBottom: 12, paddingLeft: 2, letterSpacing: 0.3 }}>📜 LỊCH SỬ CÁC LỨA ĐÃ ĐẺ</Text>
+              {/* 📜 KHỐI LỊCH SỬ CÁC LỨA ĐÃ ĐẺ THÀNH CÔNG (Đồng bộ hộp xám phẳng phẳng sạch) */}
+              <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#495057', marginTop: 10, marginBottom: 8, paddingLeft: 2, letterSpacing: 0.3 }}>📜 LỊCH SỬ CÁC LỨA ĐÃ ĐẺ THÀNH CÔNG</Text>
               
               {(() => {
                 const epNgayTuongMinh = (str) => {
@@ -1696,37 +1934,50 @@ const handleXemChiTietHeo = (item) => {
                   );
                 }
 
-                return lichSuDeGộpOffline.map((item, index) => <View key={index} style={{ backgroundColor: '#ffffff', borderRadius: 8, marginBottom: 10, borderWidth: 1, borderColor: '#eef2f5', flexDirection: 'row', overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 2, elevation: 1 }}>
-                    
-                    <View style={{ width: 4, backgroundColor: '#e65100' }} />
+ return lichSuDeGộpOffline.map((item, index) => (
+                  <View key={index} style={{ backgroundColor: '#ffffff', borderRadius: 8, marginBottom: 10, borderWidth: 1, borderColor: '#eef2f5', flexDirection: 'row', overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 2, elevation: 1 }}>
+                    <View style={{ width: 4, backgroundColor: '#ced4da' }} />
                     
                     <View style={{ flex: 1, padding: 12 }}>
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#e65100', marginBottom: 5 }}>
-                        Lứa đẻ: {item.luaDe || "---"}
-                      </Text>
+                      {/* Tiêu đề lứa và ngày đẻ */}
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                        <Text style={{ fontSize: 13, fontWeight: '700', color: '#495057' }}>Lứa đẻ: {item.luaDe || "---"}</Text>
+                        <Text style={{ fontSize: 12, color: '#6c757d' }}>Ngày đẻ: {epNgayTuongMinh(item.ngayDe)}</Text>
+                      </View>
 
-                      <Text style={{ fontSize: 12, color: '#2c3e50', marginBottom: 4, lineHeight: 18 }}>
-                        Ngày đẻ: <Text style={{ fontWeight: '500', color: '#111111' }}>{epNgayTuongMinh(item.ngayDe)}</Text>
-                      </Text>
+                      {/* 🟢 KHỐI HỘP GỘP TỔNG LỰC: Gom toàn bộ dữ liệu Sơ Sinh và Cai Sữa vào chung 1 hộp nền xám */}
+                      <View style={{ backgroundColor: '#f8f9fa', borderRadius: 6, padding: 8, borderWidth: 0.5, borderColor: '#eee' }}>
+                        {/* Chỉ số sơ sinh */}
+                        <Text style={{ fontSize: 12, color: '#666666', lineHeight: 18 }}>
+                          Sơ sinh sống: <Text style={{fontWeight:'700', color:'#28a745'}}>{item.soHeoCon || "0"}</Text> con | Khô: {item.khoThai || 0} | Còi: {item.coiCoc || 0} | Ngộp: {item.chetNgop || 0}
+                        </Text>
+                        
+                        <Text style={{ fontSize: 12, color: '#111111', fontWeight: 'bold', marginTop: 4 }}>
+                          Chọn Nuôi: <Text style={{color:'#28a745'}}>{item.chonNuoi || 0} con</Text>
+                        </Text>
 
-                      <Text style={{ fontSize: 12, color: '#2c3e50', marginBottom: 4, lineHeight: 18 }}>
-                        Số con đẻ: <Text style={{ fontWeight: '700', color: '#27ae60' }}>{item.soHeoCon || "0"}</Text> <Text style={{ color: '#7f8c8d' }}>(Khô: {item.khoThai || 0} | Còi: {item.coiCoc || 0} | Ngộp: {item.chetNgop || 0})</Text> Chọn Nuôi: <Text style={{ fontWeight: '700', color: '#27ae60' }}>{item.chonNuoi || 0}</Text>
-                      </Text>
+                        {/* 🟢 CHÈN ĐỒNG BỘ CAI SỮA VÀO ĐÂY: Nếu lứa này đã cai sữa, hiện luôn ở hàng dưới bên trong hộp xám */}
+                        {item.ngayCaiSua && item.ngayCaiSua !== "" && item.ngayCaiSua !== "---" ? (
+                          <View style={{ borderTopWidth: 0.5, borderTopColor: '#dee2e6', marginTop: 6, paddingTop: 6 }}>
+                            <Text style={{ fontSize: 12, color: '#2c3e50', fontWeight: '500' }}>
+                              Số Con Cai Sữa Đạt: <Text style={{ fontWeight: '700', color: '#007bff' }}>{item.soConCaiSua || "0"} con</Text>
+                            </Text>
+                            <Text style={{ fontSize: 12, color: '#6c757d', marginTop: 2 }}>
+                              Ngày cai sữa: <Text style={{ color: '#111111', fontWeight: '500' }}>{epNgayTuongMinh(item.ngayCaiSua)}</Text>
+                            </Text>
+                            {item.soNgay && item.soNgay !== "0" ? (
+                              <Text style={{ fontSize: 11, color: '#007bff', fontWeight: '600', marginTop: 2 }}>Nuôi con: {item.soNgay} ngày</Text>
+                            ) : null}
+                            {item.ghiChuCaiSua ? <Text style={{ fontSize: 11, color: '#6c757d', fontStyle: 'italic', marginTop: 4 }}>Ghi chú cai sữa: {item.ghiChuCaiSua}</Text> : null}
+                          </View>
+                        ) : null}
+                      </View>
 
-                      {item.ghiChuDe ? <Text style={{ fontSize: 11, color: '#7f8c8d', fontStyle: 'italic', marginBottom: 4, marginTop: 1 }}>✍️ Ghi chú đẻ: {item.ghiChuDe}</Text> : null}
-
-                      {item.ngayCaiSua && item.ngayCaiSua !== "" && item.ngayCaiSua !== "---" ? <View style={{ borderTopWidth: 1, borderTopColor: '#f1f2f6', marginTop: 6, paddingTop: 6 }}>
-                          <Text style={{ fontSize: 12, color: '#2c3e50', marginBottom: 4, lineHeight: 18 }}>
-                            Số Con Cai Sữa: <Text style={{ fontWeight: '700', color: '#2980b9' }}>{item.soConCaiSua || "0"}</Text>  Ngày Cai Sữa: <Text style={{ fontWeight: '500', color: '#111111' }}>{epNgayTuongMinh(item.ngayCaiSua)}</Text>
-                          </Text>
-                          {item.soNgay && item.soNgay !== "0" ? <Text style={{ fontSize: 11, color: '#2980b9', fontWeight: '600', marginBottom: 2 }}>
-                            ⏳ Số ngày nuôi con: {item.soNgay} ngày
-                          </Text> : null}
-                          {item.ghiChuCaiSua ? <Text style={{ fontSize: 11, color: '#7f8c8d', fontStyle: 'italic', marginTop: 1 }}>✍️ Ghi chú cai sữa: {item.ghiChuCaiSua}</Text> : null}
-                        </View> : null}
+                      {/* Ghi chú đẻ (nếu có) nằm ngoài hộp cho thoáng */}
+                      {item.ghiChuDe ? <Text style={{ fontSize: 11, color: '#6c757d', fontStyle: 'italic', marginTop: 6 }}>Ghi chú đẻ: {item.ghiChuDe}</Text> : null}
                     </View>
-
-                  </View>);
+                  </View>
+                ));
               })()}
             </ScrollView>
 
@@ -1871,14 +2122,15 @@ const handleXemChiTietHeo = (item) => {
       </Modal>
 
       {/* 🚀 THANH MENU 5 TAB CHỮ PHẲNG - ĐÃ ĐƯỢC ĐƯA VÀO TRONG ĐÚNG QUY TẮC CẤU TRÚC LẬP TRÌNH */}
+            {/* ======================================================== */}
+      {/* 🚀 THANH MENU 5 TAB CHỮ PHẲNG - ĐÃ SỬA CHỐNG XUỐNG HÀNG & SÁNG SỐ 100% */}
+      {/* ======================================================== */}
       <View style={{
         flexDirection: 'row',
         backgroundColor: '#ffffff',
         borderTopWidth: 1,
         borderTopColor: '#f1f2f6',
-        // 🎯 TỰ ĐỘNG TÍNH CHIỀU CAO: Chiều cao gốc 54px + tự cộng thêm số pixel bị chiếm bởi phím ảo hệ thống
         height: 54 + (insets.bottom > 0 ? insets.bottom : 6), 
-        // 🎯 TỰ ĐỘNG BÙ LỀ ĐÁY: Đẩy chữ số lên trên phím ảo Android hoặc dải gạch iOS một cách khít khao
         paddingBottom: insets.bottom > 0 ? insets.bottom : 6, 
         paddingTop: 4,
         position: 'absolute',
@@ -1892,45 +2144,68 @@ const handleXemChiTietHeo = (item) => {
         elevation: 8,
         zIndex: 99
       }}>
+        {/* TAB 1: NHẬP LIỆU (Đã nới khung rộng 98% chống tuyệt đối nhảy xuống hàng) */}
         <TouchableOpacity activeOpacity={0.7} onPress={() => setCurrentTab('nhap_lieu')} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <View style={{ backgroundColor: currentTab === 'nhap_lieu' ? '#fff0e6' : 'transparent', paddingBottom: 4, paddingTop: 4, paddingHorizontal: 6, borderRadius: 10, width: '92%', height: 42, alignItems: 'center', justifyContent: 'flex-start' }}>
-            <Text style={{ fontSize: 11, fontWeight: currentTab === 'nhap_lieu' ? '700' : '500', color: currentTab === 'nhap_lieu' ? '#e65100' : '#666666' }}>Nhập Liệu</Text>
+          <View style={{ backgroundColor: currentTab === 'nhap_lieu' ? '#fff0e6' : 'transparent', paddingBottom: 2, paddingTop: 2, borderRadius: 10, width: '98%', height: 44, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 16, marginBottom: 1, opacity: currentTab === 'nhap_lieu' ? 1 : 0.6 }}>📝</Text>
+            <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: currentTab === 'nhap_lieu' ? '700' : '500', color: currentTab === 'nhap_lieu' ? '#e65100' : '#666666' }}>Nhập Liệu</Text>
           </View>
         </TouchableOpacity>
         
+        {/* TAB 2: SỔ MÃ TAI (Số đếm luôn sáng rõ 100%, chỉ mờ icon nhãn nếu ẩn) */}
         <TouchableOpacity activeOpacity={0.7} onPress={() => setCurrentTab('ma_tai')} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <View style={{ backgroundColor: currentTab === 'ma_tai' ? '#fff0e6' : 'transparent', paddingBottom: 4, paddingTop: 4, paddingHorizontal: 4, borderRadius: 10, width: '96%', height: 42, alignItems: 'center', justifyContent: 'flex-start' }}>
-            <Text style={{ fontSize: 11, fontWeight: currentTab === 'ma_tai' ? '700' : '500', color: currentTab === 'ma_tai' ? '#e65100' : '#666666', marginBottom: 2 }}>Sổ Mã Tai</Text>
-            <Text style={{ fontSize: 10, fontWeight: currentTab === 'ma_tai' ? '700' : '500', color: currentTab === 'ma_tai' ? '#e65100' : '#28a745' }}>
-              {Array.isArray(danhSachMaTai) ? String(danhSachMaTai.filter(item => !item || !item.trangThaiCotH ? true : item.trangThaiCotH.toString().trim().normalize("NFC") !== "Thải").length) : "0"}
+          <View style={{ backgroundColor: currentTab === 'ma_tai' ? '#fff0e6' : 'transparent', paddingBottom: 2, paddingTop: 2, borderRadius: 10, width: '98%', height: 44, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 15, marginBottom: 1 }}>
+              <Text style={{ opacity: currentTab === 'ma_tai' ? 1 : 0.6 }}>🏷️ </Text>
+              <Text style={{ fontSize: 10, fontWeight: '700', color: currentTab === 'ma_tai' ? '#e65100' : '#28a745' }}>
+                {Array.isArray(danhSachMaTai) ? String(danhSachMaTai.filter(item => !item || !item.trangThaiCotH ? true : item.trangThaiCotH.toString().trim().normalize("NFC") !== "Thải").length) : "0"}
+              </Text>
             </Text>
+            <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: currentTab === 'ma_tai' ? '700' : '500', color: currentTab === 'ma_tai' ? '#e65100' : '#666666' }}>Sổ Mã Tai</Text>
           </View>
         </TouchableOpacity>
 
+        {/* TAB 3: THỐNG KÊ */}
         <TouchableOpacity activeOpacity={0.7} onPress={() => setCurrentTab('thong_ke')} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <View style={{ backgroundColor: currentTab === 'thong_ke' ? '#fff0e6' : 'transparent', paddingBottom: 4, paddingTop: 4, paddingHorizontal: 6, borderRadius: 10, width: '92%', height: 42, alignItems: 'center', justifyContent: 'flex-start' }}>
-            <Text style={{ fontSize: 11, fontWeight: currentTab === 'thong_ke' ? '700' : '500', color: currentTab === 'thong_ke' ? '#e65100' : '#666666' }}>Thống Kê</Text>
+          <View style={{ backgroundColor: currentTab === 'thong_ke' ? '#fff0e6' : 'transparent', paddingBottom: 2, paddingTop: 2, borderRadius: 10, width: '98%', height: 44, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 16, marginBottom: 1, opacity: currentTab === 'thong_ke' ? 1 : 0.6 }}>📊</Text>
+            <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: currentTab === 'thong_ke' ? '700' : '500', color: currentTab === 'thong_ke' ? '#e65100' : '#666666' }}>Thống Kê</Text>
           </View>
         </TouchableOpacity>
         
+        {/* TAB 4: ĐANG ĐẺ (Số đếm luôn sáng rõ 100%) */}
         <TouchableOpacity activeOpacity={0.7} onPress={() => setCurrentTab('heo_de')} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <View style={{ backgroundColor: currentTab === 'heo_de' ? '#fff0e6' : 'transparent', paddingBottom: 4, paddingTop: 4, paddingHorizontal: 4, borderRadius: 10, width: '96%', height: 42, alignItems: 'center', justifyContent: 'flex-start' }}>
-            <Text style={{ fontSize: 11, fontWeight: currentTab === 'heo_de' ? '700' : '500', color: currentTab === 'heo_de' ? '#e65100' : '#666666', marginBottom: 2 }}>Đang Đẻ</Text>
-            <Text style={{ fontSize: 10, fontWeight: currentTab === 'heo_de' ? '700' : '500', color: currentTab === 'heo_de' ? '#e65100' : '#28a745' }}>
-              {Array.isArray(danhSachDangDe) ? String(danhSachDangDe.filter(i => !i.ngayCaiSua || i.ngayCaiSua.toString().trim() === "" || i.ngayCaiSua.toString().trim() === "---").length) : "0"}
+          <View style={{ backgroundColor: currentTab === 'heo_de' ? '#fff0e6' : 'transparent', paddingBottom: 2, paddingTop: 2, borderRadius: 10, width: '98%', height: 44, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 16, marginBottom: 1 }}>
+              <Text style={{ opacity: currentTab === 'heo_de' ? 1 : 0.6 }}>🐖 </Text>
+              <Text style={{ fontSize: 10, fontWeight: '700', color: currentTab === 'heo_de' ? '#e65100' : '#28a745' }}>
+                {Array.isArray(danhSachDangDe) ? String(danhSachDangDe.filter(i => {
+                  const ngayCaiSua = i.ngayCaiSua ? i.ngayCaiSua.toString().trim() : "";
+                  if (ngayCaiSua !== "" && ngayCaiSua !== "---") return false;
+                  const trangThaiNai = i.trangThaiCotH ? i.trangThaiCotH.toString().trim().normalize("NFC") : "";
+                  if (trangThaiNai === "Thải") return false;
+                  return true;
+                }).length) : "0"}
+              </Text>
             </Text>
+            <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: currentTab === 'heo_de' ? '700' : '500', color: currentTab === 'heo_de' ? '#e65100' : '#666666' }}>Đang Đẻ</Text>
           </View>
         </TouchableOpacity>
         
+        {/* TAB 5: HEO THỊT (Số đếm luôn sáng rõ 100%) */}
         <TouchableOpacity activeOpacity={0.7} onPress={() => setCurrentTab('heo_thit')} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <View style={{ backgroundColor: currentTab === 'heo_thit' ? '#fff0e6' : 'transparent', paddingBottom: 4, paddingTop: 4, paddingHorizontal: 6, borderRadius: 10, width: '92%', height: 42, alignItems: 'center', justifyContent: 'flex-start' }}>
-            <Text style={{ fontSize: 11, fontWeight: currentTab === 'heo_thit' ? '700' : '500', color: currentTab === 'heo_thit' ? '#e65100' : '#666666', marginBottom: 2 }}>Heo Thịt</Text>
-            <Text style={{ fontSize: 10, fontWeight: currentTab === 'heo_thit' ? '700' : '500', color: currentTab === 'heo_thit' ? '#e65100' : '#28a745' }}>
-              {dataHeoThit && dataHeoThit.tongHeoThit ? String(dataHeoThit.tongHeoThit) : "0"}
+          <View style={{ backgroundColor: currentTab === 'heo_thit' ? '#fff0e6' : 'transparent', paddingBottom: 2, paddingTop: 2, borderRadius: 10, width: '98%', height: 44, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 15, marginBottom: 1 }}>
+              <Text style={{ opacity: currentTab === 'heo_thit' ? 1 : 0.6 }}>🏠 </Text>
+              <Text style={{ fontSize: 10, fontWeight: '700', color: currentTab === 'heo_thit' ? '#e65100' : '#28a745' }}>
+                {dataHeoThit && dataHeoThit.tongHeoThit ? String(dataHeoThit.tongHeoThit) : "0"}
+              </Text>
             </Text>
+            <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: currentTab === 'heo_thit' ? '700' : '500', color: currentTab === 'heo_thit' ? '#e65100' : '#666666' }}>Heo Thịt</Text>
           </View>
         </TouchableOpacity>
       </View>
+
 
     </KeyboardAvoidingView>
   
@@ -1953,35 +2228,6 @@ const styles = StyleSheet.create({
   loginEmoji: { fontSize: 50, textAlign: 'center', marginBottom: 10 },
   loginTitle: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 5, color: '#111111', letterSpacing: 1 },
   loginSub: { fontSize: 13, color: '#333333', textAlign: 'center', marginBottom: 35 },
-  tabMenuBar: { 
-    flexDirection: 'row', 
-    flexWrap: 'wrap', // Kích hoạt tính năng tự động xuống hàng khi hết chiều rộng
-    backgroundColor: '#ffffff', 
-    borderBottomWidth: 1, 
-    borderBottomColor: '#dddddd' 
-  },
-  tabButton: { 
-    paddingVertical: 12, 
-    alignItems: 'center', 
-    borderBottomWidth: 3, 
-    borderBottomColor: 'transparent',
-    justifyContent: 'center'
-  },
-  tabButtonHalf: { 
-    width: '50%', // Ép 2 tab đầu chia đôi màn hình
-  },
-  tabButtonThird: { 
-    width: '33.33%', // Ép 3 tab sau chia ba màn hình
-    borderTopWidth: 1, // Tạo đường kẻ mờ phân cách hàng trên hàng dưới
-    borderTopColor: '#eeeeee'
-  },
-tabButtonActive: { borderBottomColor: '#e65100' }, 
-  tabButtonText: { 
-    fontSize: 14, // Tăng kích thước chữ to lên từ 11 thành 14 cho dễ nhìn
-    fontWeight: 'bold', // Tăng độ đậm để người nuôi dễ đọc ngoài chuồng nuôi
-    color: '#555555' 
-  },
-  tabButtonTextActive: { color: '#e65100', fontWeight: 'bold' },
   userInfoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 15, paddingVertical: 8, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#eeeeee', alignItems:'center' },
   userInfoText: { fontSize: 13, color: '#222222' },
   logoutText: { fontSize: 13, color: '#dc3545', fontWeight: 'bold' },
