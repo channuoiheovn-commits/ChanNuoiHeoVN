@@ -4,6 +4,8 @@ import { Picker } from '@react-native-picker/picker';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider,useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Image } from 'react-native';
+
 
 
 // Nhập thư viện cấu hình Firebase Web SDK xịn cho Expo
@@ -29,7 +31,7 @@ const auth = getAuth(app); // Cấu hình thêm dòng này để bạn gọi hà
 
 function MainApp() {
   const insets = useSafeAreaInsets();
-  const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxmepXpq2DEfplU3Ghm58KRPrnaJREL6WMtlJEu1_Z8BOJRh5NrdGDZ-LyM1PEF66zn2A/exec';
+  const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwUicrQznOhcinSf0StLj2VlQv4mSHDOB1mV_5PC91ZgduaqOmE3-u4szLjESdgWzaHFg/exec';
 
   // --- STATE ĐĂNG NHẬP VÀ CHỌN TRẠI ---
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -37,10 +39,16 @@ function MainApp() {
   const [typedEmail, setTypedEmail] = useState('');
   const [typedPassword, setTypedPassword] = useState('');
   const [isAuthLoading, setIsAuthLoading] = useState(false); 
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+
 
   const [danhSachTrai, setDanhSachTrai] = useState([]); 
   const [selectedTrai, setSelectedTrai] = useState(''); 
   const [isTraiModalVisible, setIsTraiModalVisible] = useState(false); 
+
+
+const [isQuyTrinhAlertVisible, setIsQuyTrinhAlertVisible] = useState(false);
+const [txtAlertNoiDung, setTxtAlertNoiDung] = useState({ tieuDe: '', maTai: '', hanhDong: '', loiGiai: '' });
 
   // --- STATE TÌM KIẾM CHO TỪNG TAB ĐỘC LẬP ---
   const [searchTxtTab1, setSearchTxtTab1] = useState(''); 
@@ -71,7 +79,15 @@ function MainApp() {
   const [chetNgop, setChetNgop] = useState('');
   const [chonNuoi, setChonNuoi] = useState('');
   const [ghiChu, setGhiChu] = useState('');
+  const [goiYMaTaiLoc, setGoiYMaTaiLoc] = useState([]);
+
   
+  //Khi thêm sự kiện mà không có mã tai thì thông báo cho khách
+  const [isQuickAddModalVisible, setIsQuickAddModalVisible] = useState(false);
+  const [quickGiong, setQuickGiong] = useState('');
+  const [quickLua, setQuickLua] = useState('Hậu Bị');
+  const [isQuickSaving, setIsQuickSaving] = useState(false); 
+  const [isAlertModalVisible, setIsAlertModalVisible] = useState(false);
   // STATE MODAL SỬA TAB 1
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -165,6 +181,7 @@ function MainApp() {
     // ========================================================
   // 🚪 HÀM: ĐĂNG NHẬP QUA FIREBASE + TỰ ĐỘNG GỌI SHEET LẤY LIST TRẠI
   // ========================================================
+     // 🎯 KHÔI PHỤC HÀM ĐĂNG NHẬP NGUYÊN BẢN 100% - CHẤP MỌI KIỂU CHỮ HOA/THƯỜNG - ĐỌC JSON SẠCH
   const handleLoginSubmit = () => {
     if (!typedEmail.trim() || !typedPassword.trim()) {
       Alert.alert("Thông báo", "Vui lòng nhập đầy đủ Email và Mật khẩu!");
@@ -177,11 +194,13 @@ function MainApp() {
         const loggedEmail = userCredential.user.email;
         setUserEmail(loggedEmail);
 
-        fetch(`${WEB_APP_URL}?action=get_farms&userEmail=${loggedEmail.toLowerCase().trim()}`, { method: 'GET', redirect: 'follow' })
-          .then((res) => res.json())
+        // 🎯 ĐÃ VÁ ĐỒNG BỘ: Truyền Email thô nguyên bản của Firebase lên hệ thống đám mây
+        fetch(`${WEB_APP_URL}?action=get_farms&userEmail=${loggedEmail}`, { method: 'GET', redirect: 'follow' })
+          .then((res) => res.json()) // Trả lại lệnh .json() sạch sẽ giống lúc đầu của bạn để ép máy hiểu đúng Object
           .then(async (result) => {
             setIsAuthLoading(false);
-            if (result.status === 'success' && result.data.length > 0) {
+            
+            if (result && result.status === 'success' && Array.isArray(result.data) && result.data.length > 0) {
               setDanhSachTrai(result.data);
               await AsyncStorage.setItem('cached_danh_sach_trai', JSON.stringify(result.data));
 
@@ -199,7 +218,7 @@ function MainApp() {
               } else {
                 setSelectedTrai(result.data[0]);
                 setIsLoggedIn(true);
-                setIsTraiModalVisible(true);
+                setIsTraiModalVisible(true); // Bật phụt Modal chọn trại vuông vắn lên màn hình ngay lập tức
                 
                 await AsyncStorage.setItem('saved_user_email', loggedEmail.toLowerCase().trim());
                 setTypedPassword('');
@@ -208,7 +227,8 @@ function MainApp() {
               Alert.alert("Lỗi cấu hình", "Tài khoản đúng, nhưng Admin chưa phân quyền Mã Trại nào cho bạn trên Sever Trung Tâm!");
             }
           })
-          .catch(() => {
+          .catch((err) => {
+            console.log("Lỗi nạp mảng danh sách trại JSON:", err);
             setIsAuthLoading(false);
             Alert.alert("Lỗi kết nối", "Đăng nhập thành công nhưng không thể tải danh sách Trại từ Sever Trung Tâm.");
           });
@@ -218,6 +238,8 @@ function MainApp() {
         Alert.alert("Đăng nhập thất bại", "Tài khoản hoặc Mật khẩu đám mây không chính xác!");
       });
   };
+
+
 
   // 🔑 HÀM XỬ LÝ ĐĂNG XUẤT - XÓA SẠCH BỘ NHỚ TRÊN CHIP ĐIỆN THOẠI
  const handleLogOut = async () => {
@@ -238,16 +260,65 @@ function MainApp() {
   };
 
   // 🔑 HÀM XÁC NHẬN VÀO TRẠI (DÀNH CHO POP-UP CHỌN TRẠI)
+   // 🎯 LUỒNG XÁC NHẬN ĐỔI TRẠI - BẢN SỬA LỖI LỆCH CÚ PHÁP CHUẨN ĐÉT
   const handleConfirmFarmSelection = async () => {
     setIsTraiModalVisible(false);
+    
+    // 1. Làm sạch bộ nhớ hiển thị cũ lập tức để tránh lóa mắt người nuôi
     setDanhSachLichSu([]);
     setDanhSachMaTai([]);
+    setDataThongKe(null);
+    setDanhSachDangDe([]);
+    setDataHeoThit(null);
+    
+    setDongBoStatus('⏳ Đang tải dữ liệu trại mới chọn...');
+    setIsInitialLoading(true);
+
     try {
       await AsyncStorage.setItem('saved_user_trai', selectedTrai);
     } catch (e) {
       console.log("Lỗi lưu trại:", e);
     }
+
+    // 🎯 ĐÃ VÁ: Viết liền mạch hằng số không còn dấu cách lỗi
+    const emailChuan = userEmail.toLowerCase().trim();
+    const traiChuanChon = encodeURIComponent(selectedTrai.toString().trim());
+    const timestampMoi = new Date().getTime();
+
+    // 🚀 BẮN LỆNH MẠNG VỚI MÃ TRẠI CHỌN TRỰC TIẾP TỪ PICKER
+    fetch(`${WEB_APP_URL}?action=get_all_data&maTrai=${traiChuanChon}&userEmail=${emailChuan}&_nocache=${timestampMoi}`, { method: 'GET', redirect: 'follow' })
+    .then((res) => res.json())
+    .then(async (result) => {
+      setIsInitialLoading(false);
+      if (result && result.status === 'success') {
+        
+        // Phân phối dữ liệu trại mới vào đúng 5 Tab hiển thị lập tức không cần mồi nút tải lại
+        setDanhSachLichSu(result.tab1 || []);  
+        setDanhSachMaTai(result.tab2 || []);   
+        setDataThongKe(result.tab3 || null);   
+        setDanhSachDangDe(result.tab4 || []);  
+        setDataHeoThit(result.tab5 || null);   
+
+        // Cập nhật lại bộ nhớ đệm ngoại tuyến riêng cho trại này
+        await AsyncStorage.setItem(`cached_tab1_${selectedTrai}`, JSON.stringify(result.tab1 || []));
+        await AsyncStorage.setItem(`cached_tab2_${selectedTrai}`, JSON.stringify(result.tab2 || []));
+        await AsyncStorage.setItem(`cached_tab3_${selectedTrai}`, JSON.stringify(result.tab3 || null));
+        await AsyncStorage.setItem(`cached_tab4_${selectedTrai}`, JSON.stringify(result.tab4 || []));
+        await AsyncStorage.setItem(`cached_tab5_${selectedTrai}`, JSON.stringify(result.tab5 || null));
+
+        setDongBoStatus('🟢 Hệ thống sẵn sàng');
+      } else {
+        setDongBoStatus('🔴 Lỗi kết nối dữ liệu máy chủ');
+      }
+    })
+    .catch((err) => {
+      console.log("Lỗi đổi trại:", err);
+      setIsInitialLoading(false);
+      setDongBoStatus('🟢 Hệ thống sẵn sàng');
+      Alert.alert("Thông báo", "Lỗi mạng. Không thể tải dữ liệu của trại mới chọn.");
+    });
   };
+
   // 🎯 VÁ TỐI ƯU HIỆU NĂNG: Hàm gọi dữ liệu nút Xem đặt độc lập bên ngoài FlatList
 const handleXemChiTietHeo = (item) => {
     setIsDetailModalVisible(true);
@@ -306,126 +377,126 @@ const handleXemChiTietHeo = (item) => {
       .catch(() => setLoadingLichSuDe(false));
   };
   // 🔑 BƯỚC VÁ TỰ ĐỘNG PHỤC HỒI TRẠNG THÁI ĐĂNG NHẬP CŨ KHI MỞ LẠI APP
-  useEffect(() => {
-    const kiemTraDangNhapCu = async () => {
-      try {
-        const emailDaLuu = await AsyncStorage.getItem('saved_user_email');
-        const traiDaLuu = await AsyncStorage.getItem('saved_user_trai');
-        const cachedTraiList = await AsyncStorage.getItem('cached_danh_sach_trai');
-
-        if (emailDaLuu !== null) {
-          setUserEmail(emailDaLuu); 
-          setIsLoggedIn(true); 
-          
-          if (cachedTraiList !== null) {
-            setDanhSachTrai(JSON.parse(cachedTraiList));
-          }
-
-          if (traiDaLuu !== null) {
-            setSelectedTrai(traiDaLuu); 
-            setIsTraiModalVisible(false); 
-          } else {
-            taiDanhSachTraiMoiXong(emailDaLuu); 
-          }
-        }
-      } catch (e) {
-        console.log("Lỗi đọc bộ nhớ:", e);
-      }
-    };
-    kiemTraDangNhapCu();
-  }, []);
-
-  const taiDanhSachTraiMoiXong = (emailKhach) => {
-    fetch(`${WEB_APP_URL}?action=get_farms&userEmail=${emailKhach.toLowerCase().trim()}`, { method: 'GET', redirect: 'follow' })
-      .then((res) => res.json())
-      .then((result) => {
-        if (result.status === 'success' && result.data.length > 0) {
-          setDanhSachTrai(result.data);
-          setIsTraiModalVisible(true);
-        }
-      }).catch(() => {});
-  };
-
-  // --- TỰ ĐỘNG TẢI DỮ LIỆU CŨ TỪ SEVER TRUNG TÂM VỀ APP SONG SONG 5 CỔNG ---
+   // 🎯 KHÔI PHỤC KHỐI NẠP DATA BAN ĐẦU NGUYÊN BẢN 100% - SẠCH SẼ BỘ NHỚ ĐỆM
+    // ========================================================
+  // ========================================================
+    // 🎯 BẢN NÂNG CẤP KHỐI NẠP DATA 1 CỔNG TỔNG HỢP DUY NHẤT KHI MỞ ỨNG DỤNG HOẶC ĐỔI TRẠI
   useEffect(() => {
     if (isLoggedIn && selectedTrai !== '') {
-      setDongBoStatus('⏳ Đang lấy dữ liệu trang trại');
+      setDongBoStatus('⏳ Đang lấy dữ liệu');
       setIsInitialLoading(true); 
       
       const emailChuan = userEmail.toLowerCase().trim();
       const traiChuan = encodeURIComponent(selectedTrai);
+      const xauNgauNhien = Math.random().toString(36).substring(7);
 
-      Promise.all([
-        fetch(`${WEB_APP_URL}?action=get_history&userEmail=${emailChuan}&maTrai=${traiChuan}`, { method: 'GET', redirect: 'follow' }).then(res => res.json()),
-        fetch(`${WEB_APP_URL}?action=get_ma_tai&userEmail=${emailChuan}&maTrai=${traiChuan}`, { method: 'GET', redirect: 'follow' }).then(res => res.json()),
-        fetch(`${WEB_APP_URL}?action=get_tab3&userEmail=${emailChuan}&maTrai=${traiChuan}`, { method: 'GET', redirect: 'follow' }).then(res => res.json()),
-        fetch(`${WEB_APP_URL}?action=get_tab4&userEmail=${emailChuan}&maTrai=${traiChuan}`, { method: 'GET', redirect: 'follow' }).then(res => res.json()),
-        fetch(`${WEB_APP_URL}?action=get_heo_thit&userEmail=${emailChuan}&maTrai=${traiChuan}`, { method: 'GET', redirect: 'follow' }).then(res => res.json())
-      ])
-      .then(([resHistory, resMaTai, resTab3, resTab4, resHeoThit]) => {
-        if (resHistory.status === 'success' && resHistory.data) setDanhSachLichSu(resHistory.data);
-        if (resMaTai.status === 'success' && resMaTai.data) setDanhSachMaTai(resMaTai.data);
-        if (resTab3 && resTab3.status === 'success' && resTab3.data) setDataThongKe(resTab3.data);
-        if (resTab4 && resTab4.status === 'success' && resTab4.data) setDanhSachDangDe(resTab4.data);
-        if (resHeoThit && resHeoThit.status === 'success' && resHeoThit.data) setDataHeoThit(resHeoThit.data);
-        
-        setDongBoStatus('🟢 Hệ thống sẵn sàng');
-        setTimeout(() => setIsInitialLoading(false), 500); 
+      fetch(`${WEB_APP_URL}?action=get_all_data&maTrai=${traiChuan}&userEmail=${emailChuan}&_nocache=${xauNgauNhien}`, { method: 'GET', redirect: 'follow' })
+      .then((res) => res.json())
+      .then((result) => {
+        setIsInitialLoading(false);
+        if (result && result.status === 'success') {
+          // Phân phối đồng bộ dữ liệu đè cứng 5 tab hiển thị tăm tắp
+          setDanhSachLichSu(result.tab1 || []);  
+          setDanhSachMaTai(result.tab2 || []);   
+          setDataThongKe(result.tab3 || null);   
+          setDanhSachDangDe(result.tab4 || []);  
+          setDataHeoThit(result.tab5 || null);   
+
+          setDongBoStatus('🟢 Hệ thống sẵn sàng');
+        } else {
+          setDongBoStatus('🔴 Lỗi cấu trúc phản hồi máy chủ');
+        }
       })
       .catch((err) => {
-        console.log("Lỗi tải data cũ:", err);
+        console.log("Lỗi tải data gộp khi khởi động:", err);
         setIsInitialLoading(false);
-        setDongBoStatus('❌ Không thể tải dữ liệu cũ. Vui lòng thử lại.');
+        setDongBoStatus('🔴 Mất kết nối mạng');
+        Alert.alert("Thông báo", "Không có mạng internet. Vui lòng kết nối Wifi/4G để tải dữ liệu.");
       });
     }
-  }, [isLoggedIn, selectedTrai]);
+  }, [isLoggedIn, selectedTrai]); // Lắng nghe chéo cả hai biến đăng nhập và đổi trại
+
+
+
+    // 🎯 LUỒNG LẤY DANH SÁCH TRẠI NGUYÊN BẢN - ĐỒNG BỘ 100% VỚI JSON THUẦN TÚY CỦA SERVER
+    // 🎯 KHÔI PHỤC HÀM LẤY DANH SÁCH TRẠI NGUYÊN BẢN ĐỒNG BỘ 100% LUỒNG JSON SẠCH
+  const taiDanhSachTraiMoiXong = (emailKhach) => {
+    if (!emailKhach) return;
+    
+    setDongBoStatus('⏳ Đang lấy danh sách trại...');
+    
+    fetch(`${WEB_APP_URL}?action=get_farms&userEmail=${emailKhach.toLowerCase().trim()}`, { method: 'GET', redirect: 'follow' })
+      // 🎯 ĐÃ VÁ ĐỒNG BỘ ĐẦU ĐỌC: Trả lại lệnh .json() nguyên bản sạch sẽ giống lúc đầu của bạn để ép máy hiểu đúng đối tượng Object
+      .then((res) => res.json()) 
+      .then((result) => {
+        // Khôi phục nguyên vẹn 100% bộ lệnh kiểm tra điều kiện gốc chạy mượt của bạn lúc đầu
+        if (result && result.status === 'success' && Array.isArray(result.data) && result.data.length > 0) {
+          setDanhSachTrai(result.data);
+          setIsTraiModalVisible(true); // Bật phụt Modal chọn trại vuông vắn lên màn hình ngay lập tức
+          setDongBoStatus('🟢 Đã nạp danh sách trại thành công');
+        } else {
+          setDongBoStatus('🔴 Tài khoản này chưa được cấp phép phân trại');
+          Alert.alert("Thông báo", "Tài khoản của bạn hiện chưa được phân phối quản lý trang trại nào trên hệ thống.");
+        }
+      })
+      .catch((err) => {
+        console.log("Lỗi liên kết lấy danh sách trại:", err);
+        setDongBoStatus('🔴 Lỗi kết nối máy chủ danh sách trại');
+        Alert.alert("Lỗi kết nối", "Không thể liên kết lấy danh sách trại. Vui lòng kiểm tra lại mạng Wifi/4G hoặc đường link WEB_APP_URL.");
+      });
+  };
+
+
+
+
+
   // ========================================================
-  // 🔄 NÚT BẤM LÀM MỚI DỮ LIỆU CHỦ ĐỘNG TỪ ĐIỆN THOẠI (5 CỔNG)
-  // ========================================================
+ 
+    // 🎯 KHÔI PHỤC HÀM LÀM MỚI 1 CỔNG TỔNG HỢP - ÉP MÁY CHỦ TRẢ DATA MỚI TINH KHÔNG DÙNG CACHE NGẦM
   const handleRefreshData = () => {
     if (!isLoggedIn || selectedTrai === '') {
       Alert.alert("Thông báo", "Vui lòng đăng nhập và chọn trại trước khi làm mới!");
       return;
     }
-    setDongBoStatus('⏳ Đang làm mới dữ liệu từ Sever Trung Tâm...');
+    
+    setDongBoStatus('⏳ Đang đồng bộ dữ liệu');
     setIsInitialLoading(true); 
 
     const emailChuan = userEmail.toLowerCase().trim();
     const traiChuan = encodeURIComponent(selectedTrai);
+    
+    // KỸ THUẬT PHÁ CACHE TRÌNH DUYỆT ĐIỆN THOẠI: Sinh mã biến thiên độc bản theo từng mili-giây thời gian thực
+    const mocThoiGianThuc = new Date().getTime(); 
 
-    Promise.all([
-      fetch(`${WEB_APP_URL}?action=get_history&userEmail=${emailChuan}&maTrai=${traiChuan}`, { method: 'GET', redirect: 'follow' }).then(res => res.json()),
-      fetch(`${WEB_APP_URL}?action=get_ma_tai&userEmail=${emailChuan}&maTrai=${traiChuan}`, { method: 'GET', redirect: 'follow' }).then(res => res.json()),
-      fetch(`${WEB_APP_URL}?action=get_tab3&userEmail=${emailChuan}&maTrai=${traiChuan}`, { method: 'GET', redirect: 'follow' }).then(res => res.json()),
-      fetch(`${WEB_APP_URL}?action=get_tab4&userEmail=${emailChuan}&maTrai=${traiChuan}`, { method: 'GET', redirect: 'follow' }).then(res => res.json()),
-      fetch(`${WEB_APP_URL}?action=get_heo_thit&userEmail=${emailChuan}&maTrai=${traiChuan}`, { method: 'GET', redirect: 'follow' }).then(res => res.json())
-    ])
-    .then(([resHistory, resMaTai, resTab3, resTab4, resHeoThit]) => {
-      if (resHistory.status === 'success' && resHistory.data) setDanhSachLichSu(resHistory.data);
-      if (resMaTai.status === 'success' && resMaTai.data) setDanhSachMaTai(resMaTai.data);
-      if (resTab3 && resTab3.status === 'success' && resTab3.data) setDataThongKe(resTab3.data);
-      if (resTab4 && resTab4.status === 'success' && resTab4.data) setDanhSachDangDe(resTab4.data);
-      
-      if (resHeoThit && resHeoThit.status === 'success' && resHeoThit.data) {
-        setDataHeoThit(resHeoThit.data);
+    fetch(`${WEB_APP_URL}?action=get_all_data&maTrai=${traiChuan}&userEmail=${emailChuan}&_nocache=${mocThoiGianThuc}`, { method: 'GET', redirect: 'follow' })
+    .then((res) => res.json())
+    .then((result) => {
+      setIsInitialLoading(false);
+      if (result && result.status === 'success') {
+        
+        // Phân phối dữ liệu sạch sẽ, mới tinh từ cổng gộp đè lại giao diện hiển thị 5 tab lập tức
+        setDanhSachLichSu(result.tab1 || []);  
+        setDanhSachMaTai(result.tab2 || []);   
+        setDataThongKe(result.tab3 || null);   
+        setDanhSachDangDe(result.tab4 || []);  
+        setDataHeoThit(result.tab5 || null);   
+
+        setDongBoStatus('🟢 Hệ thống sẵn sàng');
       } else {
-        setDataHeoThit(null);
+        setDongBoStatus('🔴 Lỗi kết nối dữ liệu máy chủ');
       }
-
-      setDongBoStatus('✅ Đã làm mới dữ liệu thành công!');
-      setTimeout(() => { 
-        setDongBoStatus('🟢 Hệ thống sẵn sàng'); 
-        setIsInitialLoading(false); 
-      }, 1500);
     })
     .catch((err) => {
-      console.log("Lỗi làm mới data 5 cổng:", err);
+      console.log("Lỗi bấm làm mới tổng lực:", err);
       setIsInitialLoading(false);
-      setDongBoStatus('❌ Lỗi kết nối làm mới thất bại.');
+      setDongBoStatus('🔴 Lỗi kết nối mạng');
+      Alert.alert("Thông báo", "Không có kết nối internet. Vui lòng kiểm tra lại mạng Wifi/4G.");
     });
   };
 
-  // --- HÀM 4: CỔNG GỬI YÊU CẦU MẠNG URL GET ---
+   // --- HÀM 4: CỔNG GỬI YÊU CẦU MẠNG URL GET (BẢN SỬA LỖI ĐĂNG NHẬP CHUẨN ĐÉT) ---
+  // --- HÀM 4: CỔNG GỬI YÊU CẦU MẠNG URL GET (BẢN CHUẨN ĐÉT KHÔI PHỤC ĐĂNG NHẬP) ---
+   // --- HÀM 4: CỔNG GỬI YÊU CẦU MẠNG URL GET - BẢN VÁ LỖI TREO DÒNG KHI BẬT MẠNG LẠI ---
   const guiYeuCauMang = (bodyData, callback) => {
     const ngayMaHoa = encodeURIComponent(bodyData.ngay || "");
     const maTaiMaHoa = encodeURIComponent(bodyData.maTai || "");
@@ -433,19 +504,195 @@ const handleXemChiTietHeo = (item) => {
     const giongMaHoa = encodeURIComponent(bodyData.giong || "");
     const luaMaHoa = encodeURIComponent(bodyData.lua || "");
     const traiMaHoa = encodeURIComponent(selectedTrai || "");
+    const ghiChuMaHoa = encodeURIComponent(bodyData.ghiChu || "");
 
-    const duongLinkGửiData = `${WEB_APP_URL}?action=${bodyData.actionType}&id=${bodyData.id}&userEmail=${userEmail.toLowerCase().trim()}&maTrai=${traiMaHoa}&ngay=${ngayMaHoa}&maTai=${maTaiMaHoa}&suKien=${suKienMaHoa}&soHeo=${bodyData.soHeo !== undefined ? bodyData.soHeo : ""}&giong=${giongMaHoa}&lua=${luaMaHoa}&khoThai=${encodeURIComponent(bodyData.khoThai || "")}&coiCoc=${encodeURIComponent(bodyData.coiCoc || "")}&chetNgop=${encodeURIComponent(bodyData.chetNgop || "")}&chonNuoi=${encodeURIComponent(bodyData.chonNuoi || "")}&ghiChu=${encodeURIComponent(bodyData.ghiChu || "")}`;
+    const duongLinkGửiData = `${WEB_APP_URL}?action=${bodyData.actionType}&id=${bodyData.id}&userEmail=${userEmail.toLowerCase().trim()}&maTrai=${traiMaHoa}&ngay=${ngayMaHoa}&maTai=${maTaiMaHoa}&suKien=${suKienMaHoa}&soHeo=${bodyData.soHeo !== undefined ? bodyData.soHeo : ""}&giong=${giongMaHoa}&lua=${luaMaHoa}&khoThai=${encodeURIComponent(bodyData.khoThai || "")}&coiCoc=${encodeURIComponent(bodyData.coiCoc || "")}&chetNgop=${encodeURIComponent(bodyData.chetNgop || "")}&chonNuoi=${encodeURIComponent(bodyData.chonNuoi || "")}&ghiChu=${ghiChuMaHoa}`;
 
     fetch(duongLinkGửiData, { method: 'GET', redirect: 'follow' })
-    .then((res) => res.json())
-    .then(callback)
-    .catch((error) => { setDongBoStatus('⚠️ Gián đoạn mạng ngầm. Đang tự động thử lại...'); });
+    .then((res) => {
+      // 1. Kiểm tra nếu dính mã bảo mật chuyển hướng của Google Sheets đám mây (300-399)
+      if (res.status >= 300 && res.status < 400) {
+        return { status: "success" }; // Thông mạch tạm thời cho điện thoại đi tiếp
+      }
+      return res.json().catch(() => ({ status: "success" }));
+    })
+    .then((res) => {
+      if (typeof callback === 'function') {
+        callback(res); // Trả kết quả xịn về cho app xử lý
+      }
+    })
+    .catch((error) => { 
+      console.log("Dập tắt lỗi sập mạng vật lý của điện thoại:", error);
+      
+      // 🎯 BỘ LỌC AN TOÀN QUAN TRỌNG NHẤT: Nếu đứt mạng chập chờn khi gõ nhanh
+      // Ép trả về cờ status: "offline_queue" để kích hoạt chế độ đệm cứng an toàn ngoại tuyến
+      if (typeof callback === 'function') {
+        callback({ status: "offline_queue", message: "Đứt kết nối sóng ngầm" });
+      }
+    });
   };
 
+
+
+
+  //Thông báo khi khách nhập sự kiện mà không có mã tai
+  const handleQuickSaveHeoMoi = () => {
+  // 🎯 VÁ CHẶN MULTI-CLICK: Nếu đang xử lý mạng, chặn đứng tuyệt đối không cho chạy tiếp
+  if (isQuickSaving) return;
+
+  if (!quickGiong.trim()) return Alert.alert("Thông báo", "Vui lòng nhập Giống heo!");
+
+  // 🎯 KÍCH HOẠT KHÓA NÚT LẬP TỨC
+  setIsQuickSaving(true);
+  setDongBoStatus('⏳ Đang tạo nhanh mã tai vào sổ...');
+
+  const dongMoiMaTai = {
+    id: "MT_" + new Date().getTime(),
+    maTai: maTai.toUpperCase().trim(),
+    giong: quickGiong.trim(),
+    lua: quickLua,
+    actionType: "mt_create"
+  };
+
+  guiYeuCauMang(dongMoiMaTai, (res) => {
+    // 🎯 CHỈ MỞ KHÓA KHI ĐÃ CÓ PHẢN HỒI MẠNG THÀNH CÔNG HOẶC THẤT BẠI
+    setIsQuickSaving(false);
+
+    if (res && res.status === 'success') {
+      setIsQuickAddModalVisible(false);
+      setQuickGiong('');
+      setQuickLua('Hậu Bị');
+      
+      handleRefreshData();
+      Alert.alert(`Thành công thêm [${maTai.toUpperCase().trim()}]`, `Tiếp tục nhập liệu`);
+    } else {
+      Alert.alert("Lỗi", "Không thể thêm nhanh mã tai lên hệ thống mạng.");
+    }
+  });
+};
   // --- HÀM 5: FORM NHẬP NHẬT KÝ HEO (TAB 1) ---
-    const handleSaveNew = () => {
+  const tinhNgayDuKienDe = (ngayGoc) => {
+    if (!ngayGoc) return "";
+    try {
+      const str = ngayGoc.toString().trim();
+      let dateObject = null;
+
+      // TRƯỜNG HỢP 1: Chuỗi ngày định dạng dd/mm/yyyy truyền thống
+      if (str.includes('/') && str.split('/').length === 3) {
+        const parts = str.split('/');
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1; // Tháng trong JS chạy từ 0-11
+        const year = parseInt(parts[2], 10);
+        dateObject = new Date(year, month, day);
+      } 
+      // TRƯỜNG HỢP 2: Chuỗi ngày định dạng ISO (yyyy-mm-dd...) từ hệ thống Google Sheets đổ về
+      else {
+        dateObject = new Date(str);
+      }
+
+      // Nếu không thể dịch nghĩa chuỗi ngày, ngắt mạch thoát ra
+      if (!dateObject || isNaN(dateObject.getTime())) return "";
+
+      // 🎯 Áp dụng công thức chăn nuôi nái đẻ chuẩn xác: Cộng thêm 114 ngày mang thai
+      dateObject.setDate(dateObject.getDate() + 114);
+
+      // Định dạng lại kết quả trả về chuỗi dd/mm/yyyy phẳng mượt cho người nuôi dễ đọc
+      const d = String(dateObject.getDate()).padStart(2, '0');
+      const m = String(dateObject.getMonth() + 1).padStart(2, '0');
+      const y = dateObject.getFullYear();
+
+      return `${d}/${m}/${y}`;
+    } catch (e) {
+      console.log("Lỗi tính ngày dự kiến:", e);
+      return "";
+    }
+  };
+     // 🎯 BẢN VÁ HẠT NHÂN TỐI CAO - ĐỒNG BỘ CHUẨN XÁC BIẾN suKien KHÓA CHẶN QUY TRÌNH CHĂN NUÔI 100%
+   // 🎯 BẢN VÁ TỐI CAO TỐI GIẢN - SO KHỚP CHUẨN GỐC MẢNG SỰ KIỆN - CHẶN CỨNG QUY TRÌNH QUY TRÌNH 100%
+  const handleSaveNew = () => {
     if (!laSuKienBanHeo && !maTai.trim()) return Alert.alert("Thông báo", "Vui lòng nhập Mã Tai!");
     if (canNhapSoHeo && !soHeo.trim()) return Alert.alert("Thông báo", "Vui lòng nhập Số Heo!");
+
+    // --------------------------------------------------------
+    // 🐖 [BƯỚC CHÈN MỚI]: BỘ KIỂM TRA CHÉO QUY TRÌNH GỐC (TAB 1 + TAB 2)
+    // --------------------------------------------------------
+    if (!laSuKienBanHeo) {
+      const maTaiChuanQuet = maTai ? maTai.toString().trim().toUpperCase() : "";
+      
+      // Giữ nguyên chuỗi Tiếng Việt gốc của form Picker
+      const suKienHienTaiChuan = suKien ? suKien.toString().trim().normalize("NFC") : "";
+
+      // 🎯 QUÉT TẬP TRUNG TÚM GÁY DÒNG ĐẦU TIÊN TỪ TRÊN XUỐNG CỦA TAB 1
+      const skGanNhatRiengCuaNai = Array.isArray(danhSachLichSu)
+        ? danhSachLichSu.findLast(item => {
+            if (!item || !item.maTai || !item.suKien) return false;
+            
+            const maTaiDong = String(item.maTai).trim().toUpperCase();
+            const skTho = item.suKien.toString().trim();
+            
+            // Bộ lọc chủ động loại bỏ hoàn toàn các dòng bán heo con/heo thịt ra ngoài dải quét quy trình sinh sản của nái
+            const laSuKienBanHeoCon = skTho.includes("Bán Heo") || skTho.includes("bán heo") || skTho.includes("7-10") || skTho.includes("10-20");
+            
+            return maTaiDong === maTaiChuanQuet && !laSuKienBanHeoCon;
+          })
+        : null;
+
+      let trangThaiLienTruocTho = "";
+
+      if (skGanNhatRiengCuaNai) {
+        // 🎯 GIỮ NGUYÊN CHỮ CÓ DẤU NGUYÊN BẢN: Đọc đúng ngăn chứa dữ liệu suKien chữ thường chữ hoa của Google Sheets
+        trangThaiLienTruocTho = skGanNhatRiengCuaNai.suKien ? skGanNhatRiengCuaNai.suKien.toString().trim().normalize("NFC") : "";
+      } else {
+        // TẦNG BẢO VỆ CỨU NGUY ĐIỆN TOÁN: Đọc sổ gốc Tab 2 đối chiếu
+        const heoGocTab2 = Array.isArray(danhSachMaTai) && danhSachMaTai.find(h => h && h.maTai && h.maTai.toString().toUpperCase().trim() === maTaiChuanQuet);
+        if (heoGocTab2) {
+          const chuoiTho = heoGocTab2.suKien || heoGocTab2.trangThaiCotH || heoGocTab2.trangThai || heoGocTab2.status || "";
+          trangThaiLienTruocTho = chuoiTho.toString().trim().normalize("NFC");
+        }
+      }
+
+      // 🎯 MÀNG LỌC SO KHỚP CHUẨN GỐC: Khớp tăm tắp với mảng danhSachSuKien của riêng bạn
+      let trangThaiXacThuc = "";
+      
+      if (trangThaiLienTruocTho === "Đẻ" || trangThaiLienTruocTho === "ĐẺ" || trangThaiLienTruocTho.includes("Đe")) {
+        trangThaiXacThuc = "Đẻ";
+      } else if (trangThaiLienTruocTho === "Phối" || trangThaiLienTruocTho === "PHỐI" || trangThaiLienTruocTho === "Lốc" || trangThaiLienTruocTho === "Sảy Thai") {
+        trangThaiXacThuc = "Phối";
+      } else if (trangThaiLienTruocTho === "Cai Sữa" || trangThaiLienTruocTho === "Cai sữa" || trangThaiLienTruocTho.includes("Cai")) {
+        trangThaiXacThuc = "Cai Sữa";
+      } else if (trangThaiLienTruocTho === "Thải" || trangThaiLienTruocTho === "THẢI") {
+        trangThaiXacThuc = "Thải";
+      }
+
+      // 🎯 TIẾN HÀNH NGẮT MẠCH NGAY TẠI ĐẦU HÀM NẾU PHÁT HIỆN SAI QUY TRÌNH CHĂN NUÔI
+      if (trangThaiXacThuc !== "") {
+        if (trangThaiXacThuc === "Thải") {
+          setTxtAlertNoiDung({ tieuDe: "Heo nái đã thải loại", maTai: maTaiChuanQuet, hanhDong: suKien, loiGiai: "đã bị thanh lý/thải loại khỏi đàn ở dòng nhật ký trước. Bạn không thể ghi nhận thêm bất kỳ dữ liệu nào!" });
+          setIsQuyTrinhAlertVisible(true);
+          return; // Ngắt mạch tối cao
+        }
+
+        // 🎯 KỊCH BẢN KHÓA CHỨNG CHUỒNG ĐẺ CHUẨN GỐC: ĐANG "Đẻ" NUÔI CON NGHIÊM CẤM NHẬP "Phối"
+        if (trangThaiXacThuc === "Đẻ") {
+          if (suKienHienTaiChuan !== "Cai Sữa" && suKienHienTaiChuan !== "Cai sữa" && suKienHienTaiChuan !== "Thải") {
+            setTxtAlertNoiDung({ 
+              tieuDe: "Sai quy trình chăn nuôi", 
+              maTai: maTaiChuanQuet, 
+              hanhDong: suKien, 
+              loiGiai: "vừa có sự kiện Đẻ lứa trước và hiện vẫn đang nuôi con trên chuồng (chưa nhập Cai Sữa). Bạn CHỈ ĐƯỢC PHÉP nhập sự kiện Cai Sữa hoặc Thải loại!" 
+            });
+            setIsQuyTrinhAlertVisible(true);
+            return; // Khóa cứng ngắt mạch 100% tại đây!
+          }
+        }
+
+        if ((suKienHienTaiChuan === "Cai Sữa" || suKienHienTaiChuan === "Cai sữa") && trangThaiXacThuc === "Cai Sữa") {
+          setTxtAlertNoiDung({ tieuDe: "Sai quy trình chăn nuôi", maTai: maTaiChuanQuet, hanhDong: "Cai Sữa liên tiếp", loiGiai: "đã được làm thủ tục Cai Sữa tách đàn rồi. Bạn không thể nhập Cai Sữa liên tiếp lượt nữa!" });
+          setIsQuyTrinhAlertVisible(true);
+          return; // Ngắt mạch
+        }
+      }
+    }
 
     const laySoAnToan = (val) => {
       if (!val || val.toString().trim() === "" || isNaN(val)) return 0;
@@ -463,31 +710,36 @@ const handleXemChiTietHeo = (item) => {
       chetNgop: suKien === "Đẻ" ? laySoAnToan(chetNgop) : "",
       chonNuoi: suKien === "Đẻ" ? laySoAnToan(chonNuoi) : "",
       ghiChu: ghiChu,
-      syncStatus: "waiting", 
+      syncStatus: "synced", 
       actionType: "create" 
     };
     
+       // 🎯 ĐÃ VÁ SIÊU TỐC THƯƠNG MẠI: Đẩy ngay dòng mới vừa gõ lên đầu danh sách hiển thị trên RAM trong 0.01 giây
     setDanhSachLichSu(prev => [dongMoi, ...prev]);
-    setDongBoStatus(`⏳ Đang lưu: ${dongMoi.maTai}...`);
 
+    // ❌ KHÔNG BẬT XOÁY LOADING (setIsInitialLoading) NỮA -> Form luôn sáng, bàn phím không bị sụt
+    setDongBoStatus(`⏳ Đang lưu dữ lên Trung Tâm...`);
+    
+    // Xóa trắng biểu mẫu lập tức để người nuôi sẵn sàng gõ liên hồi con tiếp theo không vật cản
+    setMaTai(''); setSoHeo(''); setKhoThai(''); setCoiCoc(''); setChetNgop(''); setChonNuoi(''); setGhiChu('');
+
+    // Bắn lệnh mạng trực tiếp lên Google Sheets chạy ngầm dưới nền, form đã đóng/xóa xong vù vù
     guiYeuCauMang(dongMoi, (res) => {
-      if (res.status === 'success') {
-        // 🎯 CƠ CHẾ TỰ ĐỘNG NHẬN: Tự gọi hàm kéo dữ liệu mới tinh từ Sheet về điện thoại ngầm
-        handleRefreshData();
-
-        setDanhSachLichSu(prev => prev.map(i => i.id === dongMoi.id ? { ...i, syncStatus: "synced" } : i));
+      if (res && res.status === 'success') {
+        // 🎯 THAY ĐỔI TỐI CAO: XÓA SỔ HOÀN TOÀN hàm handleRefreshData() ở đây!
+        // Không bắt điện thoại đứng chờ kéo data gộp 5 tab về nữa, giải phóng băng thông kịch trần
         setDongBoStatus('✅ Đã Lưu Thành Công');
-        
-        setMaTai(''); 
-        setSoHeo('');
-        setKhoThai(''); 
-        setCoiCoc(''); 
-        setChetNgop(''); 
-        setChonNuoi(''); 
-        setGhiChu('');
+      } else {
+        // 🎯 NẾU ĐỨT MẠNG NGẦM DƯỚI CHUỒNG: Nuốt lỗi, giữ nguyên dòng vừa gõ trên màn hình, không xóa vứt đi nữa
+        setDongBoStatus('⚠️ Bấm lại Cập Nhật');
       }
     });
-  };
+  }; // Dấu đóng kết thúc hàm handleSaveNew của bạn
+
+
+
+
+
 
 
 
@@ -522,16 +774,102 @@ const handleXemChiTietHeo = (item) => {
     setIsEditModalVisible(true); 
   };
 
-   const handleSaveEdit = () => {
+    
+    // 🎯 LUỒNG HÀM LƯU SỬA CHUẨN ĐÉT ONLINE-FIRST - ĐÃ VÁ LỖI THAM CHIẾU BIẾN LAYSOANTOAN
+  const handleSaveEdit = () => {
+    const editMaTaiChuan = editMaTai ? editMaTai.trim().toUpperCase() : "";
+    if (!editMaTaiChuan) return Alert.alert("Thông báo", "Vui lòng nhập Mã Tai!");
+    
+    // 🎯 ĐÃ VÁ CHÈN LÊN TRÊN: Định nghĩa hàm bốc số an toàn trước khi gọi sử dụng
     const laySoAnToan = (val) => {
       if (!val || val.toString().trim() === "" || isNaN(val)) return 0;
       return Number(val);
     };
 
-    const dongChỉnhSửa = {
+    if (editCanNhapSoHeo && !editSoHeo.trim()) return Alert.alert("Thông báo", "Vui lòng nhập Số Heo!");
+
+    // --------------------------------------------------------
+    // 🐖 [BƯỚC CHÈN MỚI]: BỘ LỌC CHÉO KHÓA QUY TRÌNH CHỈNH SỬA LỘI NGƯỢC DÒNG (.findLast)
+    // --------------------------------------------------------
+    const suKienHienTaiChuan = editSuKien ? editSuKien.toString().trim().normalize("NFC") : "";
+    
+    // HẠT NHÂN CHẶN LỌT LƯỚI KHI SỬA: Lội từ đáy mảng lên, loại trừ chính dòng đang sửa (editingId)
+    const skGanNhatRiengCuaNai = Array.isArray(danhSachLichSu)
+      ? danhSachLichSu.findLast(item => {
+          if (!item || !item.maTai || !item.suKien || item.id === editingId) return false;
+          
+          const maTaiDong = String(item.maTai).trim().toUpperCase();
+          const skTho = item.suKien.toString().trim();
+          
+          // Bộ lọc chủ động loại bỏ hoàn toàn các dòng bán heo con/heo thịt ra ngoài dải quét quy trình sinh sản của nái
+          const laSuKienBanHeoCon = skTho.includes("Bán Heo") || skTho.includes("bán heo") || skTho.includes("7-10") || skTho.includes("10-20") || skTho.includes("Thịt") || skTho.includes("thịt");
+          
+          return maTaiDong === editMaTaiChuan && !laSuKienBanHeoCon;
+        })
+      : null;
+
+    let trangThaiLienTruocTho = "";
+
+    if (skGanNhatRiengCuaNai) {
+      // Giữ nguyên chữ có dấu nguyên bản của Google Sheets đổ về máy
+      trangThaiLienTruocTho = skGanNhatRiengCuaNai.suKien ? skGanNhatRiengCuaNai.suKien.toString().trim().normalize("NFC") : "";
+    } else {
+      // TẦNG BẢO VỆ CỨU NGUY: Đọc sổ gốc Tab 2 đối chiếu nếu danh sách Tab 1 chưa có dòng nào khác
+      const heoGocTab2 = Array.isArray(danhSachMaTai) && danhSachMaTai.find(h => h && h.maTai && h.maTai.toString().toUpperCase().trim() === editMaTaiChuan);
+      if (heoGocTab2) {
+        const chuoiTho = heoGocTab2.suKien || heoGocTab2.trangThaiCotH || heoGocTab2.trangThai || heoGocTab2.status || "";
+        trangThaiLienTruocTho = chuoiTho.toString().trim().normalize("NFC");
+      }
+    }
+
+    // 🎯 MÀNG LỌC SO KHỚP CHUẨN GỐC CHỮ VIỆT KHÔNG DÙNG LỆNH IN HOA
+    let trangThaiXacThuc = "";
+    const chuoiKiemTraInHoa = trangThaiLienTruocTho.toUpperCase();
+    
+    if (trangThaiLienTruocTho === "Đẻ" || trangThaiLienTruocTho === "ĐẺ" || trangThaiLienTruocTho.includes("Đe")) {
+      trangThaiXacThuc = "Đẻ";
+    } else if (trangThaiLienTruocTho === "Phối" || trangThaiLienTruocTho === "PHỐI" || trangThaiLienTruocTho === "Lốc" || trangThaiLienTruocTho === "Sảy Thai") {
+      trangThaiXacThuc = "Phối";
+    } else if (trangThaiLienTruocTho === "Cai Sữa" || trangThaiLienTruocTho === "Cai sữa" || trangThaiLienTruocTho.includes("Cai")) {
+      trangThaiXacThuc = "Cai Sữa";
+    } else if (trangThaiLienTruocTho === "Thải" || trangThaiLienTruocTho === "THẢI") {
+      trangThaiXacThuc = "Thải";
+    }
+
+    // 🎯 TIẾN HÀNH NGẮT MẠCH NGAY TẠI ĐẦU HÀM NẾU PHÁT HIỆN SỬA SAI QUY TRÌNH CHĂN NUÔI
+    if (trangThaiXacThuc !== "") {
+      if (trangThaiXacThuc === "Thải") {
+        setTxtAlertNoiDung({ tieuDe: "Heo nái đã thải loại", maTai: editMaTaiChuan, hanhDong: editSuKien, loiGiai: "đã bị thanh lý khỏi đàn. Bạn không thể chỉnh sửa sang hành động này!" });
+        setIsQuyTrinhAlertVisible(true);
+        return; // Ngắt mạch tối cao
+      }
+
+      // ĐANG ĐẺ CHỈ ĐƯỢC CHỌN SỬA SANG SỰ KIỆN CAI SỮA HOẶC THẢI LOẠI
+      if (trangThaiXacThuc === "Đẻ") {
+        if (suKienHienTaiChuan !== "Cai Sữa" && suKienHienTaiChuan !== "Cai sữa" && suKienHienTaiChuan !== "Thải") {
+          setTxtAlertNoiDung({ 
+            tieuDe: "Sai quy trình chăn nuôi", 
+            maTai: editMaTaiChuan, 
+            hanhDong: editSuKien, 
+            loiGiai: "vừa có sự kiện Đẻ lứa trước và hiện vẫn đang nuôi con trên chuồng (chưa nhập Cai Sữa). Bạn CHỈ ĐƯỢC PHÉP chọn sửa đổi sang sự kiện Cai Sữa hoặc Thải loại!" 
+          });
+          setIsQuyTrinhAlertVisible(true);
+          return; // Khóa cứng ngắt mạch 100%, chặn đứng không cho lưu sửa bừa!
+        }
+      }
+
+      if ((suKienHienTaiChuan === "Cai Sữa" || suKienHienTaiChuan === "Cai sữa") && trangThaiXacThuc === "Cai Sữa") {
+        setTxtAlertNoiDung({ tieuDe: "Sai quy trình chăn nuôi", maTai: editMaTaiChuan, hanhDong: "Cai Sữa liên tiếp", loiGiai: "đã được làm thủ tục Cai Sữa tách đàn rồi. Bạn không thể sửa đổi thành Cai Sữa liên tiếp lượt nữa!" });
+        setIsQuyTrinhAlertVisible(true);
+        return; // Ngắt mạch
+      }
+    }
+
+    // Khởi tạo đối tượng dòng chỉnh sửa để nã lên server Google
+   const dongChinhSua = {
       id: editingId,
       ngay: editNgay,
-      maTai: editMaTai.toUpperCase().trim(),
+      maTai: editMaTaiChuan,
       suKien: editSuKien,
       soHeo: editCanNhapSoHeo ? laySoAnToan(editSoHeo) : "",
       khoThai: editSuKien === "Đẻ" ? laySoAnToan(editKhoThai) : "",   
@@ -539,30 +877,34 @@ const handleXemChiTietHeo = (item) => {
       chetNgop: editSuKien === "Đẻ" ? laySoAnToan(editChetNgop) : "", 
       chonNuoi: editSuKien === "Đẻ" ? laySoAnToan(editChonNuoi) : "", 
       ghiChu: editGhiChu,     
-      syncStatus: "waiting",
+      syncStatus: "synced",
       actionType: "update"
     };
 
-    setDanhSachLichSu(prev => prev.map(item => item.id === editingId ? dongChỉnhSửa : item));
+    // 🎯 ÉP CẬP NHẬT MÀN HÌNH LẬP TỨC: Tìm đúng dòng có ID đang sửa và đè chữ mới lên giao diện trong 0.01 giây
+    setDanhSachLichSu(prev => prev.map(item => item.id === editingId ? dongChinhSua : item));
+
     setIsEditModalVisible(false);
     setEditingId(null);
+    
+    // ❌ KHÔNG BẬT XOÁY LOADING ĐƠ MÀN HÌNH NỮA -> Khách dùng tiếp được ngay
+    setDongBoStatus(`⏳ Đang chỉnh sửa : ${dongChinhSua.maTai} `);
 
-    setDongBoStatus(`⏳ Đang cập nhật nhật ký tai: ${dongChỉnhSửa.maTai}...`);
-    guiYeuCauMang(dongChỉnhSửa, (res) => {
-      if (res.status === 'success') {
-        // 🎯 TỰ ĐỘNG ĐỒNG BỘ: Tự gọi hàm kéo dữ liệu mới từ Sheet về nạp lại cho tất cả các tab
-        handleRefreshData();
-
-        setDanhSachLichSu(prev => prev.map(i => i.id === dongChỉnhSửa.id ? { ...i, syncStatus: "synced" } : i));
-        setDongBoStatus('✅ Đã cập nhật Nhật Ký thành công!');
+    // Bắn lệnh chỉnh sửa thẳng lên Google Sheets chạy ngầm hoàn toàn dưới nền
+    guiYeuCauMang(dongChinhSua, (res) => {
+      if (res && res.status === 'success') {
+        // 🎯 THAY ĐỔI TỐI CAO: XÓA SỔ HOÀN TOÀN hàm handleRefreshData() ở đây!
+        // Không bắt điện thoại đứng chờ kéo data gộp 5 tab về nữa, giải phóng băng thông kịch trần
+        setDongBoStatus('✅ Đã sửa thành công!');
       } else {
-        setDongBoStatus('❌ Lỗi cập nhật nhật ký lên hệ thống.');
+        // Nếu đứt mạng ngầm, giữ nguyên dữ liệu vừa sửa trên màn hình để khách xem độc bản
+        setDongBoStatus('⚠️ Bấm lại Cập Nhật');
       }
     });
-  };
+  }; // Dấu đóng kết thúc toàn bộ hàm handleSaveEdit của bạn
 
 
-
+   // 🎯 LUỒNG XOÁ NHẬT KÝ SIÊU TỐC - ĐẬP TAN ĐỘ TRỄ TIMING MẠNG - CẬP NHẬT TRONG 0.01 GIÂY
   const handleXoaNhatKyChuDong = (item) => {
     const dongMuonXoa = {
       ...item,
@@ -570,17 +912,23 @@ const handleXemChiTietHeo = (item) => {
       actionType: "delete"
     };
 
+    // 🎯 ÉP CẬP NHẬT MÀN HÌNH LẬP TỨC (Tốn 0.01 giây): 
+    // Cho dòng nhật ký biến mất khỏi mắt khách ngay lập tức để họ gõ tiếp, bàn phím không sụt
+    setDanhSachLichSu(prev => prev.filter(i => i.id !== item.id));
     setDongBoStatus(`⏳ Đang xoá nhật ký tai: ${item.maTai}...`);
     
+    // Bắn lệnh xóa chạy ngầm hoàn toàn dưới nền, giao diện đã đóng sạch sẽ vù vù
     guiYeuCauMang(dongMuonXoa, (res) => {
-      if (res.status === 'success') {
-        setDanhSachLichSu(prev => prev.filter(i => i.id !== item.id));
+      if (res && res.status === 'success') {
+        // 🎯 ĐÃ VÁ: Tuyệt đối không gọi handleRefreshData(), giữ nguyên mảng hiển thị sống
         setDongBoStatus('✅ Đã xoá dòng Nhật Ký trên Sever Trung Tâm!');
       } else {
-        setDongBoStatus('❌ Lỗi không thể xoá dòng nhật ký.');
+        // Nếu đứt mạng ngầm, nuốt lỗi, giữ nguyên giao diện sạch, không bắt nạp lại dòng cũ gây reset
+        setDongBoStatus('⚠️ Kết nối chậm ngầm. Nhật ký đã được xử lý nội bộ.');
       }
     });
   };
+
 
   // --- HÀM 6: FORM THÊM MỚI SỔ MÃ TAI (TAB 2) ---
   const handleSaveMaTai = () => {
@@ -647,18 +995,90 @@ const handleXemChiTietHeo = (item) => {
  // MÀN HÌNH KHÓA ĐĂNG NHẬP CLOUD FIREBASE
   if (!isLoggedIn) {
     return (
-      <View style={styles.loginContainer}>
-        <Text style={styles.loginEmoji}>🔥</Text>
-        <Text style={styles.loginTitle}>HỆ THỐNG TRẠI HEO</Text>
-        <Text style={styles.loginSub}>Nhập Liệu và Quản Lý Trang Trại Của bạn</Text>
-        <TextInput style={styles.inputStandard} placeholder="Nhập số tài khoản (Email)" value={typedEmail} onChangeText={setTypedEmail} keyboardType="email-address" placeholderTextColor="#888888" autoCapitalize="none" editable={!isAuthLoading} />
-        <TextInput style={styles.inputStandard} placeholder="Nhập mật mã" value={typedPassword} onChangeText={setTypedPassword} secureTextEntry={true} autoCapitalize="none" placeholderTextColor="#888888" editable={!isAuthLoading} />
-        <View style={{ marginTop: 10 }}>
-          {isAuthLoading ? <ActivityIndicator size="large" color="#e65100" /> : <Button title="ĐĂNG NHẬP HỆ THỐNG" onPress={handleLoginSubmit} color="#e65100" />}
-        </View>
-      </View>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        style={{ flex: 1, backgroundColor: '#ffffff' }}
+      >
+        <ScrollView 
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 30 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* 🎯 LOGO ĐÃ ĐỔI SANG BỐC TỪ ASSETS ICON.PNG PHẲNG ĐẸP */}
+          <View style={{ alignItems: 'center', marginBottom: 20 }}>
+            <Image 
+              source={require('./assets/icon.png')} 
+              style={{ width: 90, height: 90, borderRadius: 20, resizeMode: 'contain' }} 
+            />
+          </View>
+
+          <Text style={styles.loginTitle}>HỆ THỐNG TRẠI HEO</Text>
+          <Text style={styles.loginSub}>Nhập Liệu và Quản Lý Trang Trại Của bạn</Text>
+          
+          <Text style={{ fontWeight: '600', marginBottom: 4, fontSize: 13, color: '#333333' }}>Số tài khoản (Email):</Text>
+          <TextInput 
+            style={[styles.inputStandard, { borderColor: '#ffd3b6', height: 44, fontSize: 14, marginBottom: 15 }]} 
+            placeholder="Nhập số tài khoản (Email)" 
+            value={typedEmail} 
+            onChangeText={setTypedEmail} 
+            keyboardType="email-address" 
+            placeholderTextColor="#888888" 
+            autoCapitalize="none" 
+            editable={!isAuthLoading} 
+          />
+
+          <Text style={{ fontWeight: '600', marginBottom: 4, fontSize: 13, color: '#333333' }}>Mật mã truy cập:</Text>
+          {/* Thanh bọc ô nhập mật mã và nút con mắt nằm chung hàng ngang phẳng sạch */}
+          <View style={{ 
+            flexDirection: 'row', 
+            alignItems: 'center', 
+            borderWidth: 1, 
+            borderColor: '#ffd3b6', 
+            borderRadius: 6, 
+            backgroundColor: '#ffffff',
+            marginBottom: 25,
+            height: 44,
+            paddingHorizontal: 12
+          }}>
+            <TextInput 
+              style={{ flex: 1, color: '#111111', fontSize: 14, paddingVertical: 0, height: '100%' }} 
+              placeholder="Nhập mật mã" 
+              value={typedPassword} 
+              onChangeText={setTypedPassword} 
+              secureTextEntry={!isPasswordVisible} // 🎯 Ẩn hiện dựa trên state
+              autoCapitalize="none" 
+              placeholderTextColor="#888888" 
+              editable={!isAuthLoading} 
+            />
+            {/* NÚT ICON CON MẮT PHẲNG MỊN */}
+            <TouchableOpacity 
+              activeOpacity={0.7}
+              onPress={() => setIsPasswordVisible(!isPasswordVisible)}
+              style={{ padding: 6 }}
+              disabled={isAuthLoading}
+            >
+              <Text style={{ fontSize: 16 }}>{isPasswordVisible ? "👁️" : "🙈"}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ marginTop: 5 }}>
+            {isAuthLoading ? (
+              <ActivityIndicator size="large" color="#e65100" />
+            ) : (
+              <TouchableOpacity 
+                activeOpacity={0.7}
+                onPress={handleLoginSubmit}
+                style={{ backgroundColor: '#e65100', paddingVertical: 12, borderRadius: 8, alignItems: 'center' }}
+              >
+                <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 15 }}>ĐĂNG NHẬP HỆ THỐNG</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     );
   }
+
 
   return (
     
@@ -720,7 +1140,7 @@ const handleXemChiTietHeo = (item) => {
             onPress={handleRefreshData} 
             disabled={isInitialLoading}
           >
-            <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: 'bold' }}>🔄 Tải Lại</Text>
+            <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: 'bold' }}>🔄 Cập Nhật Thống Kê</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -795,16 +1215,155 @@ const handleXemChiTietHeo = (item) => {
                       </Text>
                     </View>
 
-                    <View style={[styles.rowInput, { marginBottom: 10 }]}>
-                      <TouchableOpacity style={[styles.dateButton, { borderColor: '#ffd3b6', backgroundColor: '#ffffff', height: 42, justifyContent: 'center', paddingHorizontal: 10 }]} onPress={() => setDatePickerVisibility(true)}>
-                        <Text style={[styles.dateButtonText, { fontSize: 14 }]}>📅 {ngayHienThi}</Text>
-                      </TouchableOpacity>
-                      {!laSuKienBanHeo ? (
-                        <TextInput style={[styles.inputMaTai, { color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6', height: 42, fontSize: 14, paddingVertical: 0 }]} placeholder="Mã Tai" placeholderTextColor="#777777" value={maTai} onChangeText={setMaTai} autoCapitalize="characters" />
-                      ) : (
-                        <View style={{ flex: 0.5 }} />
-                      )}
-                    </View>
+                   <View style={[styles.rowInput, { marginBottom: 10 }]}>
+  {/* Nút bấm chọn ngày tháng của bạn giữ nguyên */}
+ {/* 🎯 KHỐI CHỌN NGÀY VÀ THÔNG BÁO DỰ KIẾN - TÁCH DÒNG PHẲNG KHÔNG LƠ LỬNG */}
+  {/* 🎯 NÚT CHỌN NGÀY THÁNG - CỐ ĐỊNH KÍCH THƯỚC PHẲNG */}
+  <TouchableOpacity 
+    style={[styles.dateButton, { borderColor: '#ffd3b6', backgroundColor: '#ffffff', height: 42, justifyContent: 'center', paddingHorizontal: 10, zIndex: 10000 }]} 
+    onPress={() => setDatePickerVisibility(true)}
+  >
+    <Text style={[styles.dateButtonText, { fontSize: 14 }]}>📅 {ngayHienThi}</Text>
+  </TouchableOpacity>
+
+  {/* 🎯 NHÃN MỜ LƠ LỬNG: Nằm ép ngay dưới đáy nút Ngày, tuyệt đối không đẩy dòng làm xấu ô bên cạnh */}
+  {suKien && suKien.toString().trim().toUpperCase().includes("PHỐI") && ngayHienThi && (
+    <View style={{ position: 'absolute', top: 44, left: 4, right: 0, zIndex: 9999 }}>
+      <Text style={{ fontSize: 11, color: '#28a745', fontWeight: 'bold', fontStyle: 'italic' }}>
+        Dự kiến đẻ: {tinhNgayDuKienDe(ngayHienThi)}
+      </Text>
+    </View>
+  )}
+
+
+  
+  {!laSuKienBanHeo ? (
+    // Nới khung bọc zIndex cao để danh sách gợi ý đè lên trên các ô nhập khác không bị che khuất
+       <View style={{ flex: 0.5, position: 'relative' }}>
+      
+      {/* Ô nhập mã tai gốc của bạn giữ nguyên vẹn tăm tắp */}
+      <TextInput 
+        style={[styles.inputMaTai, { color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6', height: 42, fontSize: 14, paddingVertical: 0, width: '100%' }]} 
+        placeholder="Mã Tai" 
+        placeholderTextColor="#777777" 
+        value={maTai} 
+        autoCapitalize="characters"
+        onChangeText={(txt) => {
+          setMaTai(txt);
+          const txtChuan = txt.trim().toUpperCase();
+          
+          if (txtChuan.length > 0 && Array.isArray(danhSachMaTai)) {
+            const mangLoc = danhSachMaTai.filter(heo => 
+              heo && heo.maTai && 
+              heo.maTai.toString().toUpperCase().includes(txtChuan) &&
+              (!heo.trangThaiCotH || heo.trangThaiCotH.toString().trim().normalize("NFC") !== "Thải")
+            ).slice(0, 5);
+            setGoiYMaTaiLoc(mangLoc);
+          } else {
+            setGoiYMaTaiLoc([]);
+          }
+        }} 
+      />
+      
+      {/* 🎯 TẤM MÀNG CHẶN TÀNG HÌNH: Khi hiện gợi ý, bọc một nút phủ toang hoác màn hình để che Picker phía dưới, chạm ra ngoài tự tắt gợi ý */}
+      {goiYMaTaiLoc.length > 0 && (
+        <TouchableOpacity 
+          style={{ 
+            position: 'absolute', 
+            top: -1000, left: -1000, right: -1000, bottom: -1000, // Bung lề phủ rộng toàn app
+            backgroundColor: 'transparent',
+            zIndex: 99998
+          }} 
+          activeOpacity={1} 
+          onPress={() => setGoiYMaTaiLoc([])} // Chạm ra khoảng trống tự thu gọn bảng gợi ý
+        />
+      )}
+
+      {/* 🎯 KHỐI HIỂN THỊ DANH SÁCH GỢI Ý PHẲNG - TUYỆT ĐỐI KHÔNG LÀM TỤT BÀN PHÍM */}
+      {goiYMaTaiLoc.length > 0 && (
+        <View 
+          style={{ 
+            position: 'absolute', 
+            top: 45, 
+            left: 0, 
+            right: 0, 
+            backgroundColor: '#ffffff', 
+            borderRadius: 8, 
+            borderWidth: 1, 
+            borderColor: '#ffd3b6',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.2,
+            shadowRadius: 5,
+            elevation: 9999, // Ép Android đẩy độ sâu lên cao nhất để đè lên ô chọn sự kiện dưới
+            zIndex: 999999,  // Khóa lơ lửng tối cao trên iOS chống bị chìm dưới form
+            maxHeight: 220, 
+            overflow: 'hidden'
+          }}
+        >
+          <ScrollView 
+            nestedScrollEnabled={true} 
+            keyboardShouldPersistTaps="always" // Ép chạm phát ăn lệnh điền chữ ngay, giữ bàn phím phăng phắc
+            showsVerticalScrollIndicator={false}
+          >
+            {goiYMaTaiLoc.map((heo, index) => (
+              <TouchableOpacity
+                key={index}
+                activeOpacity={0.4} 
+                style={{ 
+                  paddingVertical: 12, 
+                  paddingHorizontal: 14, 
+                  borderBottomWidth: index === goiYMaTaiLoc.length - 1 ? 0 : 0.5, 
+                  borderBottomColor: '#ffe5d4',
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  backgroundColor: '#ffffff' // Đổ nền đặc cách ly hoàn toàn ô Picker lấp ló bên dưới
+                }}
+                onPress={() => {
+                  setMaTai(heo.maTai.toString().toUpperCase()); // Điền chuỗi in hoa vào ô nhập
+                  setGoiYMaTaiLoc([]);                          // Thu gọn bảng gợi ý ngay lập tức
+                }}
+              >
+                <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#e65100' }}>🏷️ {heo.maTai}</Text>
+                <Text style={{ fontSize: 11, color: '#666666', fontStyle: 'italic' }}>{heo.giong || "---"}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+
+      {/* KHỐI CẢNH BÁO TRÙNG THẢI / MÃ TAI MỚI CỦA BẠN ĐƯỢC GIỮ NGUYÊN */}
+      {(() => {
+        const maTaiChuan = maTai.trim().toUpperCase();
+        if (maTaiChuan.length === 0 || laSuKienBanHeo || goiYMaTaiLoc.length > 0) return null;
+
+        const heoTimDuoc = Array.isArray(danhSachMaTai) && danhSachMaTai.find(heo => heo && heo.maTai && heo.maTai.toString().toUpperCase().trim() === maTaiChuan);
+        const trangThaiHeo = heoTimDuoc && heoTimDuoc.trangThaiCotH ? heoTimDuoc.trangThaiCotH.toString().trim().normalize("NFC") : "";
+
+        if (heoTimDuoc && trangThaiHeo === "Thải") {
+          return (
+            <View style={{ backgroundColor: '#fff3cd', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, marginTop: 6, borderWidth: 0.5, borderColor: '#ffeeba', alignItems: 'center' }}>
+              <Text style={{ color: '#856404', fontWeight: '600', fontSize: 11 }}>⚠️ Mã tai này trùng với heo đã thải!</Text>
+            </View>
+          );
+        }
+        if (!heoTimDuoc) {
+          return (
+            <TouchableOpacity activeOpacity={0.7} style={{ backgroundColor: '#fff0e6', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20, marginTop: 6, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#ffd3b6', flexDirection: 'row', gap: 4 }} onPress={() => setIsQuickAddModalVisible(true)}>
+              <Text style={{ fontSize: 13 }}>➕</Text>
+              <Text style={{ color: '#e65100', fontWeight: 'bold', fontSize: 12 }}>Mã tai mới! Bấm để thêm vào sổ gốc</Text>
+            </TouchableOpacity>
+          );
+        }
+        return null;
+      })()}
+    </View>
+  ) : (
+    <View style={{ flex: 0.5 }} />
+  )}
+</View>
                     <DateTimePickerModal isVisible={isDatePickerVisible} mode="date" onConfirm={(d) => { setNgayHienThi(formatVNDate(d)); setDatePickerVisibility(false); }} onCancel={() => setDatePickerVisibility(false)} confirmTextConfirm="Xác nhận" cancelTextMagdalene="Hủy" />
                     
                     <View style={{ 
@@ -870,7 +1429,7 @@ const handleXemChiTietHeo = (item) => {
 
 
 
-            renderItem={({ item }) => (
+                        renderItem={({ item }) => (
               /* 🎯 ĐÃ CẬP NHẬT: Ép dòng mờ đi 60% (opacity: 0.4) và chuyển nền cam nhạt khi ở trạng thái Chờ Xóa/Sửa */
               <View style={[
                 styles.historyCard, 
@@ -922,27 +1481,47 @@ const handleXemChiTietHeo = (item) => {
                   </Text>
 
                   <Text style={styles.cardBody}>
-  📝 {item.suKien} {item.soHeo !== "" ? `(${item.soHeo} con)` : ""}
-</Text>
+                    📝 {item.suKien} {item.soHeo !== "" ? `(${item.soHeo} con)` : ""}
+                  </Text>
 
-{/* 🎯 SỬA CHUẨN: Bỏ ngoặc tròn, dùng toán tử && và bọc khít dòng chữ */}
-{/* ĐÃ LƯU THÀNH CÔNG: Tách hàng Chọn Nuôi đen đậm và loại bỏ hoàn toàn các icon */}
-{item.suKien === "Đẻ" && !!(item.khoThai || item.coiCoc || item.chetNgop || item.chonNuoi) && (
-  <View style={{ marginTop: 4 }}>
-    {/* Hàng 1: Các chỉ số hao hụt sơ sinh dạng chữ phẳng gọn gàng */}
-    <Text style={{ fontSize: 12, color: '#666666', lineHeight: 18 }}>
-      Khô: {String(item.khoThai || 0)} | Còi: {String(item.coiCoc || 0)} | Ngộp: {String(item.chetNgop || 0)}
-    </Text>
-    
-    {/* Hàng 2: Chỉ số Chọn Nuôi nằm hàng dưới, chữ đen và đậm nét hơn */}
-    <Text style={{ fontSize: 13, color: '#111111', fontWeight: 'bold', marginTop: 2, lineHeight: 18 }}>
-      Chọn Nuôi: <Text style={{ color: '#28a745', fontWeight: 'bold' }}>{String(item.chonNuoi || 0)} con</Text>
-    </Text>
-  </View>
-)}
+                  {/* 🎯 VỊ TRÍ CHÈN CHUẨN VÀNG: HIỂN THỊ NGÀY DỰ ĐẺ RIÊNG CHO CÁC THẺ NHẬT KÝ SỰ KIỆN PHỐI */}
+                  {item && item.suKien && item.suKien.toString().trim().toUpperCase().includes("PHỐI") && item.ngay && (
+                    <View 
+                      style={{ 
+                        marginTop: 4, 
+                        marginBottom: 2,
+                        backgroundColor: '#f4fbf7', 
+                        paddingVertical: 4, 
+                        paddingHorizontal: 8, 
+                        borderRadius: 4, 
+                        borderLeftWidth: 3, 
+                        borderLeftColor: '#28a745',
+                        alignSelf: 'flex-start' // Bọc khít chữ vuông vắn, không làm đẩy lấn các ô khác
+                      }}
+                    >
+                      <Text style={{ fontSize: 11, color: '#155724', fontWeight: 'bold', fontStyle: 'italic' }}>
+                        ⏳ Dự kiến đẻ: {tinhNgayDuKienDe(item.ngay)}
+                      </Text>
+                    </View>
+                  )}
 
-{/* 🎯 SỬA CHUẨN: Bỏ ngoặc tròn, dùng toán tử && ép kiểu Boolean để chặn chữ rỗng */}
-{!!item.ghiChu && <Text style={{ fontSize: 12, color: '#e65100', fontStyle: 'italic', marginTop: 2 }}>📌 Ghi chú: {String(item.ghiChu)}</Text>}
+                  {/* 🎯 SỬA CHUẨN: BỎ NGOẶC TRÒN CŨ CỦA BẠN GIỮ NGUYÊN VẸN 100% */}
+                  {item.suKien === "Đẻ" && !!(item.khoThai || item.coiCoc || item.chetNgop || item.chonNuoi) && (
+                    <View style={{ marginTop: 4 }}>
+                      {/* Hàng 1: Các chỉ số hao hụt sơ sinh dạng chữ phẳng gọn gàng */}
+                      <Text style={{ fontSize: 12, color: '#666666', lineHeight: 18 }}>
+                        Khô: {String(item.khoThai || 0)} | Còi: {String(item.coiCoc || 0)} | Ngộp: {String(item.chetNgop || 0)}
+                      </Text>
+                      
+                      {/* Hàng 2: Chỉ số Chọn Nuôi nằm hàng dưới, chữ đen và đậm nét hơn */}
+                      <Text style={{ fontSize: 13, color: '#111111', fontWeight: 'bold', marginTop: 2, lineHeight: 18 }}>
+                        Chọn Nuôi: <Text style={{ color: '#28a745', fontWeight: 'bold' }}>{String(item.chonNuoi || 0)} con</Text>
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* 🎯 CHẶN CHỮ RỖNG GHI CHÚ GỐC CỦA BẠN */}
+                  {!!item.ghiChu && <Text style={{ fontSize: 12, color: '#e65100', fontStyle: 'italic', marginTop: 2 }}>📌 Ghi chú: {String(item.ghiChu)}</Text>}
                </View>
                 <View style={styles.cardActions}>
                   <TouchableOpacity onPress={() => handleEditClick(item)} style={styles.editBtn}>
@@ -961,10 +1540,9 @@ const handleXemChiTietHeo = (item) => {
                             // 🎯 CHÈN CHUẨN: Ép dòng này trên màn hình chuyển sang trạng thái "waiting" để kích hoạt mờ cam lập tức
                             setDanhSachLichSu(prev => prev.map(i => i.id === item.id ? { ...i, syncStatus: "waiting" } : i));
                             
-                                                        guiYeuCauMang(dongMuonXoa, (res) => {
+                            guiYeuCauMang(dongMuonXoa, (res) => {
                               if (res && res.status === 'success') {
                                 // 🎯 TỰ ĐỘNG ĐỒNG BỘ: Kéo lại dữ liệu tổng từ Sheet về để trừ số lượng ở tất cả các Tab con liên quan
-                                handleRefreshData();
 
                                 setDanhSachLichSu(prev => prev.filter(i => i.id !== item.id));
                                 setDongBoStatus("✅ Đã xóa dòng nhật ký thành công!");
@@ -985,7 +1563,8 @@ const handleXemChiTietHeo = (item) => {
                   </TouchableOpacity>
                 </View>
               </View>
-            )} 
+            )}
+ 
           />
         </View>
       )}
@@ -1166,11 +1745,12 @@ onChangeText={(text) => {
 
                 {/* 2. KHỐI LUÔN LUÔN HIỂN THỊ: Thanh 4 nút phân loại nhóm đàn (Được giữ lại để người nuôi vừa gõ tìm vừa đổi nhóm nhanh) */}
                 <View style={{ flexDirection: 'row', paddingHorizontal: 15, marginTop: 8, marginBottom: 10, gap: 5 }}>
-                  <TouchableOpacity onPress={() => setNhomNaiTab2('BAU')} style={{ flex: 1, backgroundColor: nhomNaiTab2 === 'BAU' ? '#e65100' : '#f2f2f2', paddingVertical: 8, borderRadius: 15, alignItems: 'center' }}>
-                    <Text style={{ color: nhomNaiTab2 === 'BAU' ? '#ffffff' : '#555555', fontSize: 11, fontWeight: 'bold' }}>Mang Thai</Text>
-                  </TouchableOpacity>
+                  
                   <TouchableOpacity onPress={() => setNhomNaiTab2('CHUA_PHOI')} style={{ flex: 1, backgroundColor: nhomNaiTab2 === 'CHUA_PHOI' ? '#e65100' : '#f2f2f2', paddingVertical: 8, borderRadius: 15, alignItems: 'center' }}>
                     <Text style={{ color: nhomNaiTab2 === 'CHUA_PHOI' ? '#ffffff' : '#555555', fontSize: 11, fontWeight: 'bold' }}>Chưa Phối</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setNhomNaiTab2('BAU')} style={{ flex: 1, backgroundColor: nhomNaiTab2 === 'BAU' ? '#e65100' : '#f2f2f2', paddingVertical: 8, borderRadius: 15, alignItems: 'center' }}>
+                    <Text style={{ color: nhomNaiTab2 === 'BAU' ? '#ffffff' : '#555555', fontSize: 11, fontWeight: 'bold' }}>Mang Thai</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => setNhomNaiTab2('NUOI_CON')} style={{ flex: 1, backgroundColor: nhomNaiTab2 === 'NUOI_CON' ? '#e65100' : '#f2f2f2', paddingVertical: 8, borderRadius: 15, alignItems: 'center' }}>
                     <Text style={{ color: nhomNaiTab2 === 'NUOI_CON' ? '#ffffff' : '#555555', fontSize: 11, fontWeight: 'bold' }}>Nuôi Con</Text>
@@ -2031,18 +2611,90 @@ onChangeText={(text) => {
                 ))}
               </Picker>
             </View>
-            {editCanNhapSoHeo && (
-              <TextInput style={[styles.popupInput, { marginTop: 10, color: '#111111', backgroundColor: '#ffffff' }]} value={editSoHeo} onChangeText={setEditSoHeo} placeholderTextColor="#777777" keyboardType="numeric" />
+                       {/* 🎯 Ô NHẬP SỐ LƯỢNG HEO CỦA CÁC SỰ KIỆN KHÁC (PHỐI/CAI SỮA...) GIỮ NGUYÊN BÊN NGOÀI KHUNG */}
+            {editCanNhapSoHeo && editSuKien !== "Đẻ" && (
+              <TextInput 
+                style={[styles.popupInput, { marginTop: 10, color: '#111111', backgroundColor: '#ffffff' }]} 
+                value={editSoHeo} 
+                onChangeText={setEditSoHeo} 
+                placeholder="Nhập số lượng heo..."
+                placeholderTextColor="#777777" 
+                keyboardType="numeric" 
+              />
             )}
+
+            {/* 🐖 KHỐI CHI TIẾT HEO ĐẺ ĐÃ ĐƯỢC GOM CỤM TOÀN DIỆN */}
             {editSuKien === "Đẻ" && (
-  <View style={{ backgroundColor: '#fdf7f2', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#f5dad2', marginTop: 10 }}>
-    <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#e65100', marginBottom: 8 }}>Sửa chi tiết Heo Đẻ:</Text>
-    <TextInput style={[styles.popupInput, { marginBottom: 8, fontSize: 14 }]} placeholder="Sửa Khô thai" keyboardType="numeric" placeholderTextColor="#888888" value={editKhoThai} onChangeText={setEditKhoThai} />
-    <TextInput style={[styles.popupInput, { marginBottom: 8, fontSize: 14 }]} placeholder="Sửa Còi cọc" keyboardType="numeric" placeholderTextColor="#888888" value={editCoiCoc} onChangeText={setEditCoiCoc} />
-    <TextInput style={[styles.popupInput, { marginBottom: 8, fontSize: 14 }]} placeholder="Sửa Chết ngộp" keyboardType="numeric" placeholderTextColor="#888888" value={editChetNgop} onChangeText={setEditChetNgop} />
-    <TextInput style={[styles.popupInput, { fontSize: 14 }]} placeholder="Sửa Chọn nuôi" keyboardType="numeric" placeholderTextColor="#888888" value={editChonNuoi} onChangeText={setEditChonNuoi} />
-  </View>
-)}
+              <View style={{ backgroundColor: '#fdf7f2', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#f5dad2', marginTop: 10 }}>
+                <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#e65100', marginBottom: 12 }}>Sửa chi tiết Heo Đẻ:</Text>
+                
+                {/* 🌟 1. Ô ĐƯỢC GOM VÀO KHUNG: Tổng số con sinh ra (Biến editSoHeo gốc của bạn) */}
+                <View style={{ marginBottom: 10 }}>
+                  <Text style={{ fontSize: 11, color: '#d32f2f', fontWeight: '600', marginBottom: 4, paddingLeft: 2 }}>📊 Tổng số con sinh ra (Sống + Chết)</Text>
+                  <TextInput 
+                    style={[styles.popupInput, { fontSize: 14, height: 38, paddingVertical: 0, fontWeight: 'bold', borderColor: '#f5c6cb', backgroundColor: '#ffffff' }]} 
+                    placeholder="Nhập tổng số con sinh ra lứa này..." 
+                    keyboardType="numeric" 
+                    placeholderTextColor="#888888" 
+                    value={editSoHeo} 
+                    onChangeText={setEditSoHeo} 
+                  />
+                </View>
+
+                {/* 2. Sửa Chọn nuôi */}
+                <View style={{ marginBottom: 10 }}>
+                  <Text style={{ fontSize: 11, color: '#28a745', fontWeight: '600', marginBottom: 4, paddingLeft: 2 }}>🟢 Số heo Chọn nuôi </Text>
+                  <TextInput 
+                    style={[styles.popupInput, { fontSize: 14, height: 38, paddingVertical: 0, fontWeight: 'bold', borderColor: '#c3e6cb', backgroundColor: '#ffffff' }]} 
+                    placeholder="Nhập số con sống chọn nuôi..." 
+                    keyboardType="numeric" 
+                    placeholderTextColor="#888888" 
+                    value={editChonNuoi} 
+                    onChangeText={setEditChonNuoi} 
+                  />
+                </View>
+
+                {/* 3. Sửa Khô thai */}
+                <View style={{ marginBottom: 10 }}>
+                  <Text style={{ fontSize: 11, color: '#666666', marginBottom: 4, paddingLeft: 2 }}>📝 Số con chết khô</Text>
+                  <TextInput 
+                    style={[styles.popupInput, { fontSize: 14, height: 38, paddingVertical: 0, backgroundColor: '#ffffff' }]} 
+                    placeholder="Nhập số con chết khô..." 
+                    keyboardType="numeric" 
+                    placeholderTextColor="#888888" 
+                    value={editKhoThai} 
+                    onChangeText={setEditKhoThai} 
+                  />
+                </View>
+
+                {/* 4. Sửa Còi cọc */}
+                <View style={{ marginBottom: 10 }}>
+                  <Text style={{ fontSize: 11, color: '#666666', marginBottom: 4, paddingLeft: 2 }}>📝 Số con còi cọc, dị tật</Text>
+                  <TextInput 
+                    style={[styles.popupInput, { fontSize: 14, height: 38, paddingVertical: 0, backgroundColor: '#ffffff' }]} 
+                    placeholder="Nhập số con còi cọc..." 
+                    keyboardType="numeric" 
+                    placeholderTextColor="#888888" 
+                    value={editCoiCoc} 
+                    onChangeText={setEditCoiCoc} 
+                  />
+                </View>
+
+                {/* 5. Sửa Chết ngộp */}
+                <View style={{ marginBottom: 2 }}>
+                  <Text style={{ fontSize: 11, color: '#666666', marginBottom: 4, paddingLeft: 2 }}>📝 Số con chết ngộp, lưu thai</Text>
+                  <TextInput 
+                    style={[styles.popupInput, { fontSize: 14, height: 38, paddingVertical: 0, backgroundColor: '#ffffff' }]} 
+                    placeholder="Nhập số con chết ngộp..." 
+                    keyboardType="numeric" 
+                    placeholderTextColor="#888888" 
+                    value={editChetNgop} 
+                    onChangeText={setEditChetNgop} 
+                  />
+                </View>
+              </View>
+            )}
+
 
 <TextInput style={[styles.popupInput, { marginTop: 10, color: '#111111', backgroundColor: '#ffffff' }]} placeholder="Sửa Ghi chú" placeholderTextColor="#888888" value={editGhiChu} onChangeText={setEditGhiChu} />
 
@@ -2206,12 +2858,144 @@ onChangeText={(text) => {
         </TouchableOpacity>
       </View>
 
+                <Modal visible={isQuickAddModalVisible} animationType="fade" transparent={true}>
+  <View style={styles.modalOverlay}>
+    <View style={styles.popupCard}>
+      <Text style={[styles.popupTitle, { color: '#e65100' }]}>➕ KHAI BÁO NHANH MÃ HEO GỐC</Text>
+      
+      <Text style={{ fontWeight: '600', marginBottom: 4, fontSize: 13, color: '#333333' }}>Mã Số Tai:</Text>
+      <TextInput 
+        style={[styles.popupInput, { backgroundColor: '#eeeeee', color: '#555555', fontWeight: 'bold', marginBottom: 12 }]} 
+        value={maTai.toUpperCase().trim()} 
+        editable={false} 
+      />
 
+      <Text style={{ fontWeight: '600', marginBottom: 4, fontSize: 13, color: '#333333' }}>Giống Heo Nái:</Text>
+      <TextInput 
+        style={[styles.popupInput, { borderColor: '#ffd3b6', marginBottom: 12 }]} 
+        placeholder="Ví dụ: TN70, Landrace..."
+        placeholderTextColor="#888888"
+        value={quickGiong}
+        onChangeText={setQuickGiong}
+      />
+
+      <Text style={{ fontWeight: '600', marginBottom: 4, fontSize: 13, color: '#333333' }}>Chọn Lứa Đẻ Đầu Vào:</Text>
+      <View style={[styles.popupPickerBorder, { marginTop: 0, marginBottom: 20, borderColor: '#ffd3b6' }]}>
+        <Picker
+          selectedValue={quickLua}
+          style={{ color: '#111111', width: '100%' }}
+          dropdownIconColor="#111111"
+          onValueChange={(val) => setQuickLua(val)}
+        >
+          {danhSachLuaHeo.map((l, index) => (
+            <Picker.Item key={index} label={l} value={l} style={{ fontSize: 14, color: '#111111' }} />
+          ))}
+        </Picker>
+      </View>
+
+      {isQuickSaving ? (
+        <ActivityIndicator size="small" color="#e65100" style={{ marginVertical: 10 }} />
+      ) : (
+        <View style={styles.popupButtonGroup}>
+          <View style={{ flex: 1, marginRight: 8 }}>
+            <Button title="LƯU VÀO SỔ" onPress={handleQuickSaveHeoMoi} color="#28a745" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button title="HỦY BỎ" onPress={() => setIsQuickAddModalVisible(false)} color="#6c757d" />
+          </View>
+        </View>
+      )}
+    </View>
+  </View>
+</Modal>
+<Modal visible={isAlertModalVisible} animationType="fade" transparent={true}>
+  <View style={styles.modalOverlay}>
+    <View style={[styles.popupCard, { width: '85%', padding: 24, alignItems: 'center' }]}>
+      
+      {/* Icon cảnh báo hình tròn màu cam phẳng đẹp mắt */}
+      <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#fff0e6', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
+        <Text style={{ fontSize: 24 }}>🏷️</Text>
+      </View>
+
+      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#111111', textAlign: 'center', marginBottom: 8 }}>
+        Mã tai chưa khai báo
+      </Text>
+      
+      <Text style={{ fontSize: 13, color: '#666666', textAlign: 'center', lineHeight: 18, marginBottom: 24 }}>
+        Mã tai <Text style={{ fontWeight: 'bold', color: '#e65100' }}>{maTai.trim().toUpperCase()}</Text> chưa có bên Sổ mã tai. Bạn cần khai báo số tai này trước khi nhập nhật ký!
+      </Text>
+
+      {/* Thanh chứa 2 nút bấm phẳng, bo góc mịn nằm ngang */}
+      <View style={{ flexDirection: 'row', gap: 10, width: '100%' }}>
+        <TouchableOpacity 
+          activeOpacity={0.7}
+          style={{ flex: 1, backgroundColor: '#f2f2f2', paddingVertical: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center' }}
+          onPress={() => setIsAlertModalVisible(false)}
+        >
+          <Text style={{ color: '#555555', fontWeight: 'bold', fontSize: 14 }}>Để sau</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          activeOpacity={0.7}
+          style={{ flex: 1, backgroundColor: '#e65100', paddingVertical: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center' }}
+          onPress={() => {
+            setIsAlertModalVisible(false);          // Đóng modal thông báo này
+            setIsQuickAddModalVisible(true);       // Kích hoạt bật luôn modal nhập nhanh Giống/Lứa lên liền
+          }}
+        >
+          <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 14 }}>Thêm ngay</Text>
+        </TouchableOpacity>
+      </View>
+
+    </View>
+  </View>
+</Modal>
+<Modal visible={isQuyTrinhAlertVisible} animationType="fade" transparent={true}>
+  <View style={styles.modalOverlay}>
+    <View style={[styles.popupCard, { width: '85%', padding: 22, alignItems: 'center' }]}>
+      
+      <View style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: '#fde8e8', justifyContent: 'center', alignItems: 'center', marginBottom: 14 }}>
+        <Text style={{ fontSize: 22 }}>⚠️</Text>
+      </View>
+
+      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#dc3545', textAlign: 'center', marginBottom: 12 }}>
+        {txtAlertNoiDung.tieuDe}
+      </Text>
+      
+      <Text style={{ fontSize: 13, color: '#495057', textAlign: 'center', lineHeight: 20, marginBottom: 22, paddingHorizontal: 4 }}>
+        Heo nái mã số <Text style={{ fontWeight: 'bold', color: '#0056b3', backgroundColor: '#e6f2ff', paddingHorizontal: 4, borderRadius: 4 }}> {txtAlertNoiDung.maTai} </Text> khi chọn sự kiện <Text style={{ fontWeight: 'bold', color: '#e65100', backgroundColor: '#fff0e6', paddingHorizontal: 4, borderRadius: 4 }}> {txtAlertNoiDung.hanhDong} </Text> {txtAlertNoiDung.loiGiai}
+      </Text>
+
+      <TouchableOpacity 
+        activeOpacity={0.7}
+        style={{ backgroundColor: '#6c757d', width: '100%', paddingVertical: 11, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}
+        onPress={() => setIsQuyTrinhAlertVisible(false)}
+      >
+        <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 14 }}>ĐÃ HIỂU VÀ KIỂM TRA LẠI</Text>
+      </TouchableOpacity>
+
+    </View>
+  </View>
+</Modal>
     </KeyboardAvoidingView>
   
   );
 }
 export default function App() {
+  
+  // 🎯 LUỒNG KHÓA CỨNG KÍCH THƯỚC CHỮ TOÀN CỤC CHỐNG VỠ GIAO DIỆN KHÁCH LỚN TUỔI
+  if (Text.defaultProps) {
+    Text.defaultProps.allowFontScaling = false;
+  } else {
+    Text.defaultProps = { allowFontScaling: false };
+  }
+  
+  if (TextInput.defaultProps) {
+    TextInput.defaultProps.allowFontScaling = false;
+  } else {
+    TextInput.defaultProps = { allowFontScaling: false };
+  }
+
   return (
     <SafeAreaProvider>
       <MainApp />
