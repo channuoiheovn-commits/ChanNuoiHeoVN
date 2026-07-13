@@ -1,9 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TextInput, Button, Alert, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, Modal, ActivityIndicator, ScrollView, SafeAreaView  } from 'react-native';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  TextInput, 
+  Button, 
+  Alert, 
+  TouchableOpacity, 
+  FlatList, 
+  KeyboardAvoidingView, 
+  Platform, 
+  Modal, 
+  ActivityIndicator, 
+  ScrollView, 
+  SafeAreaView,
+  // 🎯 BẢN VÁ TỐI CAO: Khai báo thêm 2 linh kiện gốc này để kích nổ tính năng hạ bàn phím toàn App
+  TouchableWithoutFeedback,
+  Keyboard,
+} from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SafeAreaProvider,useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'react-native';
 
 
@@ -101,7 +119,7 @@ const sinhIDDocBan = (tienTo) => {
   return `${tienTo}_${timestamp}_${randomStr}`;
 };
   const insets = useSafeAreaInsets();
-  const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbw-hQWvYVEDqypBYWO8hsMShIrJ-anPZThN127bSwXke3hOdr5BLQAUvPR3_9a8B_xC4Q/exec';
+  const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwz6cOEiQgjDKX2Y3psjS68O_Qi4SMoSWZF6KWtptZZOPACBj0lh9DetPm2492HAq3BNw/exec';
 
   // --- STATE ĐĂNG NHẬP VÀ CHỌN TRẠI ---
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -135,8 +153,16 @@ const [txtAlertNoiDung, setTxtAlertNoiDung] = useState({ tieuDe: '', maTai: '', 
   const [heoThitSoLuong, setHeoThitSoCon] = useState('');
   const [heoThitGhiChu, setHeoThitGhiChu] = useState('');
   const [heoThitTuanChon, setHeoThitTuanChon] = useState(''); 
-    // --- STATE QUẢN LÝ ĐÓNG MỞ CÁC GIAI ĐOẠN HEO THỊT TAB 5 ---
-  const [openGiaiDoan, setOpenGiaiDoan] = useState({ gd3: false, gd4: false, gd5: false, gd6: false });
+      // --- STATE QUẢN LÝ ĐÓNG MỞ CÁC GIAI ĐOẠN HEO THỊT TAB 5 ---
+  // 🎯 BẢN VÁ TỐI CAO: BỔ SUNG CỜ GD7 ĐỘC LẬP ÉP HỘP SẬP XÒE BUNG FLAT 100%
+  const [openGiaiDoan, setOpenGiaiDoan] = useState({ 
+    gd3: false, 
+    gd4: false, 
+    gd5: false, 
+    gd6: false, 
+    gd7: false // 🚀 Khóa cứng cổng ẩn ngầm cho Giai đoạn 7 tạ ba xuất chuồng
+  });
+
 
     // --- STATE MODAL SỬA NHẬT KÝ HEO THỊT RIÊNG BIỆT TẠI TAB 5 ---
   const [isSuaHeoThitModalVisible, setIsSuaHeoThitModalVisible] = useState(false);
@@ -149,6 +175,8 @@ const [txtAlertNoiDung, setTxtAlertNoiDung] = useState({ tieuDe: '', maTai: '', 
   const [suaHeoThitTuanChon, setSuaHeoThitTuanChon] = useState('');
   const [suaHeoThitSoLuong, setSuaHeoThitSoCon] = useState('');
   const [suaHeoThitGhiChu, setSuaHeoThitGhiChu] = useState('');
+
+    const [isOpenSuKien, setIsOpenSuKien] = useState(false); // Cờ điều phối bật tắt khay sự kiện phẳng
 
 
 useEffect(() => {
@@ -619,18 +647,19 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
  const handleQuickSaveHeoMoi = () => {
   if (isQuickSaving) return;
 
-  if (!quickGiong.trim()) return Alert.alert("Thông báo", "Vui lòng nhập Giống heo!");
-
   setIsQuickSaving(true);
   setDongBoStatus('⏳ Đang tạo nhanh mã tai vào sổ...');
 
   const maTaiChuanInHoa = maTai ? maTai.toUpperCase().trim() : "";
 
+  // 🚀 DOT PHA NGHE PHU: Tu dong gan chu Nai Nha neu cong nhan de trong o nhap giong heo
+  let giongHeoChuanGhi = quickGiong && quickGiong.trim() !== "" ? quickGiong.trim() : "Nái Nhà";
+
   // Tạo dòng tạm thời trên điện thoại để cập nhật RAM lập tức cho Tab 2
   const dongMoiGhimRam = {
     id: "MT_" + new Date().getTime(),
     maTai: maTaiChuanInHoa,
-    giong: quickGiong.trim(),
+    giong: giongHeoChuanGhi, // 🎯 Chuyen sang boc bien giongHeoChuanGhi tu dong dien
     lua: quickLua,
     trangThaiCotH: "Chưa Phối",
     ngayCotI: "---",
@@ -644,7 +673,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
   const dongMoiMaTai = {
     id: dongMoiGhimRam.id,
     maTai: maTaiChuanInHoa,
-    giong: quickGiong.trim(),
+    giong: giongHeoChuanGhi, // 🎯 Dong bo gui chu Nai Nha hoac chu go tay len Google Sheets
     lua: quickLua,
     actionType: "mt_create"
   };
@@ -656,12 +685,10 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
       setDanhSachMaTai(prev => prev.map(i => i.id === dongMoiMaTai.id ? { ...i, syncStatus: "synced" } : i));
       setDongBoStatus('✅ Đã thêm Mã tai heo mới thành công');
       
-      // 🎯 ĐÓNG HỘP NHẬP NHANH NGAY LẬP TỨC
       setIsQuickAddModalVisible(false);
       setQuickGiong('');
       setQuickLua('Hậu Bị');
 
-      // 🎯 KÍCH NỔ MODAL THÀNH CÔNG ĐẸP MẮT Ở CHÍNH GIỮA MÀN HÌNH GIỐNG HỘP QUY TRÌNH
       setTxtThanhCongNoiDung({
         tieuDe: "GHI NHẬN THÀNH CÔNG",
         maTai: maTaiChuanInHoa,
@@ -678,180 +705,156 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
 };
 
 
+
   // --- HÀM 5: FORM NHẬP NHẬT KÝ HEO (TAB 1) ---
  
      // 🎯 BẢN VÁ HẠT NHÂN TỐI CAO - ĐỒNG BỘ CHUẨN XÁC BIẾN suKien KHÓA CHẶN QUY TRÌNH CHĂN NUÔI 100%
    // 🎯 BẢN VÁ TỐI CAO TỐI GIẢN - SO KHỚP CHUẨN GỐC MẢNG SỰ KIỆN - CHẶN CỨNG QUY TRÌNH QUY TRÌNH 100%
-    const handleSaveNew = () => {
-    if (!laSuKienBanHeo && !maTai.trim()) return Alert.alert("Thông báo", "Vui lòng nhập Mã Tai!");
+   const handleSaveNew = () => {
+    if (!maTai.trim()) return Alert.alert("Thông báo", "Vui lòng nhập Mã Tai!");
     if (canNhapSoHeo && !soHeo.trim()) return Alert.alert("Thông báo", "Vui lòng nhập Số Heo!");
 
     const maTaiChuanQuet = maTai ? maTai.toString().trim().toUpperCase() : "";
     const suKienHienTaiChuan = suKien ? suKien.toString().trim().normalize("NFC") : "";
 
-    // ========================================================
-    // 🛑 CHÈN KHỐI BẢO VỆ CHẶN NHẬP MÙ VÀO ĐÚNG VỊ TRÍ NÀY
-    // ========================================================
-    if (!laSuKienBanHeo) {
-      const mangDanhBaTai = Array.isArray(danhSachMaTai) ? danhSachMaTai : [];
-      
-      // Dò xem mã tai gõ vào đã được tạo khai sinh trong sổ mã tai (Tab 2) chưa
-      const maTaiDaTonTai = mangDanhBaTai.some(heo => 
-        heo && heo.maTai && heo.maTai.toString().trim().toUpperCase() === maTaiChuanQuet
-      );
+    const mangDanhBaTai = Array.isArray(danhSachMaTai) ? danhSachMaTai : [];
+    const maTaiDaTonTai = mangDanhBaTai.some(heo => 
+      heo && heo.maTai && heo.maTai.toString().trim().toUpperCase() === maTaiChuanQuet
+    );
 
-      // Nếu không tìm thấy, nổ cảnh báo chặn đứng không cho lưu dữ liệu rác
-      if (!maTaiDaTonTai) {
-        return Alert.alert(
-          "❌ Chưa Có Mã Tai",
-          `Mã tai [ ${maTaiChuanQuet} ] hiện chưa được tạo trong Sổ Mã Tai (Tab 2).\n\nVui lòng qua "Sổ Mã Tai" / Hoặc Bấm Thêm Nhanh để thêm mới con nái này vào sổ trước khi nhập sự kiện chăn nuôi!`,
-          [{ text: "Tôi đã hiểu", style: "default" }]
-        );
+    if (!maTaiDaTonTai) {
+      return Alert.alert(
+        "❌ Chưa Có Mã Tai",
+        `Mã tai [ ${maTaiChuanQuet} ] hiện chưa được tạo trong Sổ Mã Tai.\n\nVui lòng qua "Sổ Mã Tai" / Hoặc Bấm Thêm Nhanh để thêm mới con nái này vào sổ trước khi nhập sự kiện chăn nuôi!`,
+        [{ text: "Tôi đã hiểu", style: "default" }]
+      );
+    }
+
+    const lichSuRiengCuaNai = Array.isArray(danhSachLichSu)
+      ? danhSachLichSu.filter(item => {
+          if (!item || !item.maTai) return false;
+          const maTaiDong = item.maTai.toString().trim().toUpperCase();
+          if (item.actionType && item.actionType.toString().trim() === "delete") return false;
+          return maTaiDong === maTaiChuanQuet;
+        })
+      : [];
+
+    lichSuRiengCuaNai.sort((a, b) => {
+      const timeA = parseToDateObject(a.ngay) ? parseToDateObject(a.ngay).getTime() : 0;
+      const timeB = parseToDateObject(b.ngay) ? parseToDateObject(b.ngay).getTime() : 0;
+      if (timeB !== timeA) return timeB - timeA;
+      return (b.id ? b.id.toString() : "").localeCompare(a.id ? a.id.toString() : "");
+    });
+
+    const skGanNhatRiengCuaNai = lichSuRiengCuaNai.length > 0 ? lichSuRiengCuaNai[0] : null;
+    let trangThaiLienTruocTho = "";
+
+    if (skGanNhatRiengCuaNai) {
+      trangThaiLienTruocTho = skGanNhatRiengCuaNai.suKien ? skGanNhatRiengCuaNai.suKien.toString().trim().normalize("NFC") : "";
+    } else {
+      const heoGocTab2 = Array.isArray(danhSachMaTai) && danhSachMaTai.find(h => h && h.maTai && h.maTai.toString().toUpperCase().trim() === maTaiChuanQuet);
+      if (heoGocTab2) {
+        trangThaiLienTruocTho = heoGocTab2.trangThaiCotH ? heoGocTab2.trangThaiCotH.toString().trim().normalize("NFC") : "";
       }
     }
-    // ========================================================
 
-    // --------------------------------------------------------
-    // 🐖 THUẬT TOÁN ĐÚNG Ý BẠN: SẮP XẾP NGÀY MỚI NHẤT LÊN ĐẦU RỒI ĐỐI CHIẾU (Giữ nguyên vẹn dòng này hất xuống dưới)
-    // --------------------------------------------------------
-    if (!laSuKienBanHeo) {
-      // Bước 1: Lọc riêng nhật ký của con nái này (Bỏ qua những dòng có hành động xóa "delete")
-      const lichSuRiengCuaNai = Array.isArray(danhSachLichSu)
+    let trangThaiXacThuc = "";
+    if (trangThaiLienTruocTho === "Đẻ" || trangThaiLienTruocTho === "ĐẺ" || trangThaiLienTruocTho.includes("Đe")) {
+      trangThaiXacThuc = "Đẻ";
+    } else if (trangThaiLienTruocTho === "Phối" || trangThaiLienTruocTho === "PHỐI") {
+      trangThaiXacThuc = "Phối";
+    } else if (trangThaiLienTruocTho === "Cai Sữa" || trangThaiLienTruocTho === "Cai sữa" || trangThaiLienTruocTho.includes("Cai")) {
+      trangThaiXacThuc = "Cai Sữa";
+    } else if (trangThaiLienTruocTho === "Thải" || trangThaiLienTruocTho === "THẢI") {
+      trangThaiXacThuc = "Thải";
+    } else if (trangThaiLienTruocTho === "Lốc" || trangThaiLienTruocTho === "Sảy Thai" || trangThaiLienTruocTho === "Chờ Phối") {
+      trangThaiXacThuc = "Chua_Phoi"; 
+    } else if (trangThaiLienTruocTho === "") {
+      trangThaiXacThuc = "Nai_Moi_Tinh";
+    }
 
-        ? danhSachLichSu.filter(item => {
-            if (!item || !item.maTai) return false;
-            const maTaiDong = item.maTai.toString().trim().toUpperCase();
-            if (item.actionType && item.actionType.toString().trim() === "delete") return false;
-            return maTaiDong === maTaiChuanQuet;
-          })
-        : [];
+    if (suKienHienTaiChuan === "Cai Sữa" || suKienHienTaiChuan === "Cai sữa") {
+      if (trangThaiXacThuc !== "Đẻ") {
+        let loiNhanMoiTinh = "hiện đang ở trạng thái [" + (trangThaiXacThuc === "Phối" ? "Đang Bầu" : (trangThaiXacThuc === "Nai_Moi_Tinh" ? "✨ Mã nái mới tinh chưa có lịch sử" : "Chưa Nhập Đẻ")) + "] Bạn KHÔNG THỂ thực hiện hành động Cai Sữa khi chưa nhập Heo Đẻ!";
+        setTxtAlertNoiDung({ 
+          tieuDe: "Sai quy trình chăn nuôi", 
+          maTai: maTaiChuanQuet, 
+          hanhDong: "Cai Sữa tách đàn", 
+          loiGiai: loiNhanMoiTinh
+        });
+        setIsQuyTrinhAlertVisible(true);
+        return;
+      }
+    }
 
-      // Bước 2: Sắp xếp động đưa ngày mới nhất lên đỉnh đầu mảng (Index 0)
-      lichSuRiengCuaNai.sort((a, b) => {
-        const timeA = parseToDateObject(a.ngay) ? parseToDateObject(a.ngay).getTime() : 0;
-        const timeB = parseToDateObject(b.ngay) ? parseToDateObject(b.ngay).getTime() : 0;
-        
-        if (timeB !== timeA) return timeB - timeA; // Ngày mới hơn xếp lên trước
-        
-        // Nếu trùng ngày trùng tháng (nhập gõ nhanh liên tiếp hôm nay), so khớp ID để phân định dòng mới gõ
-        return (b.id ? b.id.toString() : "").localeCompare(a.id ? a.id.toString() : "");
-      });
-
-      // Bước 3: Tóm cổ dòng ở vị trí index 0 (Chắc chắn 100% là sự kiện mới nhất thực tế)
-      const skGanNhatRiengCuaNai = lichSuRiengCuaNai.length > 0 ? lichSuRiengCuaNai[0] : null;
-
-      let trangThaiLienTruocTho = "";
-
-      if (skGanNhatRiengCuaNai) {
-        trangThaiLienTruocTho = skGanNhatRiengCuaNai.suKien ? skGanNhatRiengCuaNai.suKien.toString().trim().normalize("NFC") : "";
-      } else {
-        // Nhánh dự phòng: Nếu lịch sử trống trơn, bốc dữ liệu gốc từ danh bạ Tab 2 làm điểm tựa
-        const heoGocTab2 = Array.isArray(danhSachMaTai) && danhSachMaTai.find(h => h && h.maTai && h.maTai.toString().toUpperCase().trim() === maTaiChuanQuet);
-        if (heoGocTab2) {
-          trangThaiLienTruocTho = heoGocTab2.trangThaiCotH ? heoGocTab2.trangThaiCotH.toString().trim().normalize("NFC") : "";
-        }
+    if (trangThaiXacThuc !== "" && trangThaiXacThuc !== "Nai_Moi_Tinh") {
+      if (trangThaiXacThuc === "Thải") {
+        setTxtAlertNoiDung({ tieuDe: "Heo nái đã thải loại", maTai: maTaiChuanQuet, hanhDong: suKien, loiGiai: "đã bị thanh lý khỏi đàn. Bạn không thể ghi nhận thêm bất kỳ dữ liệu nào!" });
+        setIsQuyTrinhAlertVisible(true);
+        return;
       }
 
-      // Bước 4: Kiểm tra khóa chặn quy trình thú y nghiêm ngặt
-      let trangThaiXacThuc = "";
-      if (trangThaiLienTruocTho === "Đẻ" || trangThaiLienTruocTho === "ĐẺ" || trangThaiLienTruocTho.includes("Đe")) {
-        trangThaiXacThuc = "Đẻ";
-      } else if (trangThaiLienTruocTho === "Phối" || trangThaiLienTruocTho === "PHỐI") {
-        trangThaiXacThuc = "Phối";
-      } else if (trangThaiLienTruocTho === "Cai Sữa" || trangThaiLienTruocTho === "Cai sữa" || trangThaiLienTruocTho.includes("Cai")) {
-        trangThaiXacThuc = "Cai Sữa";
-      } else if (trangThaiLienTruocTho === "Thải" || trangThaiLienTruocTho === "THẢI") {
-        trangThaiXacThuc = "Thải";
-      } else if (trangThaiLienTruocTho === "Lốc" || trangThaiLienTruocTho === "Sảy Thai" || trangThaiLienTruocTho === "Chờ Phối") {
-        trangThaiXacThuc = "Chua_Phoi"; // Giải phóng nái về nhóm chưa phối để phối lại lập tức
+      if (trangThaiXacThuc === "Phối" && suKienHienTaiChuan === "Phối") {
+        setTxtAlertNoiDung({ 
+          tieuDe: "Sai quy trình chăn nuôi", 
+          maTai: maTaiChuanQuet, 
+          hanhDong: "Phối liên tiếp", 
+          loiGiai: "đã được phối giống ở lứa này và hiện đang mang thai (Chưa nhập Đẻ/Lốc/Sảy thai). Bạn KHÔNG THỂ nhập hành động Phối tiếp!" 
+        });
+        setIsQuyTrinhAlertVisible(true);
+        return; 
       }
 
-      if (trangThaiXacThuc !== "") {
-        if (trangThaiXacThuc === "Thải") {
-          setTxtAlertNoiDung({ tieuDe: "Heo nái đã thải loại", maTai: maTaiChuanQuet, hanhDong: suKien, loiGiai: "đã bị thanh lý khỏi đàn. Bạn không thể ghi nhận thêm bất kỳ dữ liệu nào!" });
-          setIsQuyTrinhAlertVisible(true);
-          return;
-        }
-
-        if (trangThaiXacThuc === "Phối" && suKienHienTaiChuan === "Phối") {
+      if (trangThaiXacThuc === "Đẻ") {
+        if (suKienHienTaiChuan !== "Cai Sữa" && suKienHienTaiChuan !== "Cai sữa" && suKienHienTaiChuan !== "Thải") {
           setTxtAlertNoiDung({ 
             tieuDe: "Sai quy trình chăn nuôi", 
             maTai: maTaiChuanQuet, 
-            hanhDong: "Phối liên tiếp", 
-            loiGiai: "đã được phối giống ở lứa này và hiện đang mang thai (Chưa nhập Đẻ/Lốc/Sảy thai). Bạn KHÔNG THỂ nhập hành động Phối tiếp!" 
+            hanhDong: suKien, 
+            loiGiai: "Hiện Đang Đẻ (chưa nhập Cai Sữa). Bạn CHỈ ĐƯỢC nhập Cai Sữa hoặc Thải loại!" 
           });
           setIsQuyTrinhAlertVisible(true);
-          return; // Chặn đứng lưu lọt lưới
+          return;
+        }
+      }
+
+      if ((suKienHienTaiChuan === "Cai Sữa" || suKienHienTaiChuan === "Cai sữa") && trangThaiXacThuc === "Cai Sữa") {
+        setTxtAlertNoiDung({ tieuDe: "Sai quy trình chăn nuôi", maTai: maTaiChuanQuet, hanhDong: "Cai Sữa liên tiếp", loiGiai: "đã được làm thủ tục Cai Sữa tách đàn rồi. Bạn không thể nhập Cai Sữa liên tiếp lượt nữa!" });
+        setIsQuyTrinhAlertVisible(true);
+        return;
+      }
+
+      if (trangThaiXacThuc === "Đẻ") {
+        if (suKienHienTaiChuan === "Phối") {
+          setTxtAlertNoiDung({ 
+            tieuDe: "Sai quy trình chăn nuôi", 
+            maTai: maTaiChuanQuet, 
+            hanhDong: "Phối giống lứa mới", 
+            loiGiai: "vừa có sự kiện Đẻ lứa trước và hiện vẫn đang nuôi con trên chuồng. Bạn phải làm thủ tục Cai Sữa tách đàn cho heo trước rồi mới được phối giống lại lứa tiếp theo!" 
+          });
+          setIsQuyTrinhAlertVisible(true);
+          return; 
         }
 
-        if (trangThaiXacThuc === "Đẻ") {
-          if (suKienHienTaiChuan !== "Cai Sữa" && suKienHienTaiChuan !== "Cai sữa" && suKienHienTaiChuan !== "Thải") {
-            setTxtAlertNoiDung({ 
-              tieuDe: "Sai quy trình chăn nuôi", 
-              maTai: maTaiChuanQuet, 
-              hanhDong: suKien, 
-              loiGiai: "Hiện Đang Đẻ (chưa nhập Cai Sữa). Bạn CHỈ ĐƯỢC nhập Cai Sữa hoặc Thải loại!" 
-            });
-            setIsQuyTrinhAlertVisible(true);
-            return;
-          }
-        }
-
-        if ((suKienHienTaiChuan === "Cai Sữa" || suKienHienTaiChuan === "Cai sữa") && trangThaiXacThuc === "Cai Sữa") {
-          setTxtAlertNoiDung({ tieuDe: "Sai quy trình chăn nuôi", maTai: maTaiChuanQuet, hanhDong: "Cai Sữa liên tiếp", loiGiai: "đã được làm thủ tục Cai Sữa tách đàn rồi. Bạn không thể nhập Cai Sữa liên tiếp lượt nữa!" });
+        if (suKienHienTaiChuan !== "Cai Sữa" && suKienHienTaiChuan !== "Cai sữa" && suKienHienTaiChuan !== "Thải") {
+          setTxtAlertNoiDung({ 
+            tieuDe: "Sai quy trình chăn nuôi", 
+            maTai: maTaiChuanQuet, 
+            hanhDong: suKien, 
+            loiGiai: "vừa có sự kiện Đẻ lứa trước và hiện vẫn đang nuôi con trên chuồng (chưa nhập Cai Sữa). Bạn CHỈ ĐƯỢC PHÉP nhập sự kiện Cai Sữa hoặc Thải loại!" 
+          });
           setIsQuyTrinhAlertVisible(true);
           return;
         }
-                // ----------------========================================
-        // TRƯỜNG HỢP C: NÁI ĐANG NUÔI CON (ĐỂ) & KHÓA CHẶT QUY TRÌNH CAI SỮA
-        // ----------------========================================
-        if (trangThaiXacThuc === "Đẻ") {
-          // Đang nuôi con thì KHÔNG ĐƯỢC PHÉP nhập phối lại (Bụng đã trống đâu mà phối)
-          if (suKienHienTaiChuan === "Phối") {
-            setTxtAlertNoiDung({ 
-              tieuDe: "Sai quy trình chăn nuôi", 
-              maTai: maTaiChuanQuet, 
-              hanhDong: "Phối giống lứa mới", 
-              loiGiai: "vừa có sự kiện Đẻ lứa trước và hiện vẫn đang nuôi con trên chuồng. Bạn phải làm thủ tục Cai Sữa tách đàn cho heo trước rồi mới được phối giống lại lứa tiếp theo!" 
-            });
-            setIsQuyTrinhAlertVisible(true);
-            return; // Chặn đứng lưu
-          }
+      }
 
-          if (suKienHienTaiChuan !== "Cai Sữa" && suKienHienTaiChuan !== "Cai sữa" && suKienHienTaiChuan !== "Thải") {
-            setTxtAlertNoiDung({ 
-              tieuDe: "Sai quy trình chăn nuôi", 
-              maTai: maTaiChuanQuet, 
-              hanhDong: suKien, 
-              loiGiai: "vừa có sự kiện Đẻ lứa trước và hiện vẫn đang nuôi con trên chuồng (chưa nhập Cai Sữa). Bạn CHỈ ĐƯỢC PHÉP nhập sự kiện Cai Sữa hoặc Thải loại!" 
-            });
-            setIsQuyTrinhAlertVisible(true);
-            return;
-          }
-        }
-
-        // 🎯 THẦN CÔNG CHẶN LỌT LƯỚI: Chưa Đẻ mà đòi Cai sữa là chặn đứng 100%
-        if (suKienHienTaiChuan === "Cai Sữa" || suKienHienTaiChuan === "Cai sữa") {
-          if (trangThaiXacThuc !== "Đẻ") {
-            setTxtAlertNoiDung({ 
-              tieuDe: "Sai quy trình chăn nuôi", 
-              maTai: maTaiChuanQuet, 
-              hanhDong: "Cai Sữa tách đàn", 
-              loiGiai: "hiện đang ở trạng thái [" + (trangThaiXacThuc === "Phối" ? "🤰 Đang mang thai" : "💢 Trống phối") + "] và chưa nhập sự kiện Đẻ lứa này. Bạn KHÔNG THỂ thực hiện hành động Cai Sữa khi heo chưa sinh con!" 
-            });
-            setIsQuyTrinhAlertVisible(true);
-            return; // Chặn đứng ngắt mạch lọt lưới
-          }
-        }
-
-        if ((suKienHienTaiChuan === "Cai Sữa" || suKienHienTaiChuan === "Cai sữa") && trangThaiXacThuc === "Cai Sữa") {
-          setTxtAlertNoiDung({ tieuDe: "Sai quy trình chăn nuôi", maTai: maTaiChuanQuet, hanhDong: "Cai Sữa liên tiếp", loiGiai: "đã được làm thủ tục Cai Sữa tách đàn rồi. Bạn không thể nhập Cai Sữa liên tiếp lượt nữa!" });
-          setIsQuyTrinhAlertVisible(true);
-          return;
-        }
-
+      if ((suKienHienTaiChuan === "Cai Sữa" || suKienHienTaiChuan === "Cai sữa") && trangThaiXacThuc === "Cai Sữa") {
+        setTxtAlertNoiDung({ tieuDe: "Sai quy trình chăn nuôi", maTai: maTaiChuanQuet, hanhDong: "Cai Sữa liên tiếp", loiGiai: "đã được làm thủ tục Cai Sữa tách đàn rồi. Bạn không thể nhập Cai Sữa liên tiếp lượt nữa!" });
+        setIsQuyTrinhAlertVisible(true);
+        return;
       }
     }
+
 
     const dongMoi = { 
       id: sinhIDDocBan("ID"), 
@@ -1357,37 +1360,41 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
 
 
   // --- HÀM 6: FORM THÊM MỚI SỔ MÃ TAI (TAB 2) ---
-  const handleSaveMaTai = () => {
-    if (!mtMaTai.trim()) return Alert.alert("Thông báo", "Vui lòng nhập Mã Tai!");
-    if (!mtGiong.trim()) return Alert.alert("Thông báo", "Vui lòng nhập Giống heo!");
-    const maTaiGoc = mtMaTai.toUpperCase().trim();
+ const handleSaveMaTai = () => {
+  if (!mtMaTai.trim()) return Alert.alert("Thông báo", "Vui lòng nhập Mã Tai!");
+  
+  const maTaiGoc = mtMaTai.toUpperCase().trim();
   if (Array.isArray(danhSachMaTai) && danhSachMaTai.some(heo => heo && heo.maTai && heo.maTai.toString().toUpperCase().trim() === maTaiGoc)) {
     return Alert.alert("Cảnh báo trùng mã tai Cũ", `Mã tai [${maTaiGoc}] đã tồn tại Hoặc nằm trong mục loại ( Thải ). Vui lòng nhập số tai khác hoặc thêm kí tự!`);
   }
-    
-    const dongMoi = { 
-      id: "MT_" + new Date().getTime(), 
-      maTai: mtMaTai.toUpperCase().trim(), 
-      giong: mtGiong.trim(), 
-      lua: mtLua, 
-      syncStatus: "waiting", 
-      actionType: "mt_create",
-      vuaNhapMoi: true
-    };
-    
-    setDanhSachMaTai(prev => [dongMoi, ...prev]); 
-    setMtMaTai(''); setMtGiong(''); setMtLua('Hậu Bị'); 
+  
+  // 🚀 DOT PHA CONG NGHE: Tu dong dien chu Nai Nha neu cong nhan de trong o giong heo tai Tab 2
+  const giongHeoChuanTab2 = mtGiong && mtGiong.trim() !== "" ? mtGiong.trim() : "Nái Nhà";
 
-    setDongBoStatus(`⏳ Đang lưu mã tai mới: ${dongMoi.maTai}...`);
-       guiYeuCauMang(dongMoi, (res) => {
-      if (res.status === 'success') {
-        // 🎯 TỰ ĐỘNG NHẬN DỮ LIỆU: Tự gọi hàm kéo dữ liệu mới tinh từ Sheet về điện thoại ngầm
-
-        setDanhSachMaTai(prev => prev.map(i => i.id === dongMoi.id ? { ...i, syncStatus: "synced" } : i));
-        setDongBoStatus('✅ Thêm Mã tai heo mới thành công');
-      }
-    });
+  const dongMoi = { 
+    id: "MT_" + new Date().getTime(), 
+    maTai: maTaiGoc, 
+    giong: giongHeoChuanTab2, // 🎯 Chuyen sang boc giongHeoChuanTab2 de luu RAM tai cho
+    lua: mtLua, 
+    syncStatus: "waiting", 
+    actionType: "mt_create",
+    vuaNhapMoi: true
   };
+  
+  setDanhSachMaTai(prev => [dongMoi, ...prev]); 
+  setMtMaTai(''); 
+  setMtGiong(''); 
+  setMtLua('Hậu Bị'); 
+
+  setDongBoStatus(`⏳ Đang lưu mã tai mới: ${dongMoi.maTai}...`);
+  guiYeuCauMang(dongMoi, (res) => {
+    if (res && res.status === 'success') {
+      setDanhSachMaTai(prev => prev.map(i => i.id === dongMoi.id ? { ...i, syncStatus: "synced" } : i));
+      setDongBoStatus('✅ Thêm Mã tai heo mới thành công');
+    }
+  });
+};
+
 
 
   const handleMtEditClick = (item) => {
@@ -1665,22 +1672,97 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
                     elevation: 1
                   }]}>
                     
-                    <View style={{ 
-                      alignItems: 'center', 
-                      marginBottom: 12, 
-                      borderBottomWidth: 1, 
-                      borderBottomColor: '#ffe5d4', 
-                      paddingBottom: 6 
-                    }}>
-                      <Text style={{ fontSize: 13, color: '#e65100', fontWeight: 'bold', textAlign: 'center' }}>
-                        📝 HÔM NAY CÓ SỰ KIỆN GÌ MỚI? BẠN HÃY NHẬP Ở ĐÂY
-                      </Text>
+                                       {/* ======================================================== */}
+                    {/* 📊 BẢN VÁ TỐI CAO: HỘP THÔNG BÁO NĂNG SUẤT ĐỈNH ĐẦU CỰC ĐẸP - CHỐNG CHE CHỮ 100% */}
+                    {/* ======================================================== */}
+                    <View style={{ marginBottom: 14, width: '100%' }}>
+                      
+                      {/* 1. DÒNG TIÊU ĐỀ CHÍNH NGUYÊN BẢN CỦA BẠN */}
+                      <View style={{ alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#ffe5d4', paddingBottom: 6, marginBottom: 8 }}>
+                        <Text style={{ fontSize: 13, color: '#e65100', fontWeight: 'bold', textAlign: 'center' }}>
+                          📝 HÔM NAY CÓ SỰ KIỆN GÌ MỚI? BẠN HÃY NHẬP Ở ĐÂY
+                        </Text>
+                      </View>
+
+                      {/* 2. HỘP BANNER XANH NGỌC PHẲNG HIỂN THỊ DỰ ĐẺ VÀ TUẦN PHỐI THEO THỨ HAI ĐẦU TUẦN */}
+                      {ngayHienThi && ngayHienThi.toString().trim() !== "" && (
+                        <View 
+                          style={{ 
+                            backgroundColor: '#ffffff', 
+                            borderWidth: 1,
+                            borderColor: '#ffffff',
+                            borderLeftWidth: 4,
+                            borderLeftColor: '#28a745',
+                            borderRadius: 6, 
+                            paddingVertical: 6, 
+                            paddingHorizontal: 10,
+                            marginTop: 4,
+                            width: '100%'
+                          }}
+                        >
+                          <Text style={{ fontSize: 12, color: '#155724', fontWeight: 'bold', lineHeight: 16 }}>
+                            Bấm Lịch tính nhanh Tuần Phối/Ngày dự Đẻ {tinhNgayDuKienDe(ngayHienThi)} 
+                            {(() => {
+                              try {
+                                const chuoiNgayForm = ngayHienThi ? ngayHienThi.toString().trim() : "";
+                                let d = 0, m = 0, y = 0;
+
+                                if (chuoiNgayForm.includes('/')) {
+                                  const mangCat = chuoiNgayForm.split('/');
+                                  if (mangCat.length === 3) {
+                                    d = parseInt(mangCat[0], 10);
+                                    m = parseInt(mangCat[1], 10);
+                                    y = parseInt(mangCat[2], 10);
+                                  }
+                                } else if (chuoiNgayForm.includes('-')) {
+                                  const mangCat = chuoiNgayForm.substring(0, 10).split('-');
+                                  if (mangCat.length === 3) {
+                                    y = parseInt(mangCat[0], 10);
+                                    m = parseInt(mangCat[1], 10);
+                                    d = parseInt(mangCat[2], 10);
+                                  }
+                                }
+
+                                if (d > 0 && m > 0 && y > 0) {
+                                  // 🎯 KHÓA CHUẨN ISO-8601 LẤY ĐÚNG THỨ HAI LÀM ĐẦU TUẦN CỦA NGÀY CHỌN
+                                  const dateChonObj = new Date(y, m - 1, d);
+                                  const ngayThuNamCuaTuan = new Date(dateChonObj.valueOf());
+                                  const thuHienTai = dateChonObj.getDay();
+                                  const thuChuanHienTai = thuHienTai === 0 ? 7 : thuHienTai;
+                                  
+                                  ngayThuNamCuaTuan.setDate(ngayThuNamCuaTuan.getDate() + 4 - thuChuanHienTai);
+                                  const ngayDauNamObj = new Date(ngayThuNamCuaTuan.getFullYear(), 0, 1);
+                                  const khoangCachMs = ngayThuNamCuaTuan.getTime() - ngayDauNamObj.getTime();
+                                  const soNgayTroiQua = Math.floor(khoangCachMs / 86400000);
+                                  const soTuanLich = Math.ceil((soNgayTroiQua + 1) / 7);
+                                  
+                                  if (soTuanLich > 0 && soTuanLich <= 54) {
+                                    return ` • (Tuần Phối: ${soTuanLich})`;
+                                  }
+                                }
+                              } catch (err) {
+                                return "";
+                              }
+                              return "";
+                        })()}
+                          </Text>
+                        </View>
+                      )}
+
                     </View>
 
+
                    <View style={[styles.rowInput, { marginBottom: 10 }]}>
+                    
   {/* Nút bấm chọn ngày tháng của bạn giữ nguyên */}
  {/* 🎯 KHỐI CHỌN NGÀY VÀ THÔNG BÁO DỰ KIẾN - TÁCH DÒNG PHẲNG KHÔNG LƠ LỬNG */}
   {/* 🎯 NÚT CHỌN NGÀY THÁNG - CỐ ĐỊNH KÍCH THƯỚC PHẲNG */}
+   {/* ======================================================== */}
+  {/* 🎯 BẢN VÁ TỐI CAO: TUẦN PHỐI CHUẨN ISO-8601 (THỨ HAI LÀ ĐẦU TUẦN) TỪ NGÀY CHỌN */}
+  {/* ======================================================== */}
+ 
+
+  {/* NÚT CHỌN NGÀY GỐC NGUYÊN BẢN CỦA BẠN */}
   <TouchableOpacity 
     style={[styles.dateButton, { borderColor: '#ffd3b6', backgroundColor: '#ffffff', height: 42, justifyContent: 'center', paddingHorizontal: 10, zIndex: 10000 }]} 
     onPress={() => setDatePickerVisibility(true)}
@@ -1688,14 +1770,10 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
     <Text style={[styles.dateButtonText, { fontSize: 14 }]}>📅 {ngayHienThi}</Text>
   </TouchableOpacity>
 
-  {/* 🎯 NHÃN MỜ LƠ LỬNG: Nằm ép ngay dưới đáy nút Ngày, tuyệt đối không đẩy dòng làm xấu ô bên cạnh */}
-  {suKien && suKien.toString().trim().toUpperCase().includes("PHỐI") && ngayHienThi && (
-    <View style={{ position: 'absolute', top: 44, left: 4, right: 0, zIndex: 9999 }}>
-      <Text style={{ fontSize: 11, color: '#28a745', fontWeight: 'bold', fontStyle: 'italic' }}>
-        Dự kiến đẻ: {tinhNgayDuKienDe(ngayHienThi)}
-      </Text>
-    </View>
-  )}
+
+    {/* 🎯 BẢN VÁ TỐI CAO: NHÃN LƠ LỬNG GĂM CHUẨN BIẾN NGAYHIENTHI - HIỆN TUẦN PHỐI CHẮC CHẮN 100% */}
+ 
+
 
 
   
@@ -1826,8 +1904,24 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
     <View style={{ flex: 0.5 }} />
   )}
 </View>
-                    <DateTimePickerModal isVisible={isDatePickerVisible} mode="date" onConfirm={(d) => { setNgayHienThi(formatVNDate(d)); setDatePickerVisibility(false); }} onCancel={() => setDatePickerVisibility(false)} confirmTextConfirm="Xác nhận" cancelText="Hủy" />
+                                        {/* ======================================================== */}
+                    {/* 📊 BẢN VÁ TỐI CAO: VIỆT HÓA BẢNG LỊCH Ô VUÔNG IOS ĐỒNG BỘ 100% */}
+                    {/* ======================================================== */}
+                    <DateTimePickerModal 
+                      isVisible={isDatePickerVisible} 
+                      mode="date" 
+                      display="inline" 
+                      
+                      // 🎯 KHÓA CHẶT NGÔN NGỮ: Ép iPhone/iPad dịch rành mạch sang phông tiếng Việt chuẩn chỉ
+                      locale="vi" 
+                      
+                      onConfirm={(d) => { setNgayHienThi(formatVNDate(d)); setDatePickerVisibility(false); }} 
+                      onCancel={() => setDatePickerVisibility(false)} 
+                      confirmTextConfirm="Xác nhận" 
+                      cancelText="Hủy" 
+                    />
                     
+                    {/* KHUNG HỘP BỌC SỰ KIỆN NGUYÊN BẢN CỦA BẠN */}
                     <View style={{ 
                       marginBottom: 10, 
                       borderWidth: 1.2, 
@@ -1837,17 +1931,96 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
                       justifyContent: 'center',
                       minHeight: 44
                     }}>
-                      <Picker 
-                        selectedValue={suKien} 
-                        dropdownIconColor="#111111" 
-                        style={{ color: '#111111', backgroundColor: 'transparent', width: '100%' }} 
-                        onValueChange={(itemValue) => { setSuKien(itemValue); setSoHeo(''); }}
-                      >
-                        {danhSachSuKien.map((item, index) => (
-                          <Picker.Item key={index} label={item} value={item} style={{ color: '#111111', backgroundColor: '#ffffff', fontSize: 14 }} />
-                        ))}
-                      </Picker>
+                      {(() => {
+                        const mangSuKienDropdown = Array.isArray(danhSachSuKien) 
+                          ? danhSachSuKien.map(itemText => ({ label: itemText, value: itemText }))
+                          : [];
+
+                        return (
+                          <View style={{ width: '100%' }}>
+                            
+                            {/* THANH HIỂN THỊ TĨNH (Chạm vào để bật mở khay) */}
+                            <TouchableOpacity
+                              activeOpacity={0.8}
+                              onPress={() => {
+                                if (typeof isOpenSuKien === 'undefined') {
+                                  setSuKien(suKien === "OPEN_MENU" ? "" : "OPEN_MENU");
+                                } else {
+                                  setIsOpenSuKien(!isOpenSuKien);
+                                }
+                              }}
+                              style={{
+                                height: 42,
+                                width: '100%',
+                                flexDirection: 'row',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                paddingHorizontal: 12,
+                                backgroundColor: '#ffffff',
+                                borderWidth: 0,
+                              }}
+                            >
+                              <Text style={{ color: (suKien && suKien !== "OPEN_MENU") ? '#111111' : '#888888', fontSize: 14, fontWeight: suKien ? '700' : '400' }}>
+                                {(suKien && suKien !== "OPEN_MENU") ? suKien : "--- Cham chon Su Kien ---"}
+                              </Text>
+                              <Text style={{ fontSize: 12, color: '#111111' }}>{(isOpenSuKien || suKien === "OPEN_MENU") ? "▲" : "▼"}</Text>
+                            </TouchableOpacity>
+
+                            {/* KHAY PHẲNG TĨNH CHẮC CHẮN HIỆN HẾT 100% CHỮ - KHÔNG GIẬT LẮC */}
+                            {(isOpenSuKien || suKien === "OPEN_MENU") && (
+                              <View 
+                                style={{
+                                  width: '100%',
+                                  backgroundColor: '#ffffff',
+                                  borderWidth: 1,
+                                  borderColor: '#ffd3b6',
+                                  borderRadius: 8,
+                                  paddingVertical: 2,
+                                  marginTop: 4,
+                                }}
+                              >
+                                {Array.isArray(danhSachSuKien) && danhSachSuKien.map((itemText, index) => {
+                                  const laDongDangChon = suKien === itemText;
+                                  
+                                  return (
+                                    <TouchableOpacity
+                                      key={`custom_sk_pure_${index}`}
+                                      activeOpacity={0.7}
+                                      onPress={() => {
+                                        setSuKien(itemText); 
+                                        if (typeof setSoHeo === 'function') setSoHeo('');
+                                        if (typeof setIsOpenSuKien === 'function') setIsOpenSuKien(false);
+                                      }}
+                                      style={{
+                                        paddingVertical: 11,
+                                        paddingHorizontal: 14,
+                                        backgroundColor: laDongDangChon ? '#fffaf5' : '#ffffff',
+                                        flexDirection: 'row',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        borderBottomWidth: index < danhSachSuKien.length - 1 ? 0.5 : 0,
+                                        borderBottomColor: '#f8f9fa'
+                                      }}
+                                    >
+                                      <Text style={{
+                                        fontSize: 14,
+                                        color: laDongDangChon ? '#e65100' : '#111111',
+                                        fontWeight: laDongDangChon ? '900' : '500'
+                                      }}>
+                                        {itemText}
+                                      </Text>
+                                      {laDongDangChon && <Text style={{ fontSize: 12, color: '#e65100' }}>✓</Text>}
+                                    </TouchableOpacity>
+                                  );
+                                })}
+                              </View>
+                            )}
+
+                          </View>
+                        );
+                      })()}
                     </View>
+
 
                     {suKien === "Đẻ" && (
                       <View style={{ backgroundColor: '#ffffff', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#ffd3b6', marginBottom: 10 }}>
@@ -1897,54 +2070,65 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
                 styles.historyCard, 
                 item.syncStatus === "waiting" && { backgroundColor: '#fef1d6', borderColor: '#fbc48c', opacity: 0.4 }
               ]}>
+                                {/* ======================================================== */}
+                {/* 📊 BẢN VÁ TỐI CAO DỨT ĐIỂM 100%: GỠ BỎ LỖI ĐÓNG THẺ TEXT SAI QUY CÁCH */}
+                {/* ======================================================== */}
                 <View style={{ flex: 1, paddingRight: 5 }}>
-                  {/* 🎯 ĐÃ KHÔI PHỤC: Xóa bỏ nhãn trạng thái lặp lại ở đây, chỉ giữ lại Ngày và Mã Tai gốc */}
-                  <Text style={styles.cardHeader}>
-                    📅 {(() => {
-                      if (!item.ngay) return "---";
-                      const str = item.ngay.toString().trim();
-                      if (str.includes('/') && str.split('/').length === 3) return str.substring(0, 10);
-                      const d = new Date(str);
-                      if (isNaN(d.getTime())) return str.substring(0, 10);
-                      return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-                    })()} |                   {/* 🟢 ĐÃ VÁ THẨM MỸ CAO CẤP: Đồng bộ lề hàng và phông nền tinh tế cho dòng Bán Heo */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-                    <Text style={styles.cardBody}>Mã Tai: </Text>
-                    {item.maTai === "BÁN HEO" ? (
-                      // 1. Nhãn phẳng màu xám nhạt tinh tế cho sự kiện Bán Heo (Không có kính lúp)
-                      <View style={{ backgroundColor: '#f1f2f6', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 0.5, borderColor: '#ced4da' }}>
-                        <Text style={{ color: '#4f5d73', fontWeight: 'bold', fontSize: 12 }}>
-                          BÁN HEO
-                        </Text>
-                      </View>
-                    ) : (
-                      // 2. Nhãn bấm chuyên nghiệp cho Mã tai heo nái thực tế
-                      <TouchableOpacity 
-                        activeOpacity={0.5}
-                        style={{ backgroundColor: '#e7f1ff', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 0.5, borderColor: '#b8daff' }}
-                        onPress={() => {
-                          let thongTinDayDuCuaNai = { maTai: item.maTai }; 
-                          if (Array.isArray(danhSachMaTai)) {
-                            const naiTimDuoc = danhSachMaTai.find(heo => heo && heo.maTai && heo.maTai.toString().toUpperCase().trim() === item.maTai.toString().toUpperCase().trim());
-                            if (naiTimDuoc) {
-                              thongTinDayDuCuaNai = naiTimDuoc;
+                  
+                  {/* 🎯 GIẢI PHÁP ĐỒNG HÀNG: Tạo khay hàng ngang phẳng sạch bọc Ngày và Mã Tai chung 1 hàng */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginBottom: 6, rowGap: 4 }}>
+                    
+                    {/* 1. KHỐI HIỂN THỊ NGÀY THÁNG ĐÓNG KHÍT THẺ TEXT CHUẨN CHỈ CHỐNG LỖI */}
+                    <Text style={styles.cardHeader}>
+                      📅 {(() => {
+                        if (!item.ngay) return "---";
+                        const str = item.ngay.toString().trim();
+                        if (str.includes('/') && str.split('/').length === 3) return str.substring(0, 10);
+                        const d = new Date(str);
+                        if (isNaN(d.getTime())) return str.substring(0, 10);
+                        return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+                      })()} | </Text>
+
+                    {/* 2. KHỐI HIỂN THỊ MÃ TAI ĐỒNG HÀNG THẲNG BĂNG KỂ CẢ TRÊN IPAD VÀ SỰ KIỆN PHỐI */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={[styles.cardBody, { marginTop: 0, marginRight: 4, fontSize: 13 }]}>Mã Tai: </Text>
+                      {item.maTai === "BÁN HEO" ? (
+                        <View style={{ backgroundColor: '#f1f2f6', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 0.5, borderColor: '#ced4da' }}>
+                          <Text style={{ color: '#4f5d73', fontWeight: 'bold', fontSize: 12 }}>
+                            BÁN HEO
+                          </Text>
+                        </View>
+                      ) : (
+                        <TouchableOpacity 
+                          activeOpacity={0.5}
+                          style={{ backgroundColor: '#e7f1ff', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 0.5, borderColor: '#b8daff', flexDirection: 'row', alignItems: 'center' }}
+                          onPress={() => {
+                            let thongTinDayDuCuaNai = { maTai: item.maTai }; 
+                            if (Array.isArray(danhSachMaTai)) {
+                              const naiTimDuoc = danhSachMaTai.find(heo => heo && heo.maTai && heo.maTai.toString().toUpperCase().trim() === item.maTai.toString().toUpperCase().trim());
+                              if (naiTimDuoc) {
+                                thongTinDayDuCuaNai = naiTimDuoc;
+                              }
                             }
-                          }
-                          handleXemChiTietHeo(thongTinDayDuCuaNai);
-                        }}
-                      >
-                        <Text style={{ color: '#007bff', fontWeight: 'bold', fontSize: 12 }}>
-                          {item.maTai} 🔎
-                        </Text>
-                      </TouchableOpacity>
-                    )}
+                            handleXemChiTietHeo(thongTinDayDuCuaNai);
+                          }}
+                        >
+                          <Text style={{ color: '#007bff', fontWeight: 'bold', fontSize: 12 }}>
+                            {item.maTai} 🔎
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
                   </View>
 
-                  </Text>
-
+                  {/* 3. HIỂN THỊ DÒNG SỰ KIỆN CO GIÃN PHÍA DƯỚI NGAY NGẮN TĂM TẮP */}
                   <Text style={styles.cardBody}>
                     📝 {item.suKien} {item.soHeo !== "" ? `(${item.soHeo} con)` : ""}
                   </Text>
+
+          
+
 
                   {/* 🎯 VỊ TRÍ CHÈN CHUẨN VÀNG: HIỂN THỊ NGÀY DỰ ĐẺ RIÊNG CHO CÁC THẺ NHẬT KÝ SỰ KIỆN PHỐI */}
                   {item && item.suKien && item.suKien.toString().trim().toUpperCase().includes("PHỐI") && item.ngay && (
@@ -2141,11 +2325,107 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
                         <TextInput style={[styles.inputStandard, { flex: 1, marginBottom: 0, color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6', height: 42, fontSize: 14, paddingVertical: 0 }]} placeholder="Giống heo" placeholderTextColor="#777777" value={mtGiong} onChangeText={setMtGiong} />
                       </View>
                       <View style={{ marginBottom: 10, borderWidth: 1.2, borderColor: '#ffd3b6', borderRadius: 8, backgroundColor: '#ffffff', justifyContent: 'center', minHeight: 44 }}>
-                        <Picker selectedValue={mtLua} dropdownIconColor="#111111" style={{ color: '#111111', backgroundColor: 'transparent', width: '100%' }} onValueChange={(itemValue) => setMtLua(itemValue)}>
-                          {danhSachLuaHeo.map((item, index) => (
-                            <Picker.Item key={index} label={item} value={item} style={{ color: '#111111', backgroundColor: '#ffffff', fontSize: 14 }} />
-                          ))}
-                        </Picker>
+                                               {/* ======================================================== */}
+                        {/* 🐖 KHAY SỬA LỨA NÁI TỰ CHẾ - BẬT THANH CUỘN LỲ MƯỢT ĐỒNG BỘ 100% */}
+                        {/* ======================================================== */}
+                        {(() => {
+                          // 🎯 CHIẾN THUẬT VÀNG: Dùng nhãn riêng "OPEN_MENU_MT_LUA" để lật cờ mở khay độc lập ngoài RAM
+                          const laTrangThaiMoKhayMt = mtLua === "OPEN_MENU_MT_LUA";
+                          
+                          // Khóa chặt phông chữ hiển thị mặc định là Hậu bị nếu dữ liệu trên ô tính đang trống rỗng
+                          const chuHienThiChuanMt = (mtLua && mtLua.toString().trim() !== "" && mtLua !== "OPEN_MENU_MT_LUA") 
+                            ? mtLua.toString().trim() 
+                            : "Hậu bị";
+
+                          return (
+                            <View style={{ width: '100%' }}>
+                              
+                              {/* THANH HIỂN THỊ TĨNH (Chạm vào để bật mở khay cuộn) */}
+                              <TouchableOpacity
+                                activeOpacity={0.8}
+                                onPress={() => {
+                                  // Nếu đang mở thì đóng (về rỗng hoặc Hậu bị), nếu đang đóng thì dán nhãn mở khay
+                                  setMtLua(laTrangThaiMoKhayMt ? "Hậu bị" : "OPEN_MENU_MT_LUA");
+                                }}
+                                style={{
+                                  height: 42,
+                                  width: '100%',
+                                  flexDirection: 'row',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  paddingHorizontal: 12,
+                                  backgroundColor: '#ffffff',
+                                  borderWidth: 0, // Nhường quyền vẽ biên cho chiếc khung cam bọc ngoài sẵn có của bạn
+                                }}
+                              >
+                                <Text style={{ 
+                                  color: (mtLua && mtLua !== "OPEN_MENU_MT_LUA") ? '#111111' : '#888888', 
+                                  fontSize: 14, 
+                                  fontWeight: (mtLua && mtLua !== "OPEN_MENU_MT_LUA") ? '700' : '400' 
+                                }}>
+                                  Lứa: {chuHienThiChuanMt}
+                                </Text>
+                                <Text style={{ fontSize: 12, color: '#111111' }}>{laTrangThaiMoKhayMt ? "▲" : "▼"}</Text>
+                              </TouchableOpacity>
+
+                              {/* 🎯 KHAY PHẲNG TĨNH TỰ ĐỘNG BẬT SCROLLVIEW CUỘN RE RE CHUẨN UX TRẠI */}
+                              {laTrangThaiMoKhayMt && (
+                                <View 
+                                  style={{
+                                    width: '100%',
+                                    backgroundColor: '#ffffff',
+                                    borderTopWidth: 0.5,
+                                    borderTopColor: '#f1f2f6',
+                                    // Khóa cứng chiều cao tối đa đúng 180px để kích nổ thanh cuộn dọc khi lứa heo phình dài
+                                    height: 180, 
+                                  }}
+                                >
+                                  <ScrollView 
+                                    nestedScrollEnabled={true} // Ép thông mạch lướt cuộn độc lập bên bên trong Modal sửa
+                                    showsVerticalScrollIndicator={true} // Hiện thanh vạch dọc chỉ hướng trực quan
+                                    contentContainerStyle={{ paddingVertical: 2 }}
+                                  >
+                                    {Array.isArray(danhSachLuaHeo) && danhSachLuaHeo.map((item, index) => {
+                                      const laDongDangChon = chuHienThiChuanMt === item.toString().trim();
+                                      
+                                      return (
+                                        <TouchableOpacity
+                                          key={`custom_mt_lua_inline_${index}`}
+                                          activeOpacity={0.7}
+                                          onPress={() => {
+                                            // Nạp chuẩn vị chữ lứa xịn về lại cho hàm setMtLua gốc ngoài App.js của bạn
+                                            setMtLua(item.toString().trim()); 
+                                          }}
+                                          style={{
+                                            paddingVertical: 11,
+                                            paddingHorizontal: 14,
+                                            backgroundColor: laDongDangChon ? '#fffaf5' : '#ffffff',
+                                            flexDirection: 'row',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            borderBottomWidth: index < danhSachLuaHeo.length - 1 ? 0.5 : 0,
+                                            borderBottomColor: '#f8f9fa'
+                                          }}
+                                        >
+                                          <Text style={{
+                                            fontSize: 14,
+                                            color: laDongDangChon ? '#e65100' : '#111111',
+                                            fontWeight: laDongDangChon ? '900' : '500'
+                                          }}>
+                                            {item}
+                                          </Text>
+                                          {laDongDangChon && <Text style={{ fontSize: 12, color: '#e65100' }}>✓</Text>}
+                                        </TouchableOpacity>
+                                      );
+                                    })}
+                                  </ScrollView>
+                                </View>
+                              )}
+
+                            </View>
+                          );
+                        })()}
+
                       </View>
                       <TouchableOpacity onPress={handleSaveMaTai} activeOpacity={0.5} style={{ backgroundColor: '#e65100', paddingVertical: 9, borderRadius: 6, alignItems: 'center', marginTop: 4 }}>
                         <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 14 }}>THÊM MÃ TAI MỚI VÀO SỔ</Text>
@@ -2536,75 +2816,81 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
           </View>
 
           {/* CẤU TRÚC LƯỚI 3 Ô 1 HÀNG PHẲNG MỊN SANG TRỌNG */}
-          <View style={{ gap: 5, marginBottom: 5 }}>
+         <View style={{ gap: 5, marginBottom: 5 }}>
             {(() => {
-              const mangKhóaTuanBau = [
-                "t1", "t2", "t3", "t4", "t5", "t6",
+              const arrayPregnancyWeeks = [
+                "t0", "t1", "t2", "t3", "t4", "t5", "t6",
                 "t7", "t8", "t9", "t10", "t11", "t12",
                 "t13", "t14", "t15", "t16", "t17", "t18"
               ];
 
-              // 🎯 KHƠI THÔNG MẠCH SỐ CON: Dò tìm bóc đúng tầng đối tượng [0] bọc thai của mảng dataThongKe
-              let thongKeGoc = null;
+              let rawStatsData = null;
               if (Array.isArray(dataThongKe) && dataThongKe.length > 0) {
-                thongKeGoc = dataThongKe[0]; // Bốc phần tử số 0 chứa lõi dữ liệu
+                rawStatsData = dataThongKe[0]; 
               } else if (dataThongKe) {
-                thongKeGoc = dataThongKe;
+                rawStatsData = dataThongKe;
               }
 
-              const danhSachHangBaO = [];
-              for (let i = 0; i < mangKhóaTuanBau.length; i += 3) {
-                danhSachHangBaO.push(mangKhóaTuanBau.slice(i, i + 3));
+              const rowGroupData = [];
+              for (let i = 0; i < arrayPregnancyWeeks.length; i += 3) {
+                rowGroupData.push(arrayPregnancyWeeks.slice(i, i + 3));
               }
 
-              return danhSachHangBaO.map((hangData, hangIdx) => {
-                const laHangCanThietBiDongDe = hangData.includes("t16") || hangData.includes("t18");
-
+              return rowGroupData.map((hangData, hangIdx) => {
                 return (
-                  <View key={`clean_hang_ba_o_${hangIdx}`} style={{ width: '100%' }}>
-                    
-                    
-
+                  <View key={`clean_row_group_${hangIdx}`} style={{ width: '100%' }}>
                     <View style={{ flexDirection: 'row', gap: 5, marginBottom: 5 }}>
                       {hangData.map((tuanKey, colIdx) => {
                         
-                        // 🎯 ĐÃ VÁ ĐỒNG BỘ: Kéo chuẩn quân số từ thongKeGoc đã tháo màng bọc [0]
+                        // 🎯 CHÍNH XÁC 100%: Đồng bộ bốc đúng biến moiPhoi từ lõi dataThongKe[0] giống hệt dòng code cũ của bạn
                         let soConHienTai = "0";
-                        if (thongKeGoc && thongKeGoc[tuanKey] !== undefined && thongKeGoc[tuanKey] !== null) {
-                          soConHienTai = thongKeGoc[tuanKey].toString();
+                        if (rawStatsData) {
+                          if (tuanKey === "t0") {
+                            soConHienTai = (rawStatsData.moiPhoi ?? "0").toString();
+                          } else if (rawStatsData[tuanKey] !== undefined && rawStatsData[tuanKey] !== null) {
+                            soConHienTai = rawStatsData[tuanKey].toString();
+                          }
                         }
 
-                        const soTuanSo = tuanKey.replace('t', '');
                         const laOThuocCheck = tuanBauDangMoTab3 === tuanKey;
                         const coHeo = Number(soConHienTai) > 0;
 
-                        // 🎯 PHONG CÁCH TỐI GIẢN: Tất cả đồng bộ nền trắng sứ cực thoáng mắt
                         let mauVienLuoi = laOThuocCheck ? '#1a1f23' : '#e9ecef';
                         let mauNenLuoi = laOThuocCheck ? '#f1f3f5' : '#ffffff';
                         let mauChuTuan = '#495057';
                         let mauChuCon = coHeo ? '#1a1f23' : '#adb5bd';
                         let iconNhacNho = "";
+                        let nhanTieuDeNut = `Bầu Tuần ${tuanKey.replace('t', '')}`;
+                        let chuCanhBaoNho = null;
 
-                        // GÀI VIỀN MỎNG TINH TẾ CHO TUẦN 4, 7, 10 CHỐNG RỐI MẮT
-                        if (!laOThuocCheck) {
-                          if (tuanKey === "t4" || tuanKey === "t7" || tuanKey === "t10") {
-                            mauVienLuoi = '#20c997'; // Chỉ gài duy nhất một màu chỉ viền xanh Mint dịu mắt
+                        if (tuanKey === "t0") {
+                          nhanTieuDeNut = "Mới Phối";
+                          if (!laOThuocCheck) {
+                            mauVienLuoi = '#007bff'; 
+                            mauNenLuoi = '#ffffff';
                           }
                         }
 
-                        // KHỐI CẢNH BÁO CAO CẤP TUẦN 16-17-18
+                        if (!laOThuocCheck && tuanKey !== "t0") {
+                          if (tuanKey === "t4" || tuanKey === "t7" || tuanKey === "t10") {
+                            mauVienLuoi = '#20c997'; 
+                          }
+                        }
+
                         if (tuanKey === "t18") {
                           mauVienLuoi = laOThuocCheck ? '#dc3545' : '#f5c6cb';
                           mauNenLuoi = laOThuocCheck ? '#fff5f5' : '#ffffff';
                           mauChuTuan = '#dc3545';
                           mauChuCon = '#dc3545';
                           iconNhacNho = "🚨 "; 
+                          chuCanhBaoNho = "Kiểm Tra Gấp";
                         } else if (tuanKey === "t16" || tuanKey === "t17") {
                           mauVienLuoi = laOThuocCheck ? '#fd7e14' : '#ffe0b2';
                           mauNenLuoi = laOThuocCheck ? '#fffbf7' : '#ffffff';
                           mauChuTuan = '#fd7e14';
                           mauChuCon = '#fd7e14';
                           iconNhacNho = "🚨 "; 
+                          chuCanhBaoNho = "Sắp Đẻ";
                         }
 
                         return (
@@ -2614,7 +2900,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
                             onPress={() => setTuanBauDangMoTab3(laOThuocCheck ? null : tuanKey)}
                             style={{
                               flex: 1, 
-                              height: 48, 
+                              height: 52, 
                               borderRadius: 7,
                               borderWidth: laOThuocCheck ? 1.8 : 0.8,
                               borderColor: mauVienLuoi,
@@ -2623,12 +2909,18 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
                               justifyContent: 'center',
                             }}
                           >
-                            <Text style={{ fontSize: 11.5, fontWeight: '800', color: mauChuTuan }}>
-                              {iconNhacNho}Tuần {soTuanSo}
+                            <Text style={{ fontSize: 11, fontWeight: '800', color: mauChuTuan }}>
+                              {iconNhacNho}{nhanTieuDeNut}
                             </Text>
-                            <Text style={{ fontSize: 12.5, fontWeight: '700', color: mauChuCon, marginTop: 2 }}>
+                            <Text style={{ fontSize: 12, fontWeight: '700', color: mauChuCon, marginTop: 1 }}>
                               {soConHienTai} Con
                             </Text>
+
+                            {chuCanhBaoNho && (
+                              <Text style={{ fontSize: 8.5, fontWeight: '900', color: mauChuTuan, marginTop: 1, letterSpacing: 0.1 }}>
+                                {chuCanhBaoNho}
+                              </Text>
+                            )}
                           </TouchableOpacity>
                         );
                       })}
@@ -2641,15 +2933,30 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
           {/* ======================================================== */}
           {/* TAB 3 - PHẦN 2: DANH SÁCH MÃ TAI CHI TIẾT ĐỨNG IM DƯỚI CHÂN BẢNG LƯỚI */}
           {/* ======================================================== */}
-          {tuanBauDangMoTab3 && (
+                    {tuanBauDangMoTab3 && (
             <View style={{ backgroundColor: '#f8f9fa', borderWidth: 1, borderColor: '#e9ecef', borderRadius: 8, padding: 10, marginTop: 6 }}>
               
               {(() => {
-                const soTuanHienTai = tuanBauDangMoTab3.replace('t', '');
+                const soTuanHienTai = tuanBauDangMoTab3.replace('t', '').trim();
+                const laOThuocMoiPhoi = tuanBauDangMoTab3 === "t0";
                 
-                // Lọc trích xuất danh sách mã tai nái mang bầu lứa tuần này từ RAM danh bạ toàn cục
                 const danhSachMaTaiBauTuanNay = (danhSachMaTai || []).filter(nai => {
-                  if (!nai || !nai.tuanBauCotM) return false;
+                  if (!nai) return false;
+                  
+                  if (laOThuocMoiPhoi) {
+                    const txtM = nai.tuanBauCotM ? nai.tuanBauCotM.toString().trim() : "";
+                    const txtH = nai.trangThaiCotH ? nai.trangThaiCotH.toString().trim() : "";
+                    
+                    return (
+                      txtM === "Mới Phối" || 
+                      txtM === "Moi Phoi" || 
+                      txtM === "t0" ||
+                      txtH === "Mới Phối" ||
+                      txtH === "Chưa Phối"
+                    );
+                  }
+
+                  if (!nai.tuanBauCotM) return false;
                   const soTuanNaiBau = nai.tuanBauCotM.toString().replace('t', '').trim();
                   return soTuanNaiBau === soTuanHienTai;
                 });
@@ -2658,7 +2965,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
                   <View>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingBottom: 5, borderBottomWidth: 0.5, borderBottomColor: '#e9ecef' }}>
                       <Text style={{ fontSize: 12, fontWeight: '700', color: '#1a1f23' }}>
-                        📋 DANH SÁCH HEO TUẦN {soTuanHienTai}:
+                        📋 {laOThuocMoiPhoi ? "DANH SÁCH HEO MỚI PHỐI" : `DANH SÁCH BẦU TUẦN THỨ ${soTuanHienTai}`}:
                       </Text>
                       <TouchableOpacity onPress={() => setTuanBauDangMoTab3(null)} style={{ backgroundColor: '#6c757d', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 }}>
                         <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: 'bold' }}>Đóng x</Text>
@@ -2668,26 +2975,35 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
                       {danhSachMaTaiBauTuanNay.length === 0 ? (
                         <Text style={{ fontSize: 11, color: '#868e96', fontStyle: 'italic', paddingVertical: 4 }}>
-                          Chưa có Mã Tai heo nái nào được gán ở Tuần Bầu này trên hệ thống danh bạ.
+                          Chưa có Mã Tai heo nái nào được ghi nhận ở mục này trên hệ thống.
                         </Text>
                       ) : (
-                        danhSachMaTaiBauTuanNay.map((naiBau, nIdx) => (
-                          <View 
-                            key={`grid3_clean_tag_${nIdx}`}
-                            style={{ 
-                              backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e9ecef', 
-                              paddingHorizontal: 8, paddingVertical: 5, borderRadius: 5,
-                              minWidth: '31.5%', alignItems: 'center', justifyContent: 'center'
-                            }}
-                          >
-                            <Text style={{ color: '#212529', fontWeight: 'bold', fontSize: 12 }}>
-                              {naiBau.maTai || "---"}
-                            </Text>
-                            <Text style={{ color: '#6c757d', fontSize: 9.5, fontWeight: '700', marginTop: 1 }}>
-                              Lứa: {naiBau.lua || "0"}
-                            </Text>
-                          </View>
-                        ))
+                        danhSachMaTaiBauTuanNay.map((naiBau, nIdx) => {
+                          
+                          const rawDays = naiBau.ngayBauCotL ?? 0;
+                          const parsedDays = parseInt(rawDays, 10);
+                          const hienThiNgay = isNaN(parsedDays) ? 0 : parsedDays;
+
+                          return (
+                            <View 
+                              key={`grid3_clean_tag_${nIdx}`}
+                              style={{ 
+                                backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e9ecef', 
+                                paddingHorizontal: 8, paddingVertical: 5, borderRadius: 5,
+                                minWidth: '31.5%', alignItems: 'center', justifyContent: 'center'
+                              }}
+                            >
+                              <Text style={{ color: '#212529', fontWeight: 'bold', fontSize: 12 }}>
+                                {naiBau.maTai || "---"}
+                              </Text>
+                              
+                              {/* Đã đồng bộ hiển thị số ngày bầu thực tế cho tất cả các ô bao gồm cả Mới Phối */}
+                              <Text style={{ color: '#e65100', fontSize: 9.5, fontWeight: '800', marginTop: 1 }}>
+                                {hienThiNgay} Ngày
+                              </Text>
+                            </View>
+                          );
+                        })
                       )}
                     </View>
                   </View>
@@ -2696,6 +3012,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
 
             </View>
           )}
+
 
         </View>
 
@@ -3074,160 +3391,238 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
             })()}
           </View>
 
-          {/* GIAI ĐOẠN 2: CAI SỮA */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fdfdfd', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#dee2e6' }}>
-            <View>
-              <Text style={{ fontWeight: 'bold', color: '#111111', fontSize: 14 }}>2. Giai đoạn Cai Sữa</Text>
-              <Text style={{ fontSize: 12, color: '#6c757d', marginTop: 2 }}>Tuần tuổi: 4 tuần</Text>
-            </View>
-            
-            {/* 🎯 VÁ NGHIỆP VỤ: Tự động tính tổng thô Phase 2 trực tiếp từ RAM nội bộ giữ nguyên phông chữ gốc */}
-            {(() => {
-              const laySo = (v) => (!v || isNaN(v)) ? 0 : Number(v);
-              const tongGd2 = laySo(dataHeoThit["4 Tuần ( Cai Sữa )"]) || laySo(dataHeoThit.caiSua) || laySo(dataHeoThit["Cai Sữa"]);
-              return (
-                <Text style={{ color: '#212529', fontSize: 15, fontWeight: 'bold' }}>{tongGd2} con</Text>
-              );
-            })()}
-          </View>
-
-
-                   {/* ======================================================== */}
-          {/* 📊 GIAI ĐOẠN 3: BẢO TOÀN THIẾT KẾ PHẲNG GỐC VÀ TỰ ĐỘNG CỘNG TỔNG REAL-TIME */}
+           {/* ======================================================== */}
+          {/* 📊 PHẦN 1: BỘ TOÁN TRIỆT TIÊU WAITING & LƯỚI GIAI ĐOẠN 2, 3, 4 HIỂN THỊ TRỪ LIỀN */}
           {/* ======================================================== */}
-          <View style={{ backgroundColor: '#fffdf9', borderRadius: 8, borderWidth: 1, borderColor: '#ffe0b2', padding: 10, gap: openGiaiDoan.gd3 ? 8 : 0 }}>
-            <TouchableOpacity 
-              activeOpacity={0.7}
-              onPress={() => setOpenGiaiDoan(prev => ({ ...prev, gd3: !prev.gd3 }))}
-              style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
-            >
-              <View>
-                <Text style={{ fontWeight: 'bold', color: '#e65100', fontSize: 14 }}>3. Giai đoạn 10 - 30kg {openGiaiDoan.gd3 ? '▲' : '▼'}</Text>
-                <Text style={{ fontSize: 12, color: '#6c757d', marginTop: 2 }}>Tuần tuổi: 5 - 9 (Bấm xem chi tiết)</Text>
-              </View>
+          {(() => {
+            const laySoTho = (val) => {
+              if (val === undefined || val === null) return 0;
+              const str = val.toString().trim();
+              if (str === "" || isNaN(str)) return 0;
+              return Number(str);
+            };
 
-              {/* 🎯 VÁ NGHIỆP VỤ CAO CẤP: Tự động cộng tổng lứa tuần 5-9 từ bộ nhớ RAM nội bộ, giữ nguyên thiết kế chữ màu xanh đậm */}
-              {(() => {
-                const laySo = (v) => (!v || isNaN(v)) ? 0 : Number(v);
-                const tongGd3RealTime = laySo(dataHeoThit["5 Tuần"]) + laySo(dataHeoThit["6 Tuần"]) + laySo(dataHeoThit["7 Tuần"]) + laySo(dataHeoThit["8 Tuần"]) + laySo(dataHeoThit["9 Tuần"]);
-                return (
-                  <Text style={{ color: '#007bff', fontSize: 15, fontWeight: 'bold' }}>{tongGd3RealTime} con</Text>
-                );
-              })()}
-            </TouchableOpacity>
+            // 1. Khoi tao kho luu tru tam thoi cho toan bo cac luan tuan tu Tuon 4 den Tuon 30
+            const khoToanBoTuanRealTime = {};
+            for (let t = 4; t <= 30; t++) {
+              const khoaKey = t === 4 ? "4 Tuần ( Cai Sữa )" : `${t} Tuần`;
+              // Boc so lieu tinh tu Server ve lam moc xuat phat ban dau
+              khoToanBoTuanRealTime[khoaKey] = laySoTho(dataHeoThit[khoaKey]);
+            }
+            
+            // Bu tru them cho truong hop dat ten khoa bien viet tat cua lua cai sua
+            if (khoToanBoTuanRealTime["4 Tuần ( Cai Sữa )"] === 0) {
+              khoToanBoTuanRealTime["4 Tuần ( Cai Sữa )"] = laySoTho(dataHeoThit.caiSua) || laySoTho(dataHeoThit["Cai Sữa"]);
+            }
 
-            {/* LƯỚI Ô VUÔNG CHỮ TO RÕ CỦA GIAI ĐOẠN 3 */}
-            {openGiaiDoan.gd3 && (
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
-                {["5 Tuần", "6 Tuần", "7 Tuần", "8 Tuần", "9 Tuần"].map((keyTuan, idx) => {
-                  const soC = dataHeoThit[keyTuan] || "0";
-                  const soTuanSo = keyTuan.replace(' Tuần', '');
-                  return (
-                    <View key={`gd3_grid_${idx}`} style={{ width: '23.8%', height: 42, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#ffe0b2', borderRadius: 6, alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ fontSize: 11, fontWeight: '900', color: '#212529' }}>Tuần {soTuanSo}</Text>
-                      <Text style={{ fontSize: 9.5, fontWeight: 'bold', color: Number(soC) > 0 ? '#137333' : '#a0a0a0', marginTop: 1 }}>{soC} Con</Text>
+            // 2. Bo do tu dong quet va bat song moi ten bien lich su song ton tai trong App.js cua ban
+            let mangLichSuSong = [];
+            if (typeof lichSuHeoThit !== 'undefined' && Array.isArray(lichSuHeoThit)) mangLichSuSong = lichSuHeoThit;
+            else if (typeof lichSuHeo !== 'undefined' && Array.isArray(lichSuHeo)) mangLichSuSong = lichSuHeo;
+            else if (typeof danSachLichSu !== 'undefined' && Array.isArray(danSachLichSu)) mangLichSuSong = danSachLichSu;
+            else if (typeof historyData !== 'undefined' && Array.isArray(historyData)) mangLichSuSong = historyData;
+            else if (typeof dataLichSu !== 'undefined' && Array.isArray(dataLichSu)) mangLichSuSong = dataLichSu;
+
+            // 3. Chay vong lap quet mang - 🎯 CHỐT CHẶN CHÍ MẠNG: Chi gop so neu dong do KO PHAI LA WAITING
+            if (mangLichSuSong.length > 0) {
+              mangLichSuSong.forEach(item => {
+                // Neu dính co cho xoa (waiting), he thong bo qua khong tinh ca nay vao nua -> Ma tran tu dong tru lui tuc thi!
+                if (item && item.syncStatus !== "waiting") {
+                  const chuoiSuKien = item.suKien ? item.suKien.toString().trim() : "";
+                  const sCon = laySoTho(item.soHeo);
+                  const loaiHanhDong = item.actionType || item.suKienLoai || "";
+
+                  // Trich xuat lay dung con so nguyen thoi gian thuc de lam toan (Vi du: "Tuan 5" hay "5 Tuan" deu bock dung so 5)
+                  const mangSoTho = chuoiSuKien.match(/\d+/);
+                  const soTuanSoHoc = mangSoTho ? parseInt(mangSoTho, 10) : 0;
+
+                  if (soTuanSoHoc >= 4 && soTuanSoHoc <= 30) {
+                    const khoaDinhDanh = soTuanSoHoc === 4 ? "4 Tuần ( Cai Sữa )" : `${soTuanSoHoc} Tuần`;
+                    if (loaiHanhDong === "Nhập Đàn") {
+                      khoToanBoTuanRealTime[khoaDinhDanh] += sCon;
+                    } else {
+                      khoToanBoTuanRealTime[khoaDinhDanh] -= sCon;
+                    }
+                  }
+                }
+              });
+            }
+
+            // Tinh toán lai con so tong san luong cho tung khoi giai doan tu kho thoi gian thuc
+            const tGd3 = khoToanBoTuanRealTime["5 Tuần"] + khoToanBoTuanRealTime["6 Tuần"] + khoToanBoTuanRealTime["7 Tuần"] + khoToanBoTuanRealTime["8 Tuần"] + khoToanBoTuanRealTime["9 Tuần"];
+            const tGd4 = khoToanBoTuanRealTime["10 Tuần"] + khoToanBoTuanRealTime["11 Tuần"] + khoToanBoTuanRealTime["12 Tuần"] + khoToanBoTuanRealTime["13 Tuần"] + khoToanBoTuanRealTime["14 Tuần"] + khoToanBoTuanRealTime["15 Tuần"];
+            const tGd5 = khoToanBoTuanRealTime["16 Tuần"] + khoToanBoTuanRealTime["17 Tuần"] + khoToanBoTuanRealTime["18 Tuần"] + khoToanBoTuanRealTime["19 Tuần"] + khoToanBoTuanRealTime["20 Tuần"];
+            const tGd6 = khoToanBoTuanRealTime["21 Tuần"] + khoToanBoTuanRealTime["22 Tuần"] + khoToanBoTuanRealTime["23 Tuần"] + khoToanBoTuanRealTime["24 Tuần"] + khoToanBoTuanRealTime["25 Tuần"];
+            const tGd7 = khoToanBoTuanRealTime["26 Tuần"] + khoToanBoTuanRealTime["27 Tuần"] + khoToanBoTuanRealTime["28 Tuần"] + khoToanBoTuanRealTime["29 Tuần"] + khoToanBoTuanRealTime["30 Tuần"];
+
+            return (
+              <View style={{ gap: 10, width: '100%' }}>
+                
+                {/* GIAI DOAN 2: CAI SUA CHUAN REAL-TIME */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fdfdfd', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#dee2e6' }}>
+                  <View>
+                    <Text style={{ fontWeight: 'bold', color: '#111111', fontSize: 14 }}>2. Giai đoạn Cai Sữa</Text>
+                    <Text style={{ fontSize: 12, color: '#6c757d', marginTop: 2 }}>Tuần tuổi: 4 tuần</Text>
+                  </View>
+                  <Text style={{ color: '#212529', fontSize: 15, fontWeight: 'bold' }}>{khoToanBoTuanRealTime["4 Tuần ( Cai Sữa )"]} con</Text>
+                </View>
+
+                {/* GIAI DOAN 3: DAN 10 - 30KG CHUAN REAL-TIME */}
+                <View style={{ backgroundColor: '#fffdf9', borderRadius: 8, borderWidth: 1, borderColor: '#ffe0b2', padding: 10, gap: openGiaiDoan.gd3 ? 8 : 0 }}>
+                  <TouchableOpacity 
+                    activeOpacity={0.7}
+                    onPress={() => setOpenGiaiDoan(prev => ({ ...prev, gd3: !prev.gd3 }))}
+                    style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                  >
+                    <View>
+                      <Text style={{ fontWeight: 'bold', color: '#e65100', fontSize: 14 }}>3. Giai đoạn 10 - 30kg {openGiaiDoan.gd3 ? '▲' : '▼'}</Text>
+                      <Text style={{ fontSize: 12, color: '#6c757d', marginTop: 2 }}>Tuần tuổi: 5 - 9 (Bấm xem chi tiết)</Text>
                     </View>
-                  );
-                })}
-              </View>
-            )}
-          </View>
+                    <Text style={{ color: '#007bff', fontSize: 15, fontWeight: 'bold' }}>{tGd3} con</Text>
+                  </TouchableOpacity>
 
-          {/* GIAI ĐOẠN 4: ĐÀN 30-60KG - SẬP XÒE LƯỚI Ô BẤM CHỮ LỚN */}
-          <View style={{ backgroundColor: '#fffdf9', borderRadius: 8, borderWidth: 1, borderColor: '#ffe0b2', padding: 10, gap: openGiaiDoan.gd4 ? 8 : 0 }}>
-            <TouchableOpacity 
-              activeOpacity={0.7}
-              onPress={() => setOpenGiaiDoan(prev => ({ ...prev, gd4: !prev.gd4 }))}
-              style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: 'bold', color: '#e65100', fontSize: 14 }}>4. Giai đoạn 30 - 60kg {openGiaiDoan.gd4 ? '▲' : '▼'}</Text>
-                <Text style={{ fontSize: 12, color: '#6c757d', marginTop: 2 }}>Tuần tuổi: 10 - 15 (Bấm xem chi tiết)</Text>
-              </View>
-              <Text style={{ color: '#007bff', fontSize: 15, fontWeight: 'bold' }}>{dataHeoThit.giaiDoan4 || "0"} con</Text>
-            </TouchableOpacity>
-
-            {/* LƯỚI Ô VUÔNG CHỮ TO RÕ CỦA GIAI ĐOẠN 4 (Gồm 6 ô xếp gọn) */}
-            {openGiaiDoan.gd4 && (
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
-                {["10 Tuần", "11 Tuần", "12 Tuần", "13 Tuần", "14 Tuần", "15 Tuần"].map((keyTuan, idx) => {
-                  const soC = dataHeoThit[keyTuan] || "0";
-                  const soTuanSo = keyTuan.replace(' Tuần', '');
-                  return (
-                    <View key={`gd4_grid_${idx}`} style={{ width: '23.8%', height: 42, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#ffe0b2', borderRadius: 6, alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ fontSize: 11, fontWeight: '900', color: '#212529' }}>Tuần {soTuanSo}</Text>
-                      <Text style={{ fontSize: 9.5, fontWeight: 'bold', color: Number(soC) > 0 ? '#137333' : '#a0a0a0', marginTop: 1 }}>{soC} Con</Text>
+                  {openGiaiDoan.gd3 && (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
+                      {["5 Tuần", "6 Tuần", "7 Tuần", "8 Tuần", "9 Tuần"].map((keyTuan, idx) => {
+                        const soC = khoToanBoTuanRealTime[keyTuan];
+                        return (
+                          <View key={`gd3_grid_${idx}`} style={{ width: '23.8%', height: 42, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#ffe0b2', borderRadius: 6, alignItems: 'center', justifyContent: 'center' }}>
+                            <Text style={{ fontSize: 11, fontWeight: '900', color: '#212529' }}>Tuần {keyTuan.replace(' Tuần', '')}</Text>
+                            <Text style={{ fontSize: 9.5, fontWeight: 'bold', color: soC > 0 ? '#137333' : '#a0a0a0', marginTop: 1 }}>{soC} Con</Text>
+                          </View>
+                        );
+                      })}
                     </View>
-                  );
-                })}
-              </View>
-            )}
-          </View>
+                  )}
+                </View>
 
-          {/* GIAI ĐOẠN 5: ĐÀN 60-100KG - SẬP XÒE LƯỚI Ô BẤM CHỮ LỚN */}
-          <View style={{ backgroundColor: '#fffdf9', borderRadius: 8, borderWidth: 1, borderColor: '#ffe0b2', padding: 10, gap: openGiaiDoan.gd5 ? 8 : 0 }}>
-            <TouchableOpacity 
-              activeOpacity={0.7}
-              onPress={() => setOpenGiaiDoan(prev => ({ ...prev, gd5: !prev.gd5 }))}
-              style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: 'bold', color: '#e65100', fontSize: 14 }}>5. Giai đoạn 60 - 100kg {openGiaiDoan.gd5 ? '▲' : '▼'}</Text>
-                <Text style={{ fontSize: 12, color: '#6c757d', marginTop: 2 }}>Tuần tuổi: 16 - 20 (Bấm xem chi tiết)</Text>
-              </View>
-              <Text style={{ color: '#007bff', fontSize: 15, fontWeight: 'bold' }}>{dataHeoThit.giaiDoan5 || "0"} con</Text>
-            </TouchableOpacity>
-
-            {/* LƯỚI Ô VUÔNG CHỮ TO RÕ CỦA GIAI ĐOẠN 5 */}
-            {openGiaiDoan.gd5 && (
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
-                {["16 Tuần", "17 Tuần", "18 Tuần", "19 Tuần", "20 Tuần"].map((keyTuan, idx) => {
-                  const soC = dataHeoThit[keyTuan] || "0";
-                  const soTuanSo = keyTuan.replace(' Tuần', '');
-                  return (
-                    <View key={`gd5_grid_${idx}`} style={{ width: '23.8%', height: 42, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#ffe0b2', borderRadius: 6, alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ fontSize: 11, fontWeight: '900', color: '#212529' }}>Tuần {soTuanSo}</Text>
-                      <Text style={{ fontSize: 9.5, fontWeight: 'bold', color: Number(soC) > 0 ? '#137333' : '#a0a0a0', marginTop: 1 }}>{soC} Con</Text>
+                {/* GIAI DOAN 4: DAN 30 - 60KG CHUAN REAL-TIME */}
+                <View style={{ backgroundColor: '#fffdf9', borderRadius: 8, borderWidth: 1, borderColor: '#ffe0b2', padding: 10, gap: openGiaiDoan.gd4 ? 8 : 0 }}>
+                  <TouchableOpacity 
+                    activeOpacity={0.7}
+                    onPress={() => setOpenGiaiDoan(prev => ({ ...prev, gd4: !prev.gd4 }))}
+                    style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontWeight: 'bold', color: '#e65100', fontSize: 14 }}>4. Giai đoạn 30 - 60kg {openGiaiDoan.gd4 ? '▲' : '▼'}</Text>
+                      <Text style={{ fontSize: 12, color: '#6c757d', marginTop: 2 }}>Tuần tuổi: 10 - 15 (Bấm xem chi tiết)</Text>
                     </View>
-                  );
-                })}
-              </View>
-            )}
-          </View>
+                    <Text style={{ color: '#007bff', fontSize: 15, fontWeight: 'bold' }}>{tGd4} con</Text>
+                  </TouchableOpacity>
 
-                    {/* GIAI ĐOẠN 6: TỪ 100KG ĐẾN XUẤT CHUỒNG - PHÂN TÁCH CHI TIẾT 5 LỚI TUẦN */}
-          <View style={{ backgroundColor: '#fff5f5', borderRadius: 8, borderWidth: 1, borderColor: '#f5c6cb', padding: 10, gap: openGiaiDoan.gd6 ? 8 : 0 }}>
-            <TouchableOpacity 
-              activeOpacity={0.7}
-              onPress={() => setOpenGiaiDoan(prev => ({ ...prev, gd6: !prev.gd6 }))}
-              style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: 'bold', color: '#c82333', fontSize: 14 }}>6. Từ 100kg - Xuất Chuồng {openGiaiDoan.gd6 ? '▲' : '▼'}</Text>
-                <Text style={{ fontSize: 12, color: '#c82333', marginTop: 2 }}>Tuần tuổi: 21 - 25 (Bấm xem chi tiết)</Text>
-              </View>
-              <Text style={{ color: '#c82333', fontSize: 16, fontWeight: 'bold' }}>{dataHeoThit.giaiDoan6 || "0"} con</Text>
-            </TouchableOpacity>
-
-            {/* LƯỚI Ô BẤM TUẦN CHỮ LỚN CỦA GIAI ĐOẠN 6 (Dàn hàng ngang 5 ô phẳng lỳ cực đẹp) */}
-            {openGiaiDoan.gd6 && (
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
-                {["21 Tuần", "22 Tuần", "23 Tuần", "24 Tuần", "25 Tuần"].map((keyTuan, idx) => {
-                  const soC = dataHeoThit[keyTuan] || "0";
-                  const soTuanSo = keyTuan.replace(' Tuần', '');
-                  return (
-                    <View key={`gd6_grid_${idx}`} style={{ width: '18.8%', height: 42, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#f5c6cb', borderRadius: 6, alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ fontSize: 11, fontWeight: '900', color: '#212529' }}>Tuần {soTuanSo}</Text>
-                      <Text style={{ fontSize: 9.5, fontWeight: 'bold', color: Number(soC) > 0 ? '#c82333' : '#a0a0a0', marginTop: 1 }}>{soC} Con</Text>
+                  {openGiaiDoan.gd4 && (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
+                      {["10 Tuần", "11 Tuần", "12 Tuần", "13 Tuần", "14 Tuần", "15 Tuần"].map((keyTuan, idx) => {
+                        const soC = khoToanBoTuanRealTime[keyTuan];
+                        return (
+                          <View key={`gd4_grid_${idx}`} style={{ width: '23.8%', height: 42, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#ffe0b2', borderRadius: 6, alignItems: 'center', justifyContent: 'center' }}>
+                            <Text style={{ fontSize: 11, fontWeight: '900', color: '#212529' }}>Tuần {keyTuan.replace(' Tuần', '')}</Text>
+                            <Text style={{ fontSize: 9.5, fontWeight: 'bold', color: soC > 0 ? '#137333' : '#a0a0a0', marginTop: 1 }}>{soC} Con</Text>
+                          </View>
+                        );
+                      })}
                     </View>
-                  );
-                })}
+                  )}
+                </View>
+                                {/* ======================================================== */}
+                {/* 📊 PHẦN 2: LƯỚI HIỂN THỊ GIAI ĐOẠN 5, 6 VÀ GIAI ĐOẠN 7 CHUẨN ĐỎ HẾT WAITING */}
+                {/* ======================================================== */}
+                
+                {/* GIAI DOAN 5: DAN 60 - 100KG CHUAN REAL-TIME */}
+                <View style={{ backgroundColor: '#fffdf9', borderRadius: 8, borderWidth: 1, borderColor: '#ffe0b2', padding: 10, gap: openGiaiDoan.gd5 ? 8 : 0 }}>
+                  <TouchableOpacity 
+                    activeOpacity={0.7}
+                    onPress={() => setOpenGiaiDoan(prev => ({ ...prev, gd5: !prev.gd5 }))}
+                    style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontWeight: 'bold', color: '#e65100', fontSize: 14 }}>5. Giai đoạn 60 - 100kg {openGiaiDoan.gd5 ? '▲' : '▼'}</Text>
+                      <Text style={{ fontSize: 12, color: '#6c757d', marginTop: 2 }}>Tuần tuổi: 16 - 20 (Bấm xem chi tiết)</Text>
+                    </View>
+                    <Text style={{ color: '#007bff', fontSize: 15, fontWeight: 'bold' }}>{tGd5} con</Text>
+                  </TouchableOpacity>
+
+                  {openGiaiDoan.gd5 && (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
+                      {["16 Tuần", "17 Tuần", "18 Tuần", "19 Tuần", "20 Tuần"].map((keyTuan, idx) => {
+                        const soC = khoToanBoTuanRealTime[keyTuan];
+                        return (
+                          <View key={`gd5_grid_${idx}`} style={{ width: '23.8%', height: 42, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#ffe0b2', borderRadius: 6, alignItems: 'center', justifyContent: 'center' }}>
+                            <Text style={{ fontSize: 11, fontWeight: '900', color: '#212529' }}>Tuần {keyTuan.replace(' Tuần', '')}</Text>
+                            <Text style={{ fontSize: 9.5, fontWeight: 'bold', color: soC > 0 ? '#137333' : '#a0a0a0', marginTop: 1 }}>{soC} Con</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+
+                {/* 🔴 KHỐI 6: TỪ 100KG ĐẾN XUẤT CHUỒNG (GIỮ ĐẦY ĐỦ TUẦN 21 - 25 CHUẨN ĐỎ REAL-TIME) */}
+                <View style={{ backgroundColor: '#ffffff', borderRadius: 8, borderWidth: 1, borderColor: '#f5c6cb', padding: 10, gap: openGiaiDoan.gd6 ? 8 : 0 }}>
+                  <TouchableOpacity 
+                    activeOpacity={0.7}
+                    onPress={() => setOpenGiaiDoan(prev => ({ ...prev, gd6: !prev.gd6 }))}
+                    style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontWeight: 'bold', color: '#c82333', fontSize: 14 }}>6. Từ 100kg - 130Kg {openGiaiDoan.gd6 ? '▲' : '▼'}</Text>
+                      <Text style={{ fontSize: 12, color: '#c82333', marginTop: 2 }}>Tuần tuổi: 21 - 25 (Bấm xem chi tiết)</Text>
+                    </View>
+                    <Text style={{ color: '#c82333', fontSize: 16, fontWeight: 'bold' }}>{tGd6} con</Text>
+                  </TouchableOpacity>
+
+                  {openGiaiDoan.gd6 && (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
+                      {["21 Tuần", "22 Tuần", "23 Tuần", "24 Tuần", "25 Tuần"].map((keyTuan, idx) => {
+                        const soC = khoToanBoTuanRealTime[keyTuan];
+                        return (
+                          <View key={`gd6_grid_fixed_${idx}`} style={{ width: '18.8%', height: 42, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#f5c6cb', borderRadius: 6, alignItems: 'center', justifyContent: 'center' }}>
+                            <Text style={{ fontSize: 11, fontWeight: '900', color: '#212529' }}>Tuần {keyTuan.replace(' Tuần', '')}</Text>
+                            <Text style={{ fontSize: 9.5, fontWeight: 'bold', color: soC > 0 ? '#c82333' : '#a0a0a0', marginTop: 1 }}>{soC} Con</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+
+                {/* 🔴 KHỐI 7 ĐÃ ĐỒNG BỘ: GIAI ĐOẠN 130KG - XUẤT CHUỒNG (TUẦN 26 - 30 CHUẨN ĐỎ REAL-TIME) */}
+                <View style={{ backgroundColor: '#ffffff', borderRadius: 8, borderWidth: 1, borderColor: '#f5c6cb', padding: 10, gap: openGiaiDoan.gd7 ? 8 : 0 }}>
+                  <TouchableOpacity 
+                    activeOpacity={0.7}
+                    onPress={() => setOpenGiaiDoan(prev => ({ ...prev, gd7: !prev.gd7 }))}
+                    style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontWeight: 'bold', color: '#c82333', fontSize: 14 }}>7. 130kg - Xuất Chuồng {openGiaiDoan.gd7 ? '▲' : '▼'}</Text>
+                      <Text style={{ fontSize: 12, color: '#c82333', marginTop: 2 }}>Tuần tuổi: 26 - 30 Trở lên (Bấm xem chi tiết)</Text>
+                    </View>
+                    <Text style={{ color: '#c82333', fontSize: 16, fontWeight: 'bold' }}>{tGd7} con</Text>
+                  </TouchableOpacity>
+
+                  {openGiaiDoan.gd7 && (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
+                      {["26 Tuần", "27 Tuần", "28 Tuần", "29 Tuần", "30 Tuần"].map((keyTuan, idx) => {
+                        const soC = khoToanBoTuanRealTime[keyTuan];
+                        return (
+                          <View key={`gd7_grid_new_${idx}`} style={{ width: '18.8%', height: 42, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#f5c6cb', borderRadius: 6, alignItems: 'center', justifyContent: 'center' }}>
+                            <Text style={{ fontSize: 11, fontWeight: '900', color: '#212529' }}>Tuần {keyTuan.replace(' Tuần', '')}</Text>
+                            <Text style={{ fontSize: 9.5, fontWeight: 'bold', color: soC > 0 ? '#c82333' : '#a0a0a0', marginTop: 1 }}>{soC} Con</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+
               </View>
-            )}
-          </View>
+            );
+          })()}
+
+        </View> 
 
 
-        </View>
+
         {/* ======================================================== */}
         {/* TAB 5 - PHẦN 3: BẢNG LỊCH SỬ BIẾN ĐỘNG HEO THỊT VÀ THẺ ĐÓNG KÍN KẾT CẤU */}
         {/* ======================================================== */}
@@ -3236,7 +3631,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
         {/* ======================================================== */}
         <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e9ecef' }}>
           <Text style={{ fontSize: 13, color: '#1a1f23', fontWeight: '900', marginBottom: 10, letterSpacing: 0.3 }}>
-            📜 NHẬT KÝ BIẾN ĐỘNG CHUỒNG HEO THỊT:
+            📜 NHẬT KÝ BIẾN ĐỘNG CHUỒNG HEO THỊT ( Với Lệnh Xóa hãy bấm lại Cập Nhật Thống Kê để lấy lại số liệu mới nhât )
           </Text>
 
           {(() => {
@@ -3648,27 +4043,58 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
            {/* ======================================================== */}
       {/* 📝 POP-UP MODAL SỬA NHẬT KÝ HEO NÁI ĐẺ GỐC (TAB 1 QUAY VỀ NGUYÊN BẢN) */}
       {/* ======================================================== */}
-      <Modal visible={isEditModalVisible} transparent={true} animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.popupCard}>
-            <Text style={styles.popupTitle}>📝 SỬA NHẬT KÝ HEO</Text>
-            
-            {/* 1. Chọn ngày thực hiện sửa đổi */}
-            <TouchableOpacity style={styles.popupDateButton} onPress={() => setEditDatePickerVisibility(true)}>
-              <Text style={styles.dateButtonText}>📅 {editNgay}</Text>
+          {/* ======================================================== */}
+      {/* 🚀 BAN VA TOI CAO: BAT DA PHOI HOP 2 COMANM - KICH NO LICH TUC THI TRONG 0.001S */}
+      {/* ======================================================== */}
+         <Modal visible={isEditModalVisible} transparent={true} animationType="fade">
+        {/* LOP 1: KeyboardAvoidingView tu dong can lề doc cho ca hai he dieu hanh */}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}
+        >
+          {/* LOP 2:ScrollView lay ty le lề 95% va dua vao chinh giua tam mat giong nhu tab heo thit */}
+          <ScrollView
+            style={{ flex: 1, width: '95%', alignSelf: 'center' }}
+            contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 14 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+
+            {/* LOP 3: Hop trang Popup Card (Giai phong maxHeight co dinh de chong th thảm hoa bi bop dep) */}
+            <View style={{ width: '100%', padding: 16, borderRadius: 14, backgroundColor: '#ffffff', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 }}>
+              
+              <Text style={[styles.popupTitle, { marginBottom: 12, color: '#111111', fontSize: 14, fontWeight: 'bold', textAlign: 'center' }]}>
+                📝 SỬA NHẬT KÝ HEO
+              </Text>
+            <TouchableOpacity 
+              style={styles.popupDateButton} 
+              onPress={() => {
+                if (typeof setEditDatePickerVisible === 'function') setEditDatePickerVisible(true);
+                if (typeof setEditDatePickerVisibility === 'function') setEditDatePickerVisibility(true);
+              }}
+            >
+              <Text style={{ color: '#111111', fontSize: 13.5, fontWeight: '500' }}>📅 {editNgay}</Text>
             </TouchableOpacity>
             
             <DateTimePickerModal 
-              isVisible={isEditDatePickerVisible} 
+              isVisible={typeof isEditDatePickerVisible !== 'undefined' ? isEditDatePickerVisible : false} 
               mode="date" 
+              display={Platform.OS === 'ios' ? 'inline' : 'default'}
+              locale="vi_VN"
               onConfirm={(d) => { 
                 setEditNgay(formatVNDate(d));
-                setEditDatePickerVisibility(false); 
+                if (typeof setEditDatePickerVisible === 'function') setEditDatePickerVisible(false);
+                if (typeof setEditDatePickerVisibility === 'function') setEditDatePickerVisibility(false);
               }} 
-              onCancel={() => setEditDatePickerVisibility(false)} 
+              onCancel={() => {
+                if (typeof setEditDatePickerVisible === 'function') setEditDatePickerVisible(false);
+                if (typeof setEditDatePickerVisibility === 'function') setEditDatePickerVisibility(false);
+              }} 
               confirmTextConfirm="Xác nhận"
               cancelText="Hủy"
             />
+
+
             
             {/* 2. Ô nhập Mã Tai heo nái */}
             <TextInput 
@@ -3681,11 +4107,119 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
             
             {/* 3. Hộp chọn Sự kiện sinh sản heo nái */}
             <View style={styles.popupPickerBorder}>
-              <Picker selectedValue={editSuKien} dropdownIconColor="#111111" style={{ color: '#111111', backgroundColor: '#ffffff' }} onValueChange={(item) => { setEditSuKien(item); setEditSoHeo(''); }}>
-                {danhSachSuKien.map((item, index) => (
-                  <Picker.Item key={index} label={item} value={item} style={{ color: '#111111', backgroundColor: '#ffffff' }} />
-                ))}
-              </Picker>
+                              {(() => {
+                  const laTrangThaiMoKhay = editSuKien === "OPEN_MENU_SK";
+                  
+                  // 🎯 BẢN VÁ LOGIC: Ép bốc chuẩn xác hành động đang sửa, nếu mở khay menu thì lấy từ mảng tạm thời ngoài RAM
+                  let chuHienThiChuan = editSuKien ? editSuKien.toString().trim() : "";
+                  
+                  if (laTrangThaiMoKhay) {
+                    // Nếu đang mở toang khay để công nhân vuốt cuộn chọn, tạm thời lấy nhãn hiển thị từ danh mục sự kiện gốc của bạn
+                    if (typeof editSuKienTamThoi !== 'undefined' && editSuKienTamThoi) {
+                      chuHienThiChuan = editSuKienTamThoi;
+                    } else if (Array.isArray(danhSachSuKien) && danhSachSuKien.length > 0) {
+                      // Nhánh dự phòng khẩn cấp nếu chưa có biến tạm thời
+                      chuHienThiChuan = "Chọn sự kiện";
+                    }
+                  } else {
+                    if (chuHienThiChuan === "" || chuHienThiChuan === "OPEN_MENU_SK") {
+                      chuHienThiChuan = (Array.isArray(danhSachSuKien) && danhSachSuKien.length > 0) ? danhSachSuKien[0] : "Chọn sự kiện";
+                    }
+                  }
+
+                  return (
+                    <View style={{ width: '100%' }}>
+                      
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={() => {
+                          // Kích hoạt cờ lật mở menu đồng thời găm nhãn chữ hiện tại chống bị nhảy bậy sang chữ Phối
+                          if (!laTrangThaiMoKhay && typeof setEditSuKienTamThoi === 'function') {
+                            setEditSuKienTamThoi(chuHienThiChuan);
+                          }
+                          setEditSuKien(laTrangThaiMoKhay ? chuHienThiChuan : "OPEN_MENU_SK");
+                        }}
+                        style={{
+                          height: 42,
+                          width: '100%',
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          paddingHorizontal: 12,
+                          backgroundColor: '#ffffff',
+                          borderRadius: 7,
+                        }}
+                      >
+                        <Text style={{ 
+                          color: chuHienThiChuan !== "" ? '#111111' : '#888888', 
+                          fontSize: 13, 
+                          fontWeight: chuHienThiChuan !== "" ? '700' : '400' 
+                        }}>
+                         {chuHienThiChuan}
+                        </Text>
+                        <Text style={{ fontSize: 12, color: '#e65100' }}>{laTrangThaiMoKhay ? "▲" : "▼"}</Text>
+                      </TouchableOpacity>
+
+                      {laTrangThaiMoKhay && (
+                        <View 
+                          style={{
+                            width: '100%',
+                            backgroundColor: '#ffffff',
+                            borderTopWidth: 0.5,
+                            borderTopColor: '#f1f2f6',
+                            height: 180, 
+                          }}
+                        >
+                          <ScrollView 
+                            nestedScrollEnabled={true} 
+                            showsVerticalScrollIndicator={true} 
+                            contentContainerStyle={{ paddingVertical: 2 }}
+                          >
+                            {Array.isArray(danhSachSuKien) && danhSachSuKien.map((itemText, index) => {
+                              const laDongDangChon = chuHienThiChuan === itemText.toString().trim();
+                              
+                              return (
+                                <TouchableOpacity
+                                  key={`custom_sk_inline_fixed_${index}`}
+                                  activeOpacity={0.7}
+                                  onPress={() => {
+                                    // Chốt hạ hành động được chọn và reset ô số heo mượt mà như cũ
+                                    setEditSuKien(itemText.toString().trim()); 
+                                    if (typeof setEditSuKienTamThoi === 'function') {
+                                      setEditSuKienTamThoi(itemText.toString().trim());
+                                    }
+                                    setEditSoHeo('');
+                                  }}
+                                  style={{
+                                    paddingVertical: 11,
+                                    paddingHorizontal: 14,
+                                    backgroundColor: laDongDangChon ? '#fffaf5' : '#ffffff',
+                                    flexDirection: 'row',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    borderBottomWidth: index < danhSachSuKien.length - 1 ? 0.5 : 0,
+                                    borderBottomColor: '#f8f9fa'
+                                  }}
+                                >
+                                  <Text style={{
+                                    fontSize: 13,
+                                    color: laDongDangChon ? '#e65100' : '#111111',
+                                    fontWeight: laDongDangChon ? '900' : '500'
+                                  }}>
+                                    {itemText}
+                                  </Text>
+                                  {laDongDangChon && <Text style={{ fontSize: 12, color: '#e65100' }}>✓</Text>}
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </ScrollView>
+                        </View>
+                      )}
+
+                    </View>
+                  );
+                })()}
+
             </View>
 
             {/* 4. Ô nhập Số lượng con dành cho các sự kiện Phối / Cai sữa cũ của bạn */}
@@ -3791,8 +4325,9 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
               </View>
             </View>
 
-          </View>
-        </View>
+         </View>
+          </ScrollView>
+        </KeyboardAvoidingView> 
       </Modal>
 
 
@@ -3805,18 +4340,111 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
             <Text style={styles.popupTitle}>📝 SỬA SỔ DANH BẠ HEO</Text>
             <TextInput style={[styles.popupInput, {color: '#111111', backgroundColor: '#ffffff'}]} value={mtEditMaTai} onChangeText={setMtEditMaTai} placeholderTextColor="#777777" autoCapitalize="characters" />
             <TextInput style={[styles.popupInput, {marginTop: 10, color: '#111111', backgroundColor: '#ffffff'}]} value={mtEditGiong} onChangeText={setMtEditGiong} placeholder="Sửa Giống heo" placeholderTextColor="#777777" />
-            <View style={[styles.popupPickerBorder, {marginTop: 10}]}>
-              <Picker 
-                selectedValue={mtEditLua} 
-                dropdownIconColor="#111111"
-                style={{ color: '#111111', backgroundColor: '#ffffff' }}
-                onValueChange={(v) => setMtEditLua(v)}
+            <View 
+                style={{ 
+                  borderWidth: 1.2, 
+                  borderColor: '#ffd3b6', 
+                  borderRadius: 8, 
+                  backgroundColor: '#ffffff', 
+                  marginBottom: 12, 
+                  width: '100%',
+                  paddingVertical: 1,
+                  justifyContent: 'center'
+                }}
               >
-                {danhSachLuaHeo.map((item) => (
-                  <Picker.Item key={item} label={item} value={item} style={{ color: '#111111', backgroundColor: '#ffffff' }} />
-                ))}
-              </Picker>
-            </View>
+                {(() => {
+                  const laTrangThaiMoKhay = mtEditLua === "OPEN_MENU_EDIT_LUA";
+                  const chuHienThiChuan = (mtEditLua && mtEditLua.toString().trim() !== "" && mtEditLua !== "OPEN_MENU_EDIT_LUA") 
+                    ? mtEditLua.toString().trim() 
+                    : "Hậu bị";
+
+                  return (
+                    <View style={{ width: '100%' }}>
+                      
+                      {/* THANH HIEN THI TINH CHAM BOP DE THA KHAY */}
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={() => {
+                          setMtEditLua(laTrangThaiMoKhay ? "" : "OPEN_MENU_EDIT_LUA");
+                        }}
+                        style={{
+                          height: 42,
+                          width: '100%',
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          paddingHorizontal: 12,
+                          backgroundColor: '#ffffff',
+                          borderRadius: 7,
+                        }}
+                      >
+                        <Text style={{ 
+                          color: (mtEditLua && mtEditLua !== "OPEN_MENU_EDIT_LUA") ? '#111111' : '#888888', 
+                          fontSize: 13, 
+                          fontWeight: (mtEditLua && mtEditLua !== "OPEN_MENU_EDIT_LUA") ? '700' : '400' 
+                        }}>
+                          Lứa đẻ: {chuHienThiChuan}
+                        </Text>
+                        <Text style={{ fontSize: 12, color: '#e65100' }}>{laTrangThaiMoKhay ? "▲" : "▼"}</Text>
+                      </TouchableOpacity>
+
+                      {/* KHAY PHANG TU DONG BAT SCROLLVIEW TRUOT RE RE SIEU MUOT */}
+                      {laTrangThaiMoKhay && (
+                        <View 
+                          style={{
+                            width: '100%',
+                            backgroundColor: '#ffffff',
+                            borderTopWidth: 0.5,
+                            borderTopColor: '#f1f2f6',
+                            height: 180, 
+                          }}
+                        >
+                          <ScrollView 
+                            nestedScrollEnabled={true} 
+                            showsVerticalScrollIndicator={true} 
+                            contentContainerStyle={{ paddingVertical: 2 }}
+                          >
+                            {Array.isArray(danhSachLuaHeo) && danhSachLuaHeo.map((itemText, index) => {
+                              const laDongDangChon = chuHienThiChuan === itemText.toString().trim();
+                              
+                              return (
+                                <TouchableOpacity
+                                  key={`custom_edit_lua_inline_fixed_${index}`}
+                                  activeOpacity={0.7}
+                                  onPress={() => {
+                                    // KIP THOI GAN GIA TRI LUA MOI KHI CONG NHAN BAM CHON
+                                    setMtEditLua(itemText.toString().trim()); 
+                                  }}
+                                  style={{
+                                    paddingVertical: 11,
+                                    paddingHorizontal: 14,
+                                    backgroundColor: laDongDangChon ? '#fffaf5' : '#ffffff',
+                                    flexDirection: 'row',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    borderBottomWidth: index < danhSachLuaHeo.length - 1 ? 0.5 : 0,
+                                    borderBottomColor: '#f8f9fa'
+                                  }}
+                                >
+                                  <Text style={{
+                                    fontSize: 13,
+                                    color: laDongDangChon ? '#e65100' : '#111111',
+                                    fontWeight: laDongDangChon ? '900' : '500'
+                                  }}>
+                                    {itemText}
+                                  </Text>
+                                  {laDongDangChon && <Text style={{ fontSize: 12, color: '#e65100' }}>✓</Text>}
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </ScrollView>
+                        </View>
+                      )}
+
+                    </View>
+                  );
+                })()}
+              </View>
             <Text style={{ fontSize: 11.5, color: '#666666', fontStyle: 'italic', marginBottom: 12, paddingHorizontal: 4, lineHeight: 16 }}>( lứa heo lúc nhập về, thông thường sẽ để hậu bị. hệ thống tự tính toán lứa đẻ, không cần phải sửa )</Text>
             <View style={styles.popupButtonGroup}>
               <View style={{ flex: 1, marginRight: 8 }}><Button title="CẬP NHẬT" onPress={handleSaveMtEdit} color="#ffc107" /></View>
@@ -3996,15 +4624,16 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
   transparent={true}
   onRequestClose={() => { if (!isQuickSaving) setIsQuickAddModalVisible(false); }}
 >
-  <View style={styles.modalOverlay}>
-    <View style={[styles.popupCard, { 
-      borderWidth: 1.5, 
-      borderColor: '#ffd3b6', // Viền cam nhạt đồng bộ 100% màu hệ thống
-      backgroundColor: '#ffffff',
-      padding: 18,
-      borderRadius: 16,
-      width: '85%'
-    }]}>
+  <View style={[styles.modalOverlay, { flex: 1, justifyContent: 'flex-start', alignItems: 'center' }]}>
+      <View style={[styles.popupCard, { 
+        borderWidth: 1.5, 
+        borderColor: '#ffd3b6', 
+        backgroundColor: '#ffffff',
+        padding: 18,
+        borderRadius: 16,
+        width: '85%',
+        marginTop: 40 
+      }]}>
       
       {/* Banner đỉnh Sổ Khai Báo chữ đen đậm rõ nét */}
       <View style={{ backgroundColor: '#fffaf5', borderWidth: 1, borderColor: '#ffd3b6', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, alignItems: 'center', marginBottom: 16 }}>
@@ -4036,6 +4665,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
            <Text style={{ fontWeight: 'bold', marginBottom: 6, fontSize: 13, color: '#333333' }}>🎂 Chọn Lứa Đẻ Đầu Vào:</Text>
       
       {/* 🎯 GIẢI PHÁP NỚI RỘNG KHUNG CHỐNG CHE CHỮ: Nới chiều cao lên 50 để chữ Hậu Bị hiện nguyên vẹn */}
+           {/* 🎯 BẢN VÁ TỐI CAO: BẬT TÍNH NĂNG CUỘN DỌC MƯỢT MÀ CHO DANH SÁCH LỨA HEO */}
       <View 
         style={{ 
           borderWidth: 1.2, 
@@ -4043,33 +4673,106 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
           borderRadius: 8, 
           backgroundColor: '#ffffff', 
           marginBottom: 20, 
-          height: 50, // Nới rộng không gian cho Picker thở
-          justifyContent: 'center',
-          overflow: 'hidden' 
+          width: '100%',
+          paddingVertical: 1,
+          justifyContent: 'center'
         }}
       >
-        <Picker
-          selectedValue={quickLua}
-          style={{ 
-            color: '#111111', 
-            width: '100%',
-            height: 50, // Đồng bộ chiều cao 50 cho Picker
-            backgroundColor: 'transparent'
-          }}
-          dropdownIconColor="#e65100" 
-          onValueChange={(val) => setQuickLua(val)}
-          enabled={!isQuickSaving}
-        >
-          {danhSachLuaHeo.map((l, index) => (
-            <Picker.Item 
-              key={`quick_l_${index}`} 
-              label={l} 
-              value={l} 
-              style={{ fontSize: 13, color: '#111111', backgroundColor: '#ffffff' }} // Định hình cỡ chữ 13 gọn gàng rõ nét
-            />
-          ))}
-        </Picker>
+        {(() => {
+          const laTrangThaiMoKhay = quickLua === "OPEN_MENU_LUA";
+          const chuHienThiChuan = (quickLua && quickLua.toString().trim() !== "" && quickLua !== "OPEN_MENU_LUA") 
+            ? quickLua.toString().trim() 
+            : "Hậu bị";
+
+          return (
+            <View style={{ width: '100%' }}>
+              
+              {/* THANH HIEN THI TINH */}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                disabled={isQuickSaving}
+                onPress={() => {
+                  setQuickLua(laTrangThaiMoKhay ? "" : "OPEN_MENU_LUA");
+                }}
+                style={{
+                  height: 42,
+                  width: '100%',
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  paddingHorizontal: 12,
+                  backgroundColor: '#ffffff',
+                  borderRadius: 7,
+                }}
+              >
+                <Text style={{ 
+                  color: (quickLua && quickLua !== "OPEN_MENU_LUA") ? '#111111' : '#888888', 
+                  fontSize: 13, 
+                  fontWeight: (quickLua && quickLua !== "OPEN_MENU_LUA") ? '700' : '400' 
+                }}>
+                  Lứa: {chuHienThiChuan}
+                </Text>
+                <Text style={{ fontSize: 12, color: '#e65100' }}>{laTrangThaiMoKhay ? "▲" : "▼"}</Text>
+              </TouchableOpacity>
+
+              {/* 🎯 KHAY PHẲNG TĨNH TỰ ĐỘNG BẬT SCROLLVIEW CUỘN RE RE SIÊU MƯỢT */}
+              {laTrangThaiMoKhay && (
+                <View 
+                  style={{
+                    width: '100%',
+                    backgroundColor: '#ffffff',
+                    borderTopWidth: 0.5,
+                    borderTopColor: '#f1f2f6',
+                    // Khóa cứng chiều cao tối đa đúng 180px để kích nổ thanh cuộn dọc khi lứa heo phình dài
+                    height: 180, 
+                  }}
+                >
+                  <ScrollView 
+                    nestedScrollEnabled={true} // 🔥 Ép thông mạch lướt cuộn mượt mà bên trong Form bọc lớn
+                    showsVerticalScrollIndicator={true} // Hiện thanh vạch dọc chỉ hướng trực quan
+                    contentContainerStyle={{ paddingVertical: 2 }}
+                  >
+                    {Array.isArray(danhSachLuaHeo) && danhSachLuaHeo.map((itemText, index) => {
+                      const laDongDangChon = chuHienThiChuan === itemText.toString().trim();
+                      
+                      return (
+                        <TouchableOpacity
+                          key={`custom_lua_inline_fixed_${index}`}
+                          activeOpacity={0.7}
+                          onPress={() => {
+                            setQuickLua(itemText.toString().trim()); 
+                          }}
+                          style={{
+                            paddingVertical: 11,
+                            paddingHorizontal: 14,
+                            backgroundColor: laDongDangChon ? '#fffaf5' : '#ffffff',
+                            flexDirection: 'row',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            borderBottomWidth: index < danhSachLuaHeo.length - 1 ? 0.5 : 0,
+                            borderBottomColor: '#f8f9fa'
+                          }}
+                        >
+                          <Text style={{
+                            fontSize: 13,
+                            color: laDongDangChon ? '#e65100' : '#111111',
+                            fontWeight: laDongDangChon ? '900' : '500'
+                          }}>
+                            {itemText}
+                          </Text>
+                          {laDongDangChon && <Text style={{ fontSize: 12, color: '#e65100' }}>✓</Text>}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              )}
+
+            </View>
+          );
+        })()}
       </View>
+
 
       {/* 🎯 CỤM 2 NÚT HÀNH ĐỘNG HƯỚNG RAM ĐỐI XỨNG BO CONG SANG MỊN */}
       <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
@@ -4263,36 +4966,51 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
         </View>
       </Modal>
 {/* ======================================================== */}
-<Modal visible={isHeoThitModalVisible} transparent={true} animationType="fade">
-  <View style={styles.modalOverlay}>
-    {/* 🎯 TỐI ƯU CỐT LÕI: Đổi maxHeight về 95% và đặt chiều rộng 96% để ôm khít máy nhỏ */}
-    <View style={[styles.popupCard, { width: '96%', padding: 10, borderRadius: 14, backgroundColor: '#ffffff', maxHeight: '95%' }]}>
-      
-      {/* Tiêu đề thanh mảnh sạch sẽ nhận diện theo màu nghiệp vụ */}
-      <View 
-        style={{ 
-          backgroundColor: heoThitActionType === 'Nhập Đàn' ? '#e7f1ff' : (heoThitActionType === 'Hao Hụt' ? '#f8d7da' : '#d4edda'), 
-          borderWidth: 0.5, 
-          borderColor: heoThitActionType === 'Nhập Đàn' ? '#b8daff' : (heoThitActionType === 'Hao Hụt' ? '#f5c6cb' : '#c3e6cb'), 
-          borderRadius: 6, paddingVertical: 6, paddingHorizontal: 10, alignItems: 'center', marginBottom: 10 
-        }}
-      >
-        <Text style={{ fontSize: 12.5, fontWeight: '900', color: heoThitActionType === 'Nhập Đàn' ? '#004085' : (heoThitActionType === 'Hao Hụt' ? '#721c24' : '#155724'), letterSpacing: 0.3 }}>
-          {heoThitActionType === 'Nhập Đàn' ? 'Nhập Heo' : (heoThitActionType === 'Hao Hụt' ? 'HEO THỊT HAO HỤT' : 'XUẤT BÁN HEO')}
-        </Text>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 2 }}>
-        {/* HÀNG 1: Chọn ngày thực hiện */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 }}>
-          <Text style={{ fontWeight: 'bold', fontSize: 12.5, color: '#333333' }}>Chọn Ngày:</Text>
-          <TouchableOpacity 
-            style={{ flex: 1, borderWidth: 1, borderColor: '#dee2e6', borderRadius: 6, backgroundColor: '#fdfdfd', height: 34, justifyContent: 'center', paddingHorizontal: 10 }} 
-            onPress={() => setHeoThitDatePickerVisibility(true)}
+      {/* ======================================================== */}
+      {/* 📝 POP-UP MODAL THEM MOI HEO THIT - PHAN 1 CHUAN PHANG SACH 100% */}
+      {/* ======================================================== */}
+      <Modal visible={isHeoThitModalVisible} transparent={true} animationType="fade">
+        {/* LOP 1: KeyboardAvoidingView can ban phim linh hoat cho ca hai he dieu hanh */}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}
+        >
+          {/* LOP 2: Nhac ScrollView len lam cha va dat ty le 95% dung giua trung tam tam mat */}
+          <ScrollView
+            style={{ flex: 1, width: '95%', alignSelf: 'center' }}
+            contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 14 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
-            <Text style={{ fontSize: 13, color: '#111111', fontWeight: '500' }}>📅 {heoThitNgay}</Text>
-          </TouchableOpacity>
-        </View>
+
+            {/* LOP 3: Hop trang Popup Card (Giai phong maxHeight co dinh de chong thong hoa bi bop dep) */}
+            <View style={{ width: '100%', padding: 10, borderRadius: 14, backgroundColor: '#ffffff', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 }}>
+              
+              {/* Tieu de thanh manh sach se nhan dien theo mau nghiep vu */}
+              <View 
+                style={{ 
+                  backgroundColor: heoThitActionType === 'Nhập Đàn' ? '#e7f1ff' : (heoThitActionType === 'Hao Hụt' ? '#f8d7da' : '#d4edda'), 
+                  borderWidth: 0.5, 
+                  borderColor: heoThitActionType === 'Nhập Đàn' ? '#b8daff' : (heoThitActionType === 'Hao Hụt' ? '#f5c6cb' : '#c3e6cb'), 
+                  borderRadius: 6, paddingVertical: 6, paddingHorizontal: 10, alignItems: 'center', marginBottom: 10 
+                }}
+              >
+                <Text style={{ fontSize: 12.5, fontWeight: '900', color: heoThitActionType === 'Nhập Đàn' ? '#004085' : (heoThitActionType === 'Hao Hụt' ? '#721c24' : '#155724'), letterSpacing: 0.3 }}>
+                  {heoThitActionType === 'Nhập Đàn' ? 'Nhập Heo' : (heoThitActionType === 'Hao Hụt' ? 'HEO THỊT HAO HỤT' : 'XUẤT BÁN HEO')}
+                </Text>
+              </View>
+
+              {/* HANG 1: Chon ngay thuc hien */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 }}>
+                <Text style={{ fontWeight: 'bold', fontSize: 12.5, color: '#333333' }}>Chọn Ngày:</Text>
+                <TouchableOpacity 
+                  style={{ flex: 1, borderWidth: 1, borderColor: '#dee2e6', borderRadius: 6, backgroundColor: '#fdfdfd', height: 34, justifyContent: 'center', paddingHorizontal: 10 }} 
+                  onPress={() => setHeoThitDatePickerVisibility(true)}
+                >
+                  <Text style={{ fontSize: 13, color: '#111111', fontWeight: '500' }}>📅 {heoThitNgay}</Text>
+                </TouchableOpacity>
+              </View>
+
 
         <DateTimePickerModal 
           isVisible={isHeoThitDatePickerVisible} mode="date" 
@@ -4301,24 +5019,12 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
           confirmTextConfirm="Xác nhận" cancelText="Hủy" 
         />
 
-        {/* ======================================================== */}
-        {/* 🌟 LƯỚI Ô BẤM 4X5 ĐÃ GÀI PHÒNG VỆ CHỐNG TRÀN CHỮ CHO MÁY NHỎ */}
-        {/* ======================================================== */}
-                {/* ======================================================== */}
-        {/* 📊 BẢN VÁ LỘT XÁC POP-UP NHẬP MỚI: LƯỚI ĐÚNG 3 Ô 1 HÀNG CHỮ TO RÕ, ĐỒNG BỘ 100% */}
-        {/* ======================================================== */}
-                        {/* ======================================================== */}
-                {/* 📊 BẢN VÁ TỐI CAO MODAL SỬA: ĐỒNG BỘ BIẾN KHÔNG DẤU CHUẨN QUỐC TẾ */}
-                {/* ======================================================== */}
-                       {/* ======================================================== */}
-        {/* 📊 BẢN VÁ TỐI CAO POP-UP NHẬP MỚI: ĐỒNG BỘ BIẾN KHÔNG DẤU - THÔNG MẠCH SỐ THÔ ĐẦU VÀO */}
-        {/* ======================================================== */}
+        {/* 📊 BẢN VÁ TỐI CAO: MỞ RỘNG TUẦN 26 - 30 CHO POP-UP THÊM MỚI HÀNH ĐỘNG */}
                {/* ======================================================== */}
-        {/* 📊 BẢN VÁ LỘT XÁC POP-UP NHẬP MỚI: CHIA GIAI ĐOẠN LƯỚI ĐÚNG 3 Ô 1 HÀNG SẠCH SẼ */}
+        {/* 📊 PHẦN 1: THIẾT KẾ PHÂN HỘP GIAI ĐOẠN RÕ RÀNG TRONG POP-UP THÊM MỚI */}
         {/* ======================================================== */}
-        <View style={{ backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e9ecef', borderRadius: 10, padding: 8, gap: 10, marginBottom: 10 }}>
+        <View style={{ backgroundColor: '#f8f9fa', borderWidth: 1, borderColor: '#e9ecef', borderRadius: 12, padding: 8, gap: 12, marginBottom: 10 }}>
           {(() => {
-            // Mảng phẳng 21 lứa tuổi không dấu giúp đầu gán onPress ăn khớp chuỗi số thô 100%
             const mangLuaTuanThitAdd = [
               { id: "4", nhan: "Cai Sữa", khoaRAM: "caiSua" },
               { id: "5", nhan: "Tuần 5", khoaRAM: "5 Tuần" },
@@ -4341,105 +5047,174 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
               { id: "22", nhan: "Tuần 22", khoaRAM: "22 Tuần" },
               { id: "23", nhan: "Tuần 23", khoaRAM: "23 Tuần" },
               { id: "24", nhan: "Tuần 24", khoaRAM: "24 Tuần" },
-              { id: "25", nhan: "Tuần 25", khoaRAM: "25 Tuần" }
+              { id: "25", nhan: "Tuần 25", khoaRAM: "25 Tuần" },
+              { id: "26", nhan: "Tuần 26", khoaRAM: "26 Tuần" },
+              { id: "27", nhan: "Tuần 27", khoaRAM: "27 Tuần" },
+              { id: "28", nhan: "Tuần 28", khoaRAM: "28 Tuần" },
+              { id: "29", nhan: "Tuần 29", khoaRAM: "29 Tuần" },
+              { id: "30", nhan: "Tuần 30", khoaRAM: "30 Tuần" }
             ];
-
-            // Bộ dò chèn thanh tiêu đề phân giai đoạn chìm nhã nhặn, chống trải dài tù túng
-            const bocNhanTieuDeGiaiDoan = (idTuan) => {
-              if (idTuan === "4") return "Giai đoạn 6kg - 15kg";
-              if (idTuan === "5") return "Giai đoạn 15kg - 30kg";
-              if (idTuan === "10") return "Giai đoạn 30kg - 60kg";
-              if (idTuan === "16") return "Giai đoạn 60kg - 100kg";
-              if (idTuan === "21") return "Từ 100kg - Xuất Chuồng";
-              return null;
-            };
 
             let mauChuChuongCap = '#007bff';
             if (heoThitActionType === 'Hao Hụt') mauChuChuongCap = '#dc3545';
             if (heoThitActionType === 'Bán') mauChuChuongCap = '#28a745';
 
-            const danhSachHangBaOAdd = [];
-            for (let i = 0; i < mangLuaTuanThitAdd.length; i += 3) {
-              danhSachHangBaOAdd.push(mangLuaTuanThitAdd.slice(i, i + 3));
-            }
+            // Hàm ve nhanh o bam dong bo du lieu theo RAM phang sach
+                      // ========================================================
+            // 🎯 BAN VA MAU SAC DONG: DONG BO NEN TRANG SU VA CHU DO KHI CO HEO FOR ADD
+            // ========================================================
+            const veNutOChonAdd = (idTim, laDo) => {
+              const node = mangLuaTuanThitAdd.find(m => m.id === idTim);
+              if (!node) return null;
+
+              // Giu nguyen ven tuyet doi luong lay so con hien tai cua ban de chong hu code
+              let soConHienTai = "0";
+              if (dataHeoThit) {
+                if (dataHeoThit[node.khoaRAM] !== undefined) {
+                  soConHienTai = dataHeoThit[node.khoaRAM];
+                } else if (dataHeoThit[`${node.id} Tuần`] !== undefined) {
+                  soConHienTai = dataHeoThit[`${node.id} Tuần`];
+                }
+                if (node.id === "4" && dataHeoThit["4 Tuần ( Cai Sữa )"] !== undefined) {
+                  soConHienTai = dataHeoThit["4 Tuần ( Cai Sữa )"];
+                }
+              }
+
+              const laOThuocCheck = heoThitTuanChon && heoThitTuanChon.toString().trim() === node.id.toString().trim();
+              
+              // Ep co kiem tra xem o nay dang thuc su chua heo hay khong
+              const coHeoThucTe = Number(soConHienTai) > 0;
+
+              // Khoi tao dai mau mac dinh nen trang su sach se
+              let vTinh = '#dee2e6';
+              let nTinh = '#ffffff';
+              let cConTinh = '#137333';
+
+              // 🚀 KICH NO SAC DO THONG MINH GIONG POP-UP SUA
+              if (laDo && coHeoThucTe) {
+                vTinh = '#f5c6cb'; // Vien cam hong nhe nhang cho heo ta ban
+                nTinh = '#ffffff'; // Ep ve nen trang su phang phac
+                cConTinh = '#c82333'; // Chu so bao con lon mau do ruc ro
+              } else if (laDo && !coHeoThucTe) {
+                // Neu la lứa ta ban nhung dang trong tro 0 con thi dim màu xam nhat nhã nhan
+                vTinh = '#e9ecef';
+                nTinh = '#ffffff';
+                cConTinh = '#adb5bd'; 
+              } else if (!laDo && !coHeoThucTe) {
+                // Cac lứa tuoi nho neu trong tro 0 con cung dim màu xam de trai nghiem thoang mat
+                cConTinh = '#adb5bd';
+              }
+
+              return (
+                <TouchableOpacity
+                  key={`add_ht_node_clean_${node.id}`}
+                  activeOpacity={0.7}
+                  onPress={() => setHeoThitTuanChon(node.id.toString().trim())}
+                  style={{
+                    flex: 1, minWidth: '30%', height: 44, borderRadius: 6,
+                    borderWidth: laOThuocCheck ? 2 : 1,
+                    borderColor: laOThuocCheck ? mauChuChuongCap : vTinh,
+                    backgroundColor: laOThuocCheck ? mauChuChuongCap + '10' : nTinh,
+                    alignItems: 'center', justifyContent: 'center'
+                  }}
+                >
+                  <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 11.5, fontWeight: '800', color: laOThuocCheck ? mauChuChuongCap : '#212529' }}>
+                    {node.nhan}
+                  </Text>
+                  <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 10, fontWeight: 'bold', color: laOThuocCheck ? mauChuChuongCap : cConTinh, marginTop: 2 }}>
+                    {soConHienTai} Con
+                  </Text>
+                </TouchableOpacity>
+              );
+            };
+
 
             return (
-              <View style={{ gap: 4 }}>
-                {danhSachHangBaOAdd.map((hangData, hangIdx) => (
-                  <View key={`popup_add_row3_clean_${hangIdx}`} style={{ width: '100%' }}>
-                    
-                    {/* Duyệt qua từng ô nhỏ, nếu ô đầu tiên của hàng dính mốc giai đoạn thì nổ thanh vách ngăn */}
-                    {hangData.map((itemCell, tIdx) => {
-                      const tieuDeHienThi = tIdx === 0 ? bocNhanTieuDeGiaiDoan(itemCell.id) : null;
-                      
-                      return (
-                        <View key={`block_label_add_${hangIdx}_${tIdx}`}>
-                          
-                          {tieuDeHienThi && (
-                            <View style={{ borderBottomWidth: 0.5, borderBottomColor: '#dee2e6', paddingBottom: 3, marginBottom: 5, marginTop: hangIdx > 0 ? 8 : 2, paddingLeft: 2 }}>
-                              <Text style={{ fontSize: 11, fontWeight: '800', color: '#495057', letterSpacing: 0.2 }}>
-                                {tieuDeHienThi}
-                              </Text>
-                            </View>
-                          )}
-
-                          {/* Kích nổ dòng bọc ngang mượt mà khi duyệt tới ô đầu dòng */}
-                          {tIdx === 0 && (
-                            <View style={{ flexDirection: 'row', gap: 5, marginBottom: 2 }}>
-                              {hangData.map((innerCell, innerIdx) => {
-                                let soConHienTai = "0";
-                                if (dataHeoThit) {
-                                  soConHienTai = dataHeoThit[innerCell.khoaRAM] !== undefined ? dataHeoThit[innerCell.khoaRAM] : (dataHeoThit[`${innerCell.id} Tuần`] || "0");
-                                  if (innerCell.id === "4" && dataHeoThit["4 Tuần ( Cai Sữa )"] !== undefined) {
-                                    soConHienTai = dataHeoThit["4 Tuần ( Cai Sữa )"];
-                                  }
-                                }
-
-                                const laOThuocCheck = heoThitTuanChon && heoThitTuanChon.toString().trim() === innerCell.id.toString().trim();
-
-                                return (
-                                  <TouchableOpacity
-                                    key={`add_ht_box_grid3_clean_${hangIdx}_${innerIdx}`}
-                                    activeOpacity={0.7}
-                                    onPress={() => setHeoThitTuanChon(innerCell.id.toString().trim())}
-                                    style={{
-                                      flex: 1, 
-                                      height: 44, 
-                                      borderRadius: 6,
-                                      borderWidth: laOThuocCheck ? 2 : 1,
-                                      borderColor: laOThuocCheck ? mauChuChuongCap : '#dee2e6',
-                                      backgroundColor: laOThuocCheck ? mauChuChuongCap + '10' : '#ffffff', 
-                                      alignItems: 'center', 
-                                      justifyContent: 'center'
-                                    }}
-                                  >
-                                    <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 11.5, fontWeight: '900', color: laOThuocCheck ? mauChuChuongCap : '#212529' }}>
-                                      {innerCell.nhan}
-                                    </Text>
-                                    <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 10, fontWeight: 'bold', color: laOThuocCheck ? mauChuChuongCap : '#137333', marginTop: 2 }}>
-                                      {soConHienTai} Con
-                                    </Text>
-                                  </TouchableOpacity>
-                                );
-                              })}
-                              {/* Đệm ô rỗng ẩn giữ nguyên tỷ lệ 1/3 hàng ngang cho hàng cuối (Tuần 25) */}
-                              {hangData.length < 3 && Array.from({ length: 3 - hangData.length }).map((_, rIdx) => (
-                                <View key={`void_popup_add_cell_clean_${rIdx}`} style={{ flex: 1 }} />
-                              ))}
-                            </View>
-                          )}
-
-                        </View>
-                      );
-                    })}
-
+              <View style={{ gap: 10, width: '100%' }}>
+                
+                {/* 📦 GIAI DOAN 2: HEO CAI SUA BOXED */}
+                <View style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 8, borderWidth: 1, borderColor: '#dee2e6' }}>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#e65100', marginBottom: 6, paddingLeft: 2 }}>
+                    Giai đoạn 2. Heo Cai Sữa (4 tuần)
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 5 }}>
+                    {veNutOChonAdd("4", false)}
+                    <View style={{ flex: 1 }} /><View style={{ flex: 1 }} />
                   </View>
-                ))}
+                </View>
+
+                {/* 📦 GIAI DOAN 3: DAN 10 - 30KG BOXED */}
+                <View style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 8, borderWidth: 1, borderColor: '#dee2e6' }}>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#e65100', marginBottom: 6, paddingLeft: 2 }}>
+                    Giai đoạn 3. Đàn 10 - 30kg (Tuần 5-9)
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 5, marginBottom: 5 }}>
+                    {["5", "6", "7"].map(id => veNutOChonAdd(id, false))}
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 5 }}>
+                    {["8", "9"].map(id => veNutOChonAdd(id, false))}
+                    <View style={{ flex: 1 }} />
+                  </View>
+                </View>
+
+                {/* 📦 GIAI DOAN 4: DAN 30 - 60KG BOXED */}
+                <View style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 8, borderWidth: 1, borderColor: '#dee2e6' }}>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#e65100', marginBottom: 6, paddingLeft: 2 }}>
+                    Giai đoạn 4. Đàn 30 - 60kg (Tuần 10-15)
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 5, marginBottom: 5 }}>
+                    {["10", "11", "12"].map(id => veNutOChonAdd(id, false))}
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 5 }}>
+                    {["13", "14", "15"].map(id => veNutOChonAdd(id, false))}
+                  </View>
+                </View>
+
+                {/* 📦 GIAI DOAN 5: DAN 60 - 100KG BOXED */}
+                <View style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 8, borderWidth: 1, borderColor: '#dee2e6' }}>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#e65100', marginBottom: 6, paddingLeft: 2 }}>
+                    Giai đoạn 5. Đàn 60 - 100kg (Tuần 16-20)
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 5, marginBottom: 5 }}>
+                    {["16", "17", "18"].map(id => veNutOChonAdd(id, false))}
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 5 }}>
+                    {["19", "20"].map(id => veNutOChonAdd(id, false))}
+                    <View style={{ flex: 1 }} />
+                  </View>
+                </View>
+                {/* 🔴 GIAI DOAN 6: TU 100KG - 130KG BOXED DO DO NĂNG SUẤT CHUẨN TRẠI */}
+                <View style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 8, borderWidth: 1, borderColor: '#f5c6cb' }}>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#c82333', marginBottom: 6, paddingLeft: 2 }}>
+                    Giai đoạn 6. Từ 100kg - 130kg (Tuần 21-25)
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 5, marginBottom: 5 }}>
+                    {["21", "22", "23"].map(id => veNutOChonAdd(id, true))}
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 5 }}>
+                    {["24", "25"].map(id => veNutOChonAdd(id, true))}
+                    <View style={{ flex: 1 }} />
+                  </View>
+                </View>
+
+                {/* 🔴 GIAI DOAN 7: GIAI DOAN 130KG - XUAT CHUONG BOXED DO DO SẮC NÉT KHÍT LỀ */}
+                <View style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 8, borderWidth: 1, borderColor: '#f5c6cb' }}>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#c82333', marginBottom: 6, paddingLeft: 2 }}>
+                    Giai đoạn 7. 130kg - Xuất Chuồng (Tuần 26-30)
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 5, marginBottom: 5 }}>
+                    {["26", "27", "28"].map(id => veNutOChonAdd(id, true))}
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 5 }}>
+                    {["29", "30"].map(id => veNutOChonAdd(id, true))}
+                    <View style={{ flex: 1 }} />
+                  </View>
+                </View>
+
               </View>
             );
           })()}
         </View>
-
 
 
 
@@ -4478,7 +5253,8 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
           </TouchableOpacity>
 
           <TouchableOpacity 
-            activeOpacity={0.6} onPress={handleLuuHanhDongHeoThit}
+            activeOpacity={0.6} 
+            onPress={handleLuuHanhDongHeoThit} // Giu nguyen ven ham luu hanh dong goc cua ban
             style={{ 
               flex: 1, 
               backgroundColor: heoThitActionType === 'Nhập Đàn' ? '#007bff' : (heoThitActionType === 'Hao Hụt' ? '#dc3545' : '#28a745'), 
@@ -4488,29 +5264,49 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
             <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 13.5 }}>XÁC NHẬN</Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
 
-    </View>
-  </View>
-</Modal>
+            </View>
+          </ScrollView> 
+        </KeyboardAvoidingView> 
+      </Modal>
 
 
-      {/* ======================================================== */}
-      {/* 📝 POP-UP MODAL SỬA NHẬT KÝ HEO THỊT RIÊNG BIỆT TẠI TAB 5 */}
-      {/* ======================================================== */}
-            {/* ======================================================== */}
-      {/* 📝 POP-UP MODAL SỬA NHẬT KÝ HEO THỊT RIÊNG BIỆT - LƯỚI 4X5 CHỮ LỚN CHỐNG TRÀN */}
+      {/* 🚀 BAN VA TOI CAO: HOAN THIEN DINH DAU MODAL CHONG CHE CHU CHO CA IOS VA ANDROID */}
       {/* ======================================================== */}
       <Modal visible={isSuaHeoThitModalVisible} transparent={true} animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.popupCard, { width: '96%', padding: 12, borderRadius: 14, backgroundColor: '#ffffff', maxHeight: '92%' }]}>
-            
-            <Text style={[styles.popupTitle, { marginBottom: 12, color: '#111111', fontSize: 14, fontWeight: 'bold', textAlign: 'center' }]}>
-              📝 MỤC SỬA HEO THỊT
-            </Text>
+        
+        {/* LOP 1: KeyboardAvoidingView can ban phim linh hoat cho ca hai he dieu hanh */}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}
+        >
+          
+          {/* LOP 2: Nhac ScrollView len lam cha boc ngoai hop trang de ca Android/iOS tu do truot cuon muot ma */}
+                    {/* ======================================================== */}
+          {/* 🎯 BẢN VÁ THIẾT KẾ: NỚI RỘNG 95% VÀ ĐƯA TRỌN BỘ KHUNG CUỘN VÀO GIỮA TRUNG TÂM */}
+          {/* ======================================================== */}
+          <ScrollView
+            // 🚀 ĐỘT PHÁ LAYOUT: Noi rong min mang len 95% va dung alignSelf center de ep khoi vao chính giua man hình tăm tắp
+            style={{ flex: 1, width: '95%', alignSelf: 'center' }}
+            contentContainerStyle={{ 
+              flexGrow: 1, 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              paddingVertical: 14 
+            }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 5 }}>
-              {/* 1. Chọn ngày thực hiện sửa đổi */}
+
+            {/* LOP 3: Hop trang Popup Card cua ban (Giai phong maxHeight co dinh de chong thảm hoa bi bop dep) */}
+            <View style={{ width: '96%', padding: 12, borderRadius: 14, backgroundColor: '#ffffff', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 }}>
+              
+              <Text style={[styles.popupTitle, { marginBottom: 12, color: '#111111', fontSize: 14, fontWeight: 'bold', textAlign: 'center' }]}>
+                📝 MỤC SỬA HEO THỊT
+              </Text>
+
+              {/* 1. Chon ngay thuc hien sua doi */}
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 }}>
                 <Text style={{ fontWeight: 'bold', fontSize: 13, color: '#333333' }}>Ngày làm:</Text>
                 <TouchableOpacity 
@@ -4521,6 +5317,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
                 </TouchableOpacity>
               </View>
 
+
               <DateTimePickerModal 
                 isVisible={isSuaHeoThitDatePickerVisible} mode="date" 
                 onConfirm={(d) => { setSuaHeoThitNgay(formatVNDate(d)); setSuaHeoThitDatePickerVisible(false); }} 
@@ -4528,130 +5325,223 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
                 confirmTextConfirm="Xác nhận" cancelText="Hủy" 
               />
 
-              {/* 2. Lưới ô bấm chọn lại số Tuần Tuổi lô heo thịt */}
-              <View style={{ marginBottom: 12 }}>
-                <Text style={{ fontWeight: 'bold', marginBottom: 6, fontSize: 13, color: '#555555' }}>
-                  {suaHeoThitActionType === 'Nhập Đàn' ? 'SỬA Tuần tuổi NHẬP ĐÀN:' : 'SỬA tuần tuổi BÁN / HAO HỤT'}
-                </Text>
-                
-                                {/* ======================================================== */}
-                {/* 📊 BẢN VÁ UX CAO CẤP: LƯỚI ĐÚNG 3 Ô 1 HÀNG CHỮ TO RÕ, PHẲNG SẠCH 100% */}
+                             {/* ======================================================== */}
+                {/* 📊 PHẦN 1: THIẾT KẾ PHÂN HỘP GIAI ĐOẠN RÕ RÀNG TRONG POP-UP SỬA ĐỔI */}
                 {/* ======================================================== */}
-                                {/* ======================================================== */}
-                {/* 📊 BẢN VÁ LỘT XÁC POP-UP SỬA ĐỔI - PHẦN 1: CHIA GIAI ĐOẠN LƯỚI ĐÚNG 3 Ô 1 HÀNG (ĐÃ BỎ THEO MẸ) */}
-                {/* ======================================================== */}
-                <View style={{ backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e9ecef', borderRadius: 10, padding: 8, gap: 10 }}>
+                <View style={{ backgroundColor: '#f8f9fa', borderWidth: 1, borderColor: '#e9ecef', borderRadius: 12, padding: 8, gap: 12 }}>
                   {(() => {
-                    // 🎯 ĐÃ DỌN SẠCH THEO MẸ: Danh sách mảng phẳng bắt đầu nghiêm ngặt từ lứa Cai Sữa
+                    const laySoTho = (val) => {
+                      if (val === undefined || val === null) return 0;
+                      const str = val.toString().trim();
+                      if (str === "" || isNaN(str)) return 0;
+                      return Number(str);
+                    };
+
+                    // 1. Khoi tao kho luu tru tam thoi thoi gian thuc tu T4 den T30 cho Pop-up Sua
+                    const khoTuanPopupEditRealTime = {};
                     const danhSachTatCaCacTuan = [
                       "4 Tuần ( Cai Sữa )", "5 Tuần", "6 Tuần", "7 Tuần", "8 Tuần", "9 Tuần",
                       "10 Tuần", "11 Tuần", "12 Tuần", "13 Tuần", "14 Tuần", "15 Tuần",
                       "16 Tuần", "17 Tuần", "18 Tuần", "19 Tuần", "20 Tuần",
-                      "21 Tuần", "22 Tuần", "23 Tuần", "24 Tuần", "25 Tuần"
+                      "21 Tuần", "22 Tuần", "23 Tuần", "24 Tuần", "25 Tuần",
+                      "26 Tuần", "27 Tuần", "28 Tuần", "29 Tuần", "30 Tuần"
                     ];
 
-                    // Hàm phụ tự động chèn Thanh Tiêu Đề Cắt Dòng tinh tế ngay tại đỉnh đầu của lứa tuần tương ứng
-                    const bocNhanTieuDeGiaiDoan = (tuanKey) => {
-                      if (tuanKey === "4 Tuần ( Cai Sữa )") return { tieuDe: "Giai đoạn 6kg - 15kg" };
-                      if (tuanKey === "5 Tuần") return { tieuDe: "Giai đoạn 15 - 30kg" };
-                      if (tuanKey === "10 Tuần") return { tieuDe: "Giai đoạn 30 - 60kg" };
-                      if (tuanKey === "16 Tuần") return { tieuDe: "Giai đoạn 60 - 100kg" };
-                      if (tuanKey === "21 Tuần") return { tieuDe: "Từ 100kg - Xuất Chuồng" };
-                      return null;
-                    };
+                    danhSachTatCaCacTuan.forEach(k => {
+                      khoTuanPopupEditRealTime[k] = laySoTho(dataHeoThit ? dataHeoThit[k] : 0);
+                    });
+
+                    if (dataHeoThit && khoTuanPopupEditRealTime["4 Tuần ( Cai Sữa )"] === 0) {
+                      khoTuanPopupEditRealTime["4 Tuần ( Cai Sữa )"] = laySoTho(dataHeoThit.caiSua) || laySoTho(dataHeoThit["Cai Sữa"]);
+                    }
+
+                    // 2. Bo do quet bat song chính xac bien mang danhSachLichSu tren app cua ban
+                    let mangLichSuSong = [];
+                    if (typeof danhSachLichSu !== 'undefined' && Array.isArray(danhSachLichSu)) {
+                      mangLichSuSong = danhSachLichSu;
+                    } else if (typeof lichSuHeoThit !== 'undefined' && Array.isArray(lichSuHeoThit)) {
+                      mangLichSuSong = lichSuHeoThit;
+                    }
+
+                    // 3. Quet mang lich su de khau tru so luong tuc thi khi an nut Xoa (syncStatus waiting)
+                    if (mangLichSuSong.length > 0) {
+                      mangLichSuSong.forEach(item => {
+                        if (item && item.syncStatus !== "waiting") {
+                          const chuoiSuKien = item.suKien ? item.suKien.toString().trim() : "";
+                          const sCon = laySoTho(item.soHeo);
+                          const loaiHanhDong = item.actionType || item.suKienLoai || "";
+
+                          const mangSoTho = chuoiSuKien.match(/\d+/);
+                          const soTuanSoHoc = mangSoTho ? parseInt(mangSoTho, 10) : 0;
+
+                          if (soTuanSoHoc >= 4 && soTuanSoHoc <= 30) {
+                            const khoaDinhDanh = soTuanSoHoc === 4 ? "4 Tuần ( Cai Sữa )" : `${soTuanSoHoc} Tuần`;
+                            if (loaiHanhDong === "Nhập Đàn") {
+                              khoTuanPopupEditRealTime[khoaDinhDanh] += sCon;
+                            } else {
+                              khoTuanPopupEditRealTime[khoaDinhDanh] -= sCon;
+                            }
+                          }
+                        }
+                      });
+                    }
 
                     let mauChuChuongCap = '#007bff';
                     if (suaHeoThitActionType === 'Hao Hụt') mauChuChuongCap = '#dc3545';
                     if (suaHeoThitActionType === 'Bán') mauChuChuongCap = '#28a745';
 
-                    // Chặt mảng phẳng thành các dòng, mỗi dòng chứa đúng 3 ô vuông vắn
-                    const danhSachHangBaO = [];
-                    for (let i = 0; i < danhSachTatCaCacTuan.length; i += 3) {
-                      danhSachHangBaO.push(danhSachTatCaCacTuan.slice(i, i + 3));
+                    // Ham ve phao cuu sinh o bam o vuong dong bo du lieu theo RAM phang sach
+                                    // ========================================================
+                  // 🎯 BẢN VÁ BIẾN ĐỘNG: CHỈ NHUỘM ĐỎ KHI CÓ QUÂN SỐ HEO LỚN HƠN 0
+                  // ========================================================
+                                  // ========================================================
+                  // 🎯 BAN VA MAU SAC: DOI MAU DONG THEO QUAN SO CO SAN - AN TOAN 100%
+                  // ========================================================
+                  const veNutOChonSua = (idTim, laDo) => {
+                    const khoaKey = idTim === "4" ? "4 Tuần ( Cai Sữa )" : `${idTim} Tuần`;
+                    
+                    // Giu nguyen ven tuyet doi cach boc so con tu kho co san cua ban de chong hu code
+                    const soConHienTai = khoTuanPopupEditRealTime[khoaKey] !== undefined ? khoTuanPopupEditRealTime[khoaKey] : 0;
+
+                    let chuHienThiNut = idTim === "4" ? "Cai Sữa" : `Tuần ${idTim}`;
+                    const laOThuocCheck = suaHeoThitTuanChon === idTim;
+
+                    // Tu dong ep kieu kiem tra xem o nay hien dang co heo hay khong
+                    const coHeoThucTe = Number(soConHienTai) > 0;
+
+                    // Khoi tao dai mau mac dinh nen trang su phang min
+                    let vTinh = '#dee2e6';
+                    let nTinh = '#ffffff';
+                    let cConTinh = '#137333';
+
+                    // 🚀 KICH NO SAC DO THONG MINH: Giai doan ta ban (laDo=true) va CO HEO (>0)
+                    if (laDo && coHeoThucTe) {
+                      vTinh = '#f5c6cb'; // Vien cam hong nhan dien khu heo ta ban
+                      nTinh = '#ffffff'; // Giu nen trang su tinh khoi dung yeu cau
+                      cConTinh = '#c82333'; // Chu so bao con lon mau do ruc ro
+                    } else if (laDo && !coHeoThucTe) {
+                      // Neu thuoc giai doan 6 & 7 nhung trong tro 0 con, dim màu xam nhat de chong roi mat
+                      vTinh = '#e9ecef';
+                      nTinh = '#ffffff';
+                      cConTinh = '#adb5bd'; // So 0 Con mau xám nhat nhã nhan
+                    } else if (!laDo && !coHeoThucTe) {
+                      // Cac tuan nho tu Tuan 4 den Tuand 20 neu trong tro 0 con cung dim màu xam phang min
+                      cConTinh = '#adb5bd';
                     }
 
                     return (
-                      <View style={{ gap: 5 }}>
-                        {danhSachHangBaO.map((hangData, hangIdx) => (
-                          <View key={`popup_edit_row3_fixed_${hangIdx}`} style={{ width: '100%' }}>
-                            
-                            {hangData.map((tuanKey, tIdx) => {
-                              // Khơi nổ bộ dò tiêu đề: Chỉ chèn nhãn giải thích khi ô đầu tiên của lứa xuất hiện
-                              const thongTinNhan = tIdx === 0 ? bocNhanTieuDeGiaiDoan(tuanKey) : null;
-
-                              return (
-                                <View key={`cell_block_edit_${hangIdx}_${tIdx}`}>
-                                  
-                                  {/* 🎯 TỰ ĐỘNG CHÈN THANH VÁCH NGĂN GIAI ĐOẠN CHÌM GỌN GÀNG */}
-                                  {thongTinNhan && (
-                                    <View style={{ borderBottomWidth: 0.5, borderBottomColor: '#dee2e6', paddingBottom: 3, marginBottom: 5, marginTop: hangIdx > 0 ? 8 : 2, paddingLeft: 2 }}>
-                                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#495057', letterSpacing: 0.2 }}>
-                                        {thongTinNhan.tieuDe}
-                                      </Text>
-                                    </View>
-                                  )}
-
-                                  {/* Chỉ nổ dòng bọc flexDirection ngang khi bắt đầu lặp hàng */}
-                                  {tIdx === 0 && (
-                                    <View style={{ flexDirection: 'row', gap: 5, marginBottom: 2 }}>
-                                      {hangData.map((innerKey, innerIdx) => {
-                                        let soConHienTai = "0";
-                                        if (dataHeoThit) {
-                                          soConHienTai = dataHeoThit[innerKey] !== undefined ? dataHeoThit[innerKey] : "0";
-                                        }
-
-                                        let chuHienThiNut = innerKey.replace(' Tuần', '').replace(' ( Cai Sữa )', '');
-                                        if (chuHienThiNut === "4") chuHienThiNut = "Cai Sữa";
-                                        else chuHienThiNut = `Tuần ${chuHienThiNut}`;
-
-                                        const giaTriGuiDi = innerKey.replace(' Tuần ( Cai Sữa )', '').replace(' Tuần', '').trim();
-                                        const laOThuocCheck = suaHeoThitTuanChon === giaTriGuiDi;
-
-                                        return (
-                                          <TouchableOpacity
-                                            key={`edit_ht_box_grid3_fixed_${hangIdx}_${innerIdx}`}
-                                            activeOpacity={0.7}
-                                            onPress={() => setSuaHeoThitTuanChon(giaTriGuiDi)}
-                                            style={{
-                                              flex: 1, 
-                                              height: 44, // Chiều cao rộng rãi cho ngón tay dễ chạm bấm
-                                              borderRadius: 6,
-                                              borderWidth: laOThuocCheck ? 2 : 1,
-                                              borderColor: laOThuocCheck ? mauChuChuongCap : '#dee2e6',
-                                              backgroundColor: laOThuocCheck ? mauChuChuongCap + '10' : '#ffffff', 
-                                              alignItems: 'center', 
-                                              justifyContent: 'center'
-                                            }}
-                                          >
-                                            <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 11.5, fontWeight: '900', color: laOThuocCheck ? mauChuChuongCap : '#212529' }}>
-                                              {chuHienThiNut}
-                                            </Text>
-                                            <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 10, fontWeight: 'bold', color: laOThuocCheck ? mauChuChuongCap : '#137333', marginTop: 2 }}>
-                                              {soConHienTai} Con
-                                            </Text>
-                                          </TouchableOpacity>
-                                        );
-                                      })}
-                                      {/* Đệm ô rỗng ẩn nếu hàng cuối cùng (Tuần 25 lẻ) bị thiếu ô để giữ nguyên tỷ lệ lề ngang */}
-                                      {hangData.length < 3 && Array.from({ length: 3 - hangData.length }).map((_, rIdx) => (
-                                        <View key={`void_popup_edit_cell_fixed_${rIdx}`} style={{ flex: 1 }} />
-                                      ))}
-                                    </View>
-                                  )}
-
-                                </View>
-                              );
-                            })}
-
-                          </View>
-                        ))}
-                      </View>
+                      <TouchableOpacity
+                        key={`edit_ht_node_clean_${idTim}`}
+                        activeOpacity={0.7}
+                        onPress={() => setSuaHeoThitTuanChon(idTim)}
+                        style={{
+                          flex: 1, minWidth: '30%', height: 44, borderRadius: 6,
+                          borderWidth: laOThuocCheck ? 2 : 1,
+                          borderColor: laOThuocCheck ? mauChuChuongCap : vTinh,
+                          backgroundColor: laOThuocCheck ? mauChuChuongCap + '10' : nTinh,
+                          alignItems: 'center', justifyContent: 'center'
+                        }}
+                      >
+                        <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 11.5, fontWeight: '800', color: laOThuocCheck ? mauChuChuongCap : '#212529' }}>
+                          {chuHienThiNut}
+                        </Text>
+                        <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 10, fontWeight: 'bold', color: laOThuocCheck ? mauChuChuongCap : cConTinh, marginTop: 2 }}>
+                          {soConHienTai} Con
+                        </Text>
+                      </TouchableOpacity>
                     );
-                  })()}
+                  };
+
+
+
+                    return (
+                      <View style={{ gap: 10, width: '100%' }}>
+                        
+                        {/* 📦 GIAI DOAN 2: HEO CAI SUA BOXED */}
+                        <View style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 8, borderWidth: 1, borderColor: '#dee2e6' }}>
+                          <Text style={{ fontSize: 11, fontWeight: '800', color: '#e65100', marginBottom: 6, paddingLeft: 2 }}>
+                            Giai đoạn 2. Heo Cai Sữa (4 tuần)
+                          </Text>
+                          <View style={{ flexDirection: 'row', gap: 5 }}>
+                            {veNutOChonSua("4", false)}
+                            <View style={{ flex: 1 }} /><View style={{ flex: 1 }} />
+                          </View>
+                        </View>
+
+                        {/* 📦 GIAI DOAN 3: DAN 10 - 30KG BOXED */}
+                        <View style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 8, borderWidth: 1, borderColor: '#dee2e6' }}>
+                          <Text style={{ fontSize: 11, fontWeight: '800', color: '#e65100', marginBottom: 6, paddingLeft: 2 }}>
+                            Giai đoạn 3. Đàn 10 - 30kg (Tuần 5-9)
+                          </Text>
+                          <View style={{ flexDirection: 'row', gap: 5, marginBottom: 5 }}>
+                            {["5", "6", "7"].map(id => veNutOChonSua(id, false))}
+                          </View>
+                          <View style={{ flexDirection: 'row', gap: 5 }}>
+                            {["8", "9"].map(id => veNutOChonSua(id, false))}
+                            <View style={{ flex: 1 }} />
+                          </View>
+                        </View>
+
+                        {/* 📦 GIAI DOAN 4: DAN 30 - 60KG BOXED */}
+                        <View style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 8, borderWidth: 1, borderColor: '#dee2e6' }}>
+                          <Text style={{ fontSize: 11, fontWeight: '800', color: '#e65100', marginBottom: 6, paddingLeft: 2 }}>
+                            Giai đoạn 4. Đàn 30 - 60kg (Tuần 10-15)
+                          </Text>
+                          <View style={{ flexDirection: 'row', gap: 5, marginBottom: 5 }}>
+                            {["10", "11", "12"].map(id => veNutOChonSua(id, false))}
+                          </View>
+                          <View style={{ flexDirection: 'row', gap: 5 }}>
+                            {["13", "14", "15"].map(id => veNutOChonSua(id, false))}
+                          </View>
+                        </View>
+
+                        {/* 📦 GIAI DOAN 5: DAN 60 - 100KG BOXED */}
+                        <View style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 8, borderWidth: 1, borderColor: '#dee2e6' }}>
+                          <Text style={{ fontSize: 11, fontWeight: '800', color: '#e65100', marginBottom: 6, paddingLeft: 2 }}>
+                            Giai đoạn 5. Đàn 60 - 100kg (Tuần 16-20)
+                          </Text>
+                          <View style={{ flexDirection: 'row', gap: 5, marginBottom: 5 }}>
+                            {["16", "17", "18"].map(id => veNutOChonSua(id, false))}
+                          </View>
+                          <View style={{ flexDirection: 'row', gap: 5 }}>
+                            {["19", "20"].map(id => veNutOChonSua(id, false))}
+                            <View style={{ flex: 1 }} />
+                          </View>
+                        </View>
+                {/* 🔴 GIAI DOAN 6: TU 100KG - 130KG BOXED DO DO NĂNG SUẤT CHUẨN TRẠI */}
+                <View style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 8, borderWidth: 1, borderColor: '#f5c6cb' }}>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#c82333', marginBottom: 6, paddingLeft: 2 }}>
+                    Giai đoạn 6. Từ 100kg - 130kg (Tuần 21-25)
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 5, marginBottom: 5 }}>
+                    {["21", "22", "23"].map(id => veNutOChonSua(id, true))}
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 5 }}>
+                    {["24", "25"].map(id => veNutOChonSua(id, true))}
+                    <View style={{ flex: 1 }} />
+                  </View>
                 </View>
 
+                {/* 🔴 GIAI DOAN 7: GIAI DOAN 130KG - XUAT CHUONG BOXED DO DO SẮC NÉT KHÍT LỀ */}
+                <View style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 8, borderWidth: 1, borderColor: '#f5c6cb' }}>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#c82333', marginBottom: 6, paddingLeft: 2 }}>
+                    Giai đoạn 7. 130kg - Xuất Chuồng (Tuần 26-30)
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 5, marginBottom: 5 }}>
+                    {["26", "27", "28"].map(id => veNutOChonSua(id, true))}
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 5 }}>
+                    {["29", "30"].map(id => veNutOChonSua(id, true))}
+                    <View style={{ flex: 1 }} />
+                  </View>
+                </View>
 
               </View>
+            );
+          })()}
+        </View>
+
+
 
               {/* 3. Ô nhập Số lượng con heo tác động thương phẩm (Hàng riêng 1) */}
               <View style={{ marginBottom: 10 }}>
@@ -4683,17 +5573,18 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
                   <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 13.5 }}>HỦY BỎ</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity 
-                  activeOpacity={0.6} onPress={handleLuuSuaHeoThit}
+               <TouchableOpacity 
+                  activeOpacity={0.6} 
+                  onPress={handleLuuSuaHeoThit} // Giu nguyen ven ham luu sua goc dang chay rat tot cua ban
                   style={{ flex: 1, backgroundColor: '#ffc107', paddingVertical: 10, borderRadius: 6, alignItems: 'center', justifyContent: 'center' }}
                 >
                   <Text style={{ color: '#111111', fontWeight: 'bold', fontSize: 13.5 }}>LƯU SỬA</Text>
                 </TouchableOpacity>
-              </View>
-            </ScrollView>
+              </View> 
 
-          </View>
-        </View>
+            </View> 
+          </ScrollView> 
+        </KeyboardAvoidingView> 
       </Modal>
 
 
@@ -4718,7 +5609,11 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
+            <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()} accessible={false}>
+
       <MainApp />
+            </TouchableWithoutFeedback>
+
     </SafeAreaProvider>
   );
 }
