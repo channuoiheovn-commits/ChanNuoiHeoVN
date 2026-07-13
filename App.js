@@ -2396,19 +2396,14 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
                         <TextInput style={[styles.inputStandard, { flex: 1, marginBottom: 0, marginRight: 8, color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6', height: 42, fontSize: 14, paddingVertical: 0 }]} placeholder="Mã Tai" placeholderTextColor="#777777" value={mtMaTai} onChangeText={setMtMaTai} autoCapitalize="characters" />
                         <TextInput style={[styles.inputStandard, { flex: 1, marginBottom: 0, color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6', height: 42, fontSize: 14, paddingVertical: 0 }]} placeholder="Giống heo" placeholderTextColor="#777777" value={mtGiong} onChangeText={setMtGiong} />
                       </View>
-                                               {/* ======================================================== */}
-                        {/* 🐖 KHAY SỬA LỨA NÁI TỰ CHẾ - BẬT THANH CUỘN LỲ MƯỢT ĐỒNG BỘ 100% */}
-                        {/* ======================================================== */}
-                                                {/* ======================================================== */}
-                        {/* 🎯 BẢN VÁ TỐI CAO: ĐỒNG BỘ KHAY THÊM LỨA ĐẺ MẶC ĐỊNH DÒNG ĐẦU TIÊN */}
+                              
+                        {/* 🎯 BẢN VÁ TỐI CAO: ÉP CHỮ MỒI "HÃY CHỌN LỨA" VÀ CHẶN LƯU DỮ LIỆU RÁC */}
                         {/* ======================================================== */}
                         {(() => {
                           const laTrangThaiMoKhayMt = mtLua === "OPEN_MENU_MT_LUA";
                           
-                          // Tự động lội mảng lấy phần tử số 0 làm giá trị gốc nếu công nhân chưa bấm chọn lứa
-                          const giaTriMacDinhDauTien = (Array.isArray(danhSachLuaHeo) && danhSachLuaHeo.length > 0) 
-                            ? danhSachLuaHeo[0].toString().trim() 
-                            : "Hậu bị";
+                          // 🎯 ĐỘT PHÁ LOGIC: Ép nhãn nền mặc định ban đầu là dòng chữ Hãy chọn lứa theo đúng ý bạn
+                          const giaTriMacDinhDauTien = "Hãy chọn lứa";
 
                           const chuHienThiChuanMt = (mtLua && mtLua.toString().trim() !== "" && mtLua !== "OPEN_MENU_MT_LUA") 
                             ? mtLua.toString().trim() 
@@ -2437,11 +2432,11 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
                                 }}
                               >
                                 <Text style={{ 
-                                  color: '#111111', 
+                                  color: (chuHienThiChuanMt.includes("Chọn") || chuHienThiChuanMt.includes("chọn")) ? '#888888' : '#111111', 
                                   fontSize: 14, 
-                                  fontWeight: '700' 
+                                  fontWeight: (chuHienThiChuanMt.includes("Chọn") || chuHienThiChuanMt.includes("chọn")) ? '400' : '700' 
                                 }}>
-                                  {chuHienThiChuanMt}
+                                  Lứa đẻ: {chuHienThiChuanMt}
                                 </Text>
                                 <Text style={{ fontSize: 12, color: '#e65100' }}>{laTrangThaiMoKhayMt ? "▲" : "▼"}</Text>
                               </TouchableOpacity>
@@ -2468,15 +2463,48 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
                                     showsVerticalScrollIndicator={true} 
                                     contentContainerStyle={{ paddingVertical: 2 }}
                                   >
+                                    {/* 🚀 CHÈN CO ĐỊNH DÒNG CHỮ MỒI HÃY CHỌN LỨA LÊN ĐẦU DANH SÁCH CUỘN */}
+                                    <TouchableOpacity
+                                      activeOpacity={0.7}
+                                      onPress={() => {
+                                        // 🎯 CHỐT CHẶN BẢO VỆ TUYỆT ĐỐI: Bấm trúng chữ Hãy chọn lứa nổ Alert cấm lưu ngay lập tức
+                                       return Alert.alert(
+                                          "Hãy Chọn Lứa",
+                                          "Vui lòng chọn đúng lứa đẻ hiện tại của con nái!",
+                                          [{ text: "Tôi sẽ Chọn", style: "default" }]
+                                        );
+                                      }}
+                                      style={{
+                                        paddingVertical: 11,
+                                        paddingHorizontal: 14,
+                                        backgroundColor: chuHienThiChuanMt === "Hãy chọn lứa" ? '#fffaf5' : '#ffffff',
+                                        flexDirection: 'row',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        borderBottomWidth: 0.5,
+                                        borderBottomColor: '#f8f9fa'
+                                      }}
+                                    >
+                                      <Text style={{ fontSize: 14, color: '#adb5bd', fontWeight: '500', fontStyle: 'italic' }}>
+                                        Hãy chọn lứa
+                                      </Text>
+                                    </TouchableOpacity>
+
+                                    {/* LỘI VÒNG LẶP CHO CÁC LỨA THẬT CÒN LẠI TRONG MẢNG */}
                                     {Array.isArray(danhSachLuaHeo) && danhSachLuaHeo.map((item, index) => {
-                                      const laDongDangChon = chuHienThiChuanMt === item.toString().trim();
+                                      const textDongSach = item.toString().trim();
                                       
+                                      // Bộ lọc thông minh tự động loại bỏ nếu trong mảng trùng lặp chữ chọn lứa
+                                      if (textDongSach.includes("Chọn") || textDongSach.includes("chọn")) return null;
+                                      
+                                      const laDongDangChon = chuHienThiChuanMt === textDongSach;
+
                                       return (
                                         <TouchableOpacity
                                           key={`custom_mt_lua_inline_${index}`}
                                           activeOpacity={0.7}
                                           onPress={() => {
-                                            setMtLua(item.toString().trim()); 
+                                            setMtLua(textDongSach); 
                                           }}
                                           style={{
                                             paddingVertical: 11,
@@ -2509,6 +2537,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
                         })()}
 
 
+
                       
                       <TouchableOpacity onPress={handleSaveMaTai} activeOpacity={0.5} style={{ backgroundColor: '#e65100', paddingVertical: 9, borderRadius: 6, alignItems: 'center', marginTop: 4 }}>
                         <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 14 }}>THÊM MÃ TAI MỚI VÀO SỔ</Text>
@@ -2539,7 +2568,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
             
             {/* Hàng 2: Giống và Lứa viết phẳng mạch lạc */}
             <Text style={[styles.cardBody, { color: '#333333', marginBottom: 4 }]} numberOfLines={1}>
-              Giống: <Text style={{ fontWeight: '600' }}>{naiVuaThem.giong || "---"}</Text> | Lứa: <Text style={{ fontWeight: 'bold', color: '#e83e8c' }}>{naiVuaThem.lua || "---"}</Text>
+              Giống: <Text style={{ fontWeight: '600' }}>{naiVuaThem.giong || "---"}</Text> | <Text style={{ fontWeight: 'bold', color: '#e83e8c' }}>{naiVuaThem.lua || "---"}</Text>
             </Text>
             
             {/* ======================================================== */}
@@ -2679,7 +2708,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
                     
                     {/* Hàng 2: Giống và Lứa viết phẳng mạch lạc trên 1 dòng */}
                     <Text style={[styles.cardBody, { color: '#333333', marginBottom: 4 }]} numberOfLines={1}>
-                      Giống: <Text style={{ fontWeight: '600' }}>{item.giong || "---"}</Text> | Lứa: <Text style={{ fontWeight: 'bold', color: '#e83e8c' }}>{item.luaHienThiThongMinh || item.lua || "---"}</Text>
+                      Giống: <Text style={{ fontWeight: '600' }}>{item.giong || "---"}</Text> | <Text style={{ fontWeight: 'bold', color: '#e83e8c' }}>{item.luaHienThiThongMinh || item.lua || "---"}</Text>
                     </Text>
                     
                {/* Hàng 3: Trạng thái sinh sản thực tế chữ phẳng rõ nét */}
@@ -2829,7 +2858,23 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
               
             
               {/* KHỐI 2: TỔNG QUAN CƠ SỞ ĐÀN NÁI HIỆN TẠI */}
-              <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#e65100', marginBottom: 8, letterSpacing: 0.5 }}>📈 TỔNG QUAN CƠ SỞ ĐÀN NÁI</Text>
+                     {/* ======================================================== */}
+            {/* 🎯 BẢN VÁ LAYOUT: TÁCH ĐÔI TIÊU ĐỀ ĐÀN NÁI - ÉP XUỐNG HÀNG XÁM NGHIÊNG */}
+            {/* ======================================================== */}
+            <View style={{ marginBottom: 8, width: '100%' }}>
+              
+              {/* DÒNG 1: Tiêu đề chính giữ nguyên vẹn sắc cam rực nổi khối của bạn */}
+              <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#e65100', letterSpacing: 0.5 }}>
+                📈 TỔNG QUAN ĐÀN NÁI
+              </Text>
+
+              {/* DÒNG 2: Nhắc nhở bẻ dòng xuống lề đáy, khoác lớp áo màu xám khói dịu mắt */}
+              <Text style={{ fontSize: 10, fontWeight: '600', color: '#7f8c8d', fontStyle: 'italic', marginTop: 3, textAlign: 'left' }}>
+                ( Bấm Cập Nhật để lấy số liệu tính mới nhất )
+              </Text>
+
+            </View>
+
               <View style={{ backgroundColor: '#fffaf5', borderRadius: 10, padding: 12, marginBottom: 20, borderWidth: 1, borderColor: '#ffd3b6' }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1.2, borderBottomColor: '#ffd3b6', marginBottom: 6 }}>
                   <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#111111' }}>Tổng Số Heo Nái</Text>
@@ -2872,7 +2917,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
 
 
               {/* KHỐI 3: TIÊU CHUẨN TỈ LỆ NĂNG SUẤT NĂM HIỆN TẠI */}
-              <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#28a745', marginBottom: 8, letterSpacing: 0.5 }}>📊 CHỈ SỐ NĂNG SUẤT (NĂM HIỆN TẠI)</Text>
+              <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#28a745', marginBottom: 8, letterSpacing: 0.5 }}>📊 CHỈ SỐ NĂNG SUẤT </Text>
               <View style={{ backgroundColor: '#f4fbf7', borderRadius: 10, padding: 12, marginBottom: 20, borderWidth: 1, borderColor: '#c3e6cb' }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#d4edda' }}>
                   <Text style={{ fontSize: 13, color: '#444444', fontWeight: '500' }}>Tỉ Lệ Đẻ Thành Công</Text>
@@ -3460,7 +3505,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
 
           {/* HÀNG 2: Dòng nhắc nhở tự động bẻ dòng xuống lề đáy, mang phông xám nhã nhặn */}
           <Text style={{ fontSize: 11.5, fontWeight: '500', color: '#6c757d', fontStyle: 'italic' }}>
-            ( Bấm Cập Nhật để tính số liệu vừa thêm )
+            ( Bấm Cập Nhật để tính lại số liệu vừa thêm )
           </Text>
 
         </View>
@@ -4205,7 +4250,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
             />
             
             {/* 3. Hộp chọn Sự kiện sinh sản heo nái */}
-            <View style={styles.popupPickerBorder}>
+           
                                             {/* ======================================================== */}
                 {/* 🎯 BẢN VÁ TINH GỌN KỊCH SÀN: GIỮ NGUYÊN VỊ TRÍ SỰ KIỆN CŨ - KHÔNG RẮC RỐI */}
                 {/* ======================================================== */}
@@ -4219,7 +4264,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
                     : ((typeof editSuKienTamThoi !== 'undefined' && editSuKienTamThoi) ? editSuKienTamThoi : "Phối");
 
                   return (
-                    <View style={{ width: '100%' }}>
+                    <View style={{ width: '100%', marginTop: 10 }}>
                       
                       {/* THANH HIỂN THỊ TĨNH (Chạm vào để bật mở khay) */}
                       <TouchableOpacity
@@ -4308,7 +4353,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
                 })()}
 
 
-            </View>
+
 
             {/* 4. Ô nhập Số lượng con dành cho các sự kiện Phối / Cai sữa cũ của bạn */}
             {editCanNhapSoHeo && editSuKien !== "Đẻ" && (
@@ -4419,30 +4464,42 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
       </Modal>
 
 
-      {/* ======================================================== */}
-      {/* 📝 POP-UP MODAL 3: SỬA SỔ DANH BẠ HEO (TAB 2)             */}
-      {/* ======================================================== */}
-      <Modal visible={isMtEditModalVisible} transparent={true} animationType="fade">
+       {/* 🚀 BAN VA TOI CAO: ÉP MODAL TỰ ĐỘNG ĐẨY LÊN CAO KHI MỞ BÀN PHÍM */}
+    {/* ======================================================== */}
+    <Modal visible={isMtEditModalVisible} transparent={true} animationType="fade">
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        style={{ flex: 1 }}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.popupCard}>
             <Text style={styles.popupTitle}>📝 SỬA SỔ DANH BẠ HEO</Text>
-            <TextInput style={[styles.popupInput, {color: '#111111', backgroundColor: '#ffffff'}]} value={mtEditMaTai} onChangeText={setMtEditMaTai} placeholderTextColor="#777777" autoCapitalize="characters" />
-            <TextInput style={[styles.popupInput, {marginTop: 10, color: '#111111', backgroundColor: '#ffffff'}]} value={mtEditGiong} onChangeText={setMtEditGiong} placeholder="Sửa Giống heo" placeholderTextColor="#777777" />
-           
-                              {/* ======================================================== */}
-              {/* 🚀 BAN VA TOI CAO: CHONG TU DONG NHAY VE LUA 1 KHI SUA MA TAI */}
-              {/* ======================================================== */}
+            
+            <TextInput 
+              style={[styles.popupInput, {color: '#111111', backgroundColor: '#ffffff'}]} 
+              value={mtEditMaTai} 
+              onChangeText={setMtEditMaTai} 
+              placeholderTextColor="#777777" 
+              autoCapitalize="characters" 
+            />
+            
+            <TextInput 
+              style={[styles.popupInput, {marginTop: 10, color: '#111111', backgroundColor: '#ffffff'}]} 
+              value={mtEditGiong} 
+              onChangeText={setMtEditGiong} 
+              placeholder="Sửa Giống heo" 
+              placeholderTextColor="#777777" 
+            />
+                            
               {(() => {
                 const laTrangThaiMoKhay = mtEditLua === "OPEN_MENU_EDIT_LUA";
                 
-                // Bốc chuẩn xác tên lứa đẻ gốc đang găm giữ của con heo nái
                 let chuHienThiChuan = mtEditLua ? mtEditLua.toString().trim() : "";
                 
                 const giaTriMacDinhDauTien = (Array.isArray(danhSachLuaHeo) && danhSachLuaHeo.length > 0) 
                   ? danhSachLuaHeo[0].toString().trim() 
                   : "Hậu bị";
 
-                // Đón lõng khâu lật mở khay để bảo vệ an toàn cho lứa đẻ cũ của con heo
                 if (laTrangThaiMoKhay) {
                   if (typeof editLuaTamThoi !== 'undefined' && editLuaTamThoi && editLuaTamThoi !== "OPEN_MENU_EDIT_LUA" && editLuaTamThoi !== "") {
                     chuHienThiChuan = editLuaTamThoi;
@@ -4456,13 +4513,12 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
                 }
 
                 return (
-                  <View style={{ width: '100%', backgroundColor: '#ffffff' }}>
+                  <View style={{ width: '100%', backgroundColor: '#ffffff', marginTop: 10  }}>
                     
                     {/* THANH HIEN THI TINH CHAM BOP DE THA KHAY */}
                     <TouchableOpacity
                       activeOpacity={0.8}
                       onPress={() => {
-                        // Găm cứng ngắc lứa đẻ lịch sử cũ của con heo vào biến tạm thời trước khi lật menu
                         if (!laTrangThaiMoKhay && chuHienThiChuan !== "OPEN_MENU_EDIT_LUA" && chuHienThiChuan !== "") {
                           if (typeof setEditLuaTamThoi === 'function') {
                             setEditLuaTamThoi(chuHienThiChuan);
@@ -4484,11 +4540,11 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
                       }}
                     >
                       <Text style={{ 
-                        color: '#111111', 
+                        color: (chuHienThiChuan.includes("Chọn") || chuHienThiChuan.includes("chọn") || chuHienThiChuan.includes("Hãy") || chuHienThiChuan.includes("hãy")) ? '#888888' : '#111111', 
                         fontSize: 13, 
-                        fontWeight: '700' 
+                        fontWeight: (chuHienThiChuan.includes("Chọn") || chuHienThiChuan.includes("chọn") || chuHienThiChuan.includes("Hãy") || chuHienThiChuan.includes("hãy")) ? '400' : '700' 
                       }}>
-                        {chuHienThiChuan}
+                        Lứa đẻ: {chuHienThiChuan}
                       </Text>
                       <Text style={{ fontSize: 12, color: '#e65100' }}>{laTrangThaiMoKhay ? "▲" : "▼"}</Text>
                     </TouchableOpacity>
@@ -4516,17 +4572,30 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
                           contentContainerStyle={{ paddingVertical: 2 }}
                         >
                           {Array.isArray(danhSachLuaHeo) && danhSachLuaHeo.map((itemText, index) => {
-                            const laDongDangChon = chuHienThiChuan === itemText.toString().trim();
+                            const textDongSach = itemText.toString().trim();
+                            const laDongDangChon = chuHienThiChuan === textDongSach;
                             
+                            // 🎯 BẢN VÁ QUYẾT ĐỊNH: Chỉ gán nhãn khóa chữ mồi nếu text thật sự chứa từ khóa hướng dẫn
+                            const laDongChuMoiHuongDan = textDongSach.includes("Chọn") || textDongSach.includes("chọn") || textDongSach.includes("Hãy") || textDongSach.includes("hãy");
+
                             return (
                               <TouchableOpacity
                                 key={`custom_edit_lua_inline_fixed_${index}`}
                                 activeOpacity={0.7}
                                 onPress={() => {
-                                  // Ghi nhận giá trị lứa mới do công nhân chọn và đóng khay mượt mà
-                                  setMtEditLua(itemText.toString().trim()); 
+                                  // Nổ Alert chặn đứng nếu chọc trúng đích danh chuỗi chữ hướng dẫn rác dòng
+                                  if (laDongChuMoiHuongDan) {
+                                    return Alert.alert(
+                                      "Hãy Chọn Lứa",
+                                      "", 
+                                      [{ text: "Tôi sẽ chọn", style: "default" }]
+                                    );
+                                  }
+
+                                  // Khơi thông dòng lứa đẻ thật sự, một chạm là nạp lưu mượt mà re re
+                                  setMtEditLua(textDongSach); 
                                   if (typeof setEditLuaTamThoi === 'function') {
-                                    setEditLuaTamThoi(itemText.toString().trim());
+                                    setEditLuaTamThoi(textDongSach);
                                   }
                                 }}
                                 style={{
@@ -4542,12 +4611,13 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
                               >
                                 <Text style={{
                                   fontSize: 13,
-                                  color: laDongDangChon ? '#e65100' : '#111111',
-                                  fontWeight: laDongDangChon ? '900' : '500'
+                                  color: laDongChuMoiHuongDan ? '#adb5bd' : (laDongDangChon ? '#e65100' : '#111111'),
+                                  fontWeight: laDongDangChon ? '900' : '500',
+                                  fontStyle: laDongChuMoiHuongDan ? 'italic' : 'normal'
                                 }}>
                                   {itemText}
                                 </Text>
-                                {laDongDangChon && <Text style={{ fontSize: 12, color: '#e65100' }}>✓</Text>}
+                                {laDongDangChon && !laDongChuMoiHuongDan && <Text style={{ fontSize: 12, color: '#e65100' }}>✓</Text>}
                               </TouchableOpacity>
                             );
                           })}
@@ -4559,6 +4629,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
                 );
               })()}
 
+
               
             <Text style={{ fontSize: 11.5, color: '#666666', fontStyle: 'italic', marginBottom: 12, paddingHorizontal: 4, lineHeight: 16 }}>( lứa heo lúc nhập về, thông thường sẽ để hậu bị. hệ thống tự tính toán lứa đẻ, không cần phải sửa )</Text>
             <View style={styles.popupButtonGroup}>
@@ -4567,7 +4638,8 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
             </View>
           </View>
         </View>
-      </Modal>
+      </KeyboardAvoidingView> 
+    </Modal>
 
       {/* ======================================================== */}
       {/* 📊 POP-UP MODAL 4: GIẢI THÍCH CHI TIẾT GIAI ĐOẠN HEO THỊT   */}
@@ -4777,37 +4849,29 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
       />
 
       {/* Bộ chọn lứa đẻ - ĐÃ VÁ: Chữ Hậu Bị bọc khít lỳ bên trong kén nhựa không lo bung lọt dòng */}
-           <Text style={{ fontWeight: 'bold', marginBottom: 6, fontSize: 13, color: '#333333' }}>🎂 Chọn Lứa Đẻ Đầu Vào:</Text>
+           <Text style={{ fontWeight: 'bold', marginBottom: 6, fontSize: 13, color: '#333333' }}>Chọn Lứa Đẻ Hiện tại:</Text>
       
-      {/* 🎯 GIẢI PHÁP NỚI RỘNG KHUNG CHỐNG CHE CHỮ: Nới chiều cao lên 50 để chữ Hậu Bị hiện nguyên vẹn */}
-           {/* 🎯 BẢN VÁ TỐI CAO: BẬT TÍNH NĂNG CUỘN DỌC MƯỢT MÀ CHO DANH SÁCH LỨA HEO */}
-      <View 
-        style={{ 
-          borderWidth: 1.2, 
-          borderColor: '#ffd3b6', 
-          borderRadius: 8, 
-          backgroundColor: '#ffffff', 
-          marginBottom: 20, 
-          width: '100%',
-          paddingVertical: 1,
-          justifyContent: 'center'
-        }}
-      >
+     
+        {/* 🎯 BẢN VÁ TỐI CAO: ÉP CHỮ MỒI "HÃY CHỌN LỨA" CHO FORM THÊM NHANH */}
+        {/* ======================================================== */}
         {(() => {
           const laTrangThaiMoKhay = quickLua === "OPEN_MENU_LUA";
+          
+          const giaTriMacDinhDauTien = "Hãy chọn lứa";
+
           const chuHienThiChuan = (quickLua && quickLua.toString().trim() !== "" && quickLua !== "OPEN_MENU_LUA") 
             ? quickLua.toString().trim() 
-            : "Hậu bị";
+            : giaTriMacDinhDauTien;
 
           return (
-            <View style={{ width: '100%' }}>
+            <View style={{ width: '100%', backgroundColor: '#ffffff' }}>
               
               {/* THANH HIEN THI TINH */}
               <TouchableOpacity
                 activeOpacity={0.8}
                 disabled={isQuickSaving}
                 onPress={() => {
-                  setQuickLua(laTrangThaiMoKhay ? "" : "OPEN_MENU_LUA");
+                  setQuickLua(laTrangThaiMoKhay ? chuHienThiChuan : "OPEN_MENU_LUA");
                 }}
                 style={{
                   height: 42,
@@ -4817,15 +4881,17 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
                   alignItems: 'center',
                   paddingHorizontal: 12,
                   backgroundColor: '#ffffff',
+                  borderWidth: 1.2,
+                  borderColor: '#ffd3b6',
                   borderRadius: 7,
                 }}
               >
                 <Text style={{ 
-                  color: (quickLua && quickLua !== "OPEN_MENU_LUA") ? '#111111' : '#888888', 
+                  color: (chuHienThiChuan.includes("Chọn") || chuHienThiChuan.includes("chọn")) ? '#888888' : '#111111', 
                   fontSize: 13, 
-                  fontWeight: (quickLua && quickLua !== "OPEN_MENU_LUA") ? '700' : '400' 
+                  fontWeight: (chuHienThiChuan.includes("Chọn") || chuHienThiChuan.includes("chọn")) ? '400' : '700' 
                 }}>
-                  Lứa: {chuHienThiChuan}
+                  {chuHienThiChuan}
                 </Text>
                 <Text style={{ fontSize: 12, color: '#e65100' }}>{laTrangThaiMoKhay ? "▲" : "▼"}</Text>
               </TouchableOpacity>
@@ -4836,26 +4902,62 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
                   style={{
                     width: '100%',
                     backgroundColor: '#ffffff',
-                    borderTopWidth: 0.5,
-                    borderTopColor: '#f1f2f6',
-                    // Khóa cứng chiều cao tối đa đúng 180px để kích nổ thanh cuộn dọc khi lứa heo phình dài
+                    borderLeftWidth: 1.2,
+                    borderRightWidth: 1.2,
+                    borderBottomWidth: 1.2,
+                    borderColor: '#ffd3b6',
+                    borderBottomLeftRadius: 8,
+                    borderBottomRightRadius: 8,
                     height: 180, 
+                    marginTop: -1,
+                    overflow: 'hidden'
                   }}
                 >
                   <ScrollView 
-                    nestedScrollEnabled={true} // 🔥 Ép thông mạch lướt cuộn mượt mà bên trong Form bọc lớn
-                    showsVerticalScrollIndicator={true} // Hiện thanh vạch dọc chỉ hướng trực quan
+                    nestedScrollEnabled={true} 
+                    showsVerticalScrollIndicator={true} 
                     contentContainerStyle={{ paddingVertical: 2 }}
                   >
+                    {/* CHÈN CỐ ĐỊNH DÒNG CHỮ MỒI HÃY CHỌN LỨA LÊN ĐẦU DANH SÁCH CUỘN */}
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        return Alert.alert(
+                          "Hãy Chọn Lứa",
+                          "", 
+                          [{ text: "Tôi sẽ chọn lại", style: "default" }]
+                        );
+                      }}
+                      style={{
+                        paddingVertical: 11,
+                        paddingHorizontal: 14,
+                        backgroundColor: chuHienThiChuan === "Hãy chọn lứa" ? '#fffaf5' : '#ffffff',
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        borderBottomWidth: 0.5,
+                        borderBottomColor: '#f8f9fa'
+                      }}
+                    >
+                      <Text style={{ fontSize: 13, color: '#adb5bd', fontWeight: '500', fontStyle: 'italic' }}>
+                        Hãy chọn lứa
+                      </Text>
+                    </TouchableOpacity>
+
+                    {/* VÒNG LẶP DUYỆT CÁC LỨA THẬT TRONG MẢNG */}
                     {Array.isArray(danhSachLuaHeo) && danhSachLuaHeo.map((itemText, index) => {
-                      const laDongDangChon = chuHienThiChuan === itemText.toString().trim();
+                      const textDongSach = itemText.toString().trim();
                       
+                      if (textDongSach.includes("Chọn") || textDongSach.includes("chọn")) return null;
+                      
+                      const laDongDangChon = chuHienThiChuan === textDongSach;
+
                       return (
                         <TouchableOpacity
                           key={`custom_lua_inline_fixed_${index}`}
                           activeOpacity={0.7}
                           onPress={() => {
-                            setQuickLua(itemText.toString().trim()); 
+                            setQuickLua(textDongSach); 
                           }}
                           style={{
                             paddingVertical: 11,
@@ -4886,7 +4988,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
             </View>
           );
         })()}
-      </View>
+
 
 
       {/* 🎯 CỤM 2 NÚT HÀNH ĐỘNG HƯỚNG RAM ĐỐI XỨNG BO CONG SANG MỊN */}
