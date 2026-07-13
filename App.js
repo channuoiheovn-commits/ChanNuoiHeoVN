@@ -939,7 +939,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
     }
     
     setIsEditModalVisible(false);
-    setDongBoStatus("⏳ Đang cập nhật chỉnh sửa dòng nhật ký lên máy chủ...");
+    setDongBoStatus("⏳ Đang Sửa...");
 
     // 🎯 THUẬT TOÁN VÁ: Chỉ dùng laySoAnToan khi sự kiện là "Đẻ". 
     // Các sự kiện phối, khám... nếu ô nhập trống thì găm chuỗi rỗng "" để không bị biến thành số 0.
@@ -967,9 +967,9 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
     // Kích nổ lệnh gửi mạng link GET lên Server đám mây Google Sheets
     guiYeuCauMang(dongCapNhatMoi, (res) => {
       if (res && res.status === 'success') {
-        setDongBoStatus("✅ Đã cập nhật sửa đổi nhật ký thành công!");
+        setDongBoStatus("✅ Đã Sửa thành công!");
       } else {
-        setDongBoStatus("⚠️ Kết nối mạng chậm ngầm. Đã bảo toàn số liệu nội bộ.");
+        setDongBoStatus("⚠️ Lỗi. Bấm lại Cập Nhật.");
       }
     });
   };
@@ -1144,7 +1144,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
     }
     
     setIsHeoThitModalVisible(false); 
-    setDongBoStatus(`⏳ Đang xử lý lệnh ${heoThitActionType} lô tuần ${oTuanChonChuan}...`);
+    setDongBoStatus(`⏳Đang ${heoThitActionType} tuần ${oTuanChonChuan}`);
 
     const soConTacDong = laySoAnToan(heoThitSoLuong);
     
@@ -1201,7 +1201,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
       const laGiaoDichThanhCong = res && (res.status === 'success' || res.status === 'synced' || JSON.stringify(res).toLowerCase().includes('success') || res === 'success');
 
       if (laGiaoDichThanhCong) {
-        setDongBoStatus(`✅ Ghi nhận thành công biến động lô tuần ${oTuanChonChuan} lên hệ thống!`);
+        setDongBoStatus(`✅ Đã Lưu số heo Tuần ${oTuanChonChuan}!`);
         setDanhSachLichSu(prev => prev.map(i => i.id === dongMoiHeoThit.id ? { ...i, syncStatus: "synced" } : i));
         if (typeof setHeoThitSoCon === 'function') setHeoThitSoCon('');
         if (typeof setHeoThitSoHeo === 'function') setHeoThitSoHeo('');
@@ -1606,7 +1606,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
             onPress={handleRefreshData} 
             disabled={isInitialLoading}
           >
-            <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: 'bold' }}>🔄 Cập Nhật Thống Kê</Text>
+            <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: 'bold' }}>🔄 Cập Nhật </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -3362,10 +3362,26 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
       <View>
         
         {/* Tổng số heo thịt gốc */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, backgroundColor: '#f8f9fa', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#eee' }}>
-          <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#212529' }}>Tổng Số Heo Thịt:</Text>
-          <Text style={{ fontSize: 16, fontWeight: '900', color: '#137333' }}> {dataHeoThit.tongHeoThit || "0"} con </Text>
+               {/* ======================================================== */}
+        {/* 🎯 BẢN VÁ LAYOUT: ÉP XUỐNG HÀNG NGAY NGẮN VÀ ĐỔI CHỮ MÀU XÁM DỊU MẮT */}
+        {/* ======================================================== */}
+        <View style={{ marginBottom: 12, backgroundColor: '#f8f9fa', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#eee', width: '100%' }}>
+          
+          {/* HÀNG 1: Tổng số heo thịt dàn ngang sắc nét trên đỉnh đầu */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+            <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#212529' }}>Tổng Số Heo Thịt:</Text>
+            <Text style={{ fontSize: 16, fontWeight: '900', color: '#137333' }}>
+              {" "}{dataHeoThit && dataHeoThit.tongHeoThit ? String(dataHeoThit.tongHeoThit) : "0"} con
+            </Text>
+          </View>
+
+          {/* HÀNG 2: Dòng nhắc nhở tự động bẻ dòng xuống lề đáy, mang phông xám nhã nhặn */}
+          <Text style={{ fontSize: 11.5, fontWeight: '500', color: '#6c757d', fontStyle: 'italic' }}>
+            ( Bấm Cập Nhật để tính số liệu vừa thêm )
+          </Text>
+
         </View>
+
         
         {/* Hộp Thống Kê Lớn Chia Khúc Giai Đoạn */}
         <View style={{ backgroundColor: '#ffffff', borderRadius: 10, marginBottom: 15, borderWidth: 1, borderColor: '#dee2e6', overflow: 'hidden', padding: 10, gap: 10 }}>
