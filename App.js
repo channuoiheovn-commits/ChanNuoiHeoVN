@@ -2172,7 +2172,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
             </Text>
 
             <Text style={{ fontSize: 10, color: '#adb5bd', marginTop: 5, fontWeight: '500' }}>
-              © 2026 PigVN • Phiên bản 2.1
+              © 2026 PigVN • Phiên bản 3
             </Text>
           </View>
 
