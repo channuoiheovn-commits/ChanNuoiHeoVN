@@ -6,16 +6,28 @@ const StatisticsTab = ({
   styles,
   parseToDateObject,
   
-  // Dữ liệu báo cáo tổng nạp từ Server và State gác cổng
+  // Giữ nguyên tham số để không phải sửa file App.js gọi vào
+  dataHeoThit,
   dataThongKe,
   danhSachLichSu,
   tuanBauDangMoTab3, setTuanBauDangMoTab3
 }) => {
   if (currentTab !== 'thong_ke') return null;
 
+  // 🟢 TÍNH TOÁN SỐ LIỆU ĐÀN NÁI THỜI GIAN THỰC TỪ MẢNG RAM NỀN TOÀN CỤC
   const mangRamThongKe = global.danhSachCapNhatTrangThai || [];
-  const soConDangDe = mangRamThongKe.filter(heo => heo && heo.trangThaiDienThoai === "Đẻ").length;
-  const soConMangBau = mangRamThongKe.filter(heo => heo && heo.trangThaiDienThoai === "Phối").length;
+  
+  const soConDangDe = mangRamThongKe.filter(heo => {
+    const status = heo && heo.trangThaiDienThoai ? heo.trangThaiDienThoai.toString().toUpperCase().trim() : "";
+    // 🎯 ĐÃ VÁ: Sửa chính tả từ "ĐỂ" thành "ĐẺ" để khớp 100% với dữ liệu chuồng nuôi con
+    return status === "ĐẺ" || status === "ĐANG ĐẺ";
+  }).length;
+
+  const soConMangBau = mangRamThongKe.filter(heo => {
+    const status = heo && heo.trangThaiDienThoai ? heo.trangThaiDienThoai.toString().toUpperCase().trim() : "";
+    return status === "PHỐI" || status === "ĐÃ PHỐI";
+  }).length;
+
   const soConChoPhoi = mangRamThongKe.filter(heo => heo && heo.trangThaiDienThoai === "Chờ Phối").length;
   const soConCaiSua = mangRamThongKe.filter(heo => heo && heo.trangThaiDienThoai === "Cai Sữa").length;
   const soConLoc = mangRamThongKe.filter(heo => heo && heo.trangThaiDienThoai === "Lốc").length;
@@ -26,13 +38,11 @@ const StatisticsTab = ({
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: '#ffffff' }} contentContainerStyle={{ padding: 15, paddingBottom: 100 }}>
-      {dataThongKe && dataThongKe[0] ? (
         <View>
           
           {/* KHỐI 2: TỔNG QUAN CƠ SỞ ĐÀN NÁI HIỆN TẠI */}
           <View style={{ marginBottom: 8, width: '100%' }}>
             <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#e65100', letterSpacing: 0.5 }}>📈 TỔNG QUAN ĐÀN NÁI</Text>
-            <Text style={{ fontSize: 10, fontWeight: '600', color: '#7f8c8d', fontStyle: 'italic', marginTop: 3 }}>( Số liệu sống thời gian thực đồng bộ ngoài RAM lán trại )</Text>
           </View>
 
           <View style={{ backgroundColor: '#fffaf5', borderRadius: 10, padding: 12, marginBottom: 20, borderWidth: 1, borderColor: '#ffd3b6' }}>
@@ -73,24 +83,13 @@ const StatisticsTab = ({
               </View>
             </View>
           </View>
-          {/* KHỐI 3: TIÊU CHUẨN TỈ LỆ NĂNG SUẤT NĂM HIỆN TẠI */}
-          <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#28a745', marginBottom: 8, letterSpacing: 0.5 }}>📊 CHỈ SỐ NĂNG SUẤT </Text>
-          <View style={{ backgroundColor: '#f4fbf7', borderRadius: 10, padding: 12, marginBottom: 20, borderWidth: 1, borderColor: '#c3e6cb' }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#d4edda' }}>
-              <Text style={{ fontSize: 13, color: '#444444', fontWeight: '500' }}>Tỉ Lệ Đẻ Thành Công</Text>
-              <Text style={{ fontSize: 15, color: '#28a745', fontWeight: 'bold' }}>{dataThongKe[0].tiLeDe}</Text>
-            </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 }}>
-              <Text style={{ fontSize: 13, color: '#444444', fontWeight: '500' }}>Tỉ Lệ Cai Sữa Đạt</Text>
-              <Text style={{ fontSize: 15, color: '#007bff', fontWeight: 'bold' }}>{dataThongKe[0].tiLeCaiSua}</Text>
-            </View>
-          </View>
+        
 
           {/* 📊 KHỐI THỐNG KÊ LƯỚI 19 Ô BẦU THEO CHU KỲ TUẦN */}
           <View style={{ backgroundColor: '#ffffff', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#eef2f5', marginTop: 12, marginBottom: 15 }}>
             <View style={{ marginBottom: 12 }}>
               <Text style={{ fontSize: 13.5, fontWeight: '800', color: '#1a1f23', letterSpacing: 0.2 }}>📊 THỐNG KÊ NÁI BẦU</Text>
-              <Text style={{ fontSize: 11.5, color: '#8a929a', marginTop: 2 }}>So lieu song thoi gian thuc tu dong tinh tuan tuoi phang sach ngoai RAM.</Text>
+              <Text style={{ fontSize: 11.5, color: '#8a929a', marginTop: 2 }}>Chọn tuần bầu để xem chi tiết nái</Text>
             </View>
 
             <View style={{ gap: 5, marginBottom: 5 }}>
@@ -357,7 +356,7 @@ const StatisticsTab = ({
                   <View>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingBottom: 5, borderBottomWidth: 0.5, borderBottomColor: '#e9ecef' }}>
                       <Text style={{ fontSize: 11.5, fontWeight: '800', color: '#1a1f23' }}>
-                        📋 {laOThuocMoiPhoi ? "DANH SÁCH HEO MỚI PHỐI (TUẦN LỊCH HIỆN HÀNH)" : `DANH SÁCH BẦU TUẦN LỊCH THỨ ${soTuanHienTai}`}:
+                        📋 {laOThuocMoiPhoi ? "DANH SÁCH HEO MỚI PHỐI" : `DANH SÁCH BẦU TUẦN THỨ ${soTuanHienTai}`}:
                       </Text>
                       <TouchableOpacity onPress={() => setTuanBauDangMoTab3(null)} style={{ backgroundColor: '#6c757d', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 }}>
                         <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: 'bold' }}>Đóng x</Text>
@@ -400,29 +399,39 @@ const StatisticsTab = ({
             </View>
           )}
 
-          {/* KHỐI 4: DỰ KIẾN TIÊU THỤ CÁM TRONG THÁNG */}
+           {/* 🌾 KHỐI 4: DỰ KIẾN TIÊU THỤ CÁM TRONG THÁNG (ĐÃ VÁ ĐỌC TRỰC TIẾP TỪ KHAY ĐÀN HEO THỊT) */}
+          {(() => {
+            // Định nghĩa hàm ép kiểu số an toàn ngoài RAM
+            const laySoCamAnToan = (val) => (!val || isNaN(val.toString().trim()) || val.toString().trim() === "") ? 0 : Number(val.toString().trim());
+            
+            // Đọc trực tiếp từ khay dataHeoThit do App.js truyền sang
+            const khoHeoThitTmp = dataHeoThit || {};
+            global.camHeoThitAnToan = laySoCamAnToan(khoHeoThitTmp.camHeoThit);
+            global.camHeoNaiAnToan = laySoCamAnToan(khoHeoThitTmp.camHeoNai);
+            global.tongCamToanTraiThangNay = global.camHeoThitAnToan + global.camHeoNaiAnToan;
+            return null;
+          })()}
+
           <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#0056b3', marginBottom: 8, letterSpacing: 0.5 }}>🌾 DỰ KIẾN TIÊU THỤ CÁM THÁNG NÀY</Text>
           <View style={{ backgroundColor: '#f8f9fa', borderRadius: 10, padding: 12, marginBottom: 20, borderWidth: 1, borderColor: '#e9ecef' }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#dee2e6' }}>
               <Text style={{ fontSize: 13, color: '#495057', fontWeight: '500' }}>Dự kiến cám Heo Thịt</Text>
-              <Text style={{ fontSize: 14, color: '#111111', fontWeight: 'bold' }}>{dataThongKe[0]?.heoThit || 0} Kg</Text>
+              <Text style={{ fontSize: 14, color: '#111111', fontWeight: 'bold' }}>{global.camHeoThitAnToan} Kg</Text>
             </View>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#dee2e6' }}>
               <Text style={{ fontSize: 13, color: '#495057', fontWeight: '500' }}>Dự kiến cám Heo Nái</Text>
-              <Text style={{ fontSize: 14, color: '#111111', fontWeight: 'bold' }}>{dataThongKe[0]?.heoNaiCam || 0} Kg</Text>
+              <Text style={{ fontSize: 14, color: '#111111', fontWeight: 'bold' }}>{global.camHeoNaiAnToan} Kg</Text>
             </View>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, marginTop: 4, backgroundColor: '#e7f1ff', paddingHorizontal: 8, borderRadius: 6 }}>
               <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#0056b3' }}>Tổng Dự Kiến Cám</Text>
-              <Text style={{ color: '#0056b3', fontSize: 16, fontWeight: 'bold' }}>{dataThongKe[0]?.duKienCam || 0} Kg</Text>
+              <Text style={{ color: '#0056b3', fontSize: 16, fontWeight: 'bold' }}>{global.tongCamToanTraiThangNay} Kg</Text>
             </View>
           </View>
 
-        </View>
-      ) : (
-        <Text style={styles.emptyText}>Trại hiện tại chưa có dữ liệu báo cáo Thống Kê tổng hợp trên Server.</Text>
-      )}
+       </View>
     </ScrollView>
   );
 };
 
 export default StatisticsTab;
+

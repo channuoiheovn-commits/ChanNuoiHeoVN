@@ -53,9 +53,12 @@ const SowDetailModal = ({
               
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 }}>
                 <Text style={{ fontSize: 13, color: '#6c757d', fontWeight: '500' }}>Trạng Thái Hiện Tại</Text>
-                <Text style={{ fontSize: 13, color: '#e65100', fontWeight: 'bold' }}>{selectedHeoDetail?.trangThaiCotH || "Trống"}</Text>
+                <Text style={{ fontSize: 13, color: '#e65100', fontWeight: 'bold' }}>
+                  {selectedHeoDetail?.trangThaiDienThoai || "Chờ Phối"}
+                </Text>
               </View>
             </View>
+
             {/* KHỐI 2: CHI TIẾT THEO DÕI ĐỘNG CHO NHÓM MANG THAI */}
             {nhomNaiTab2 === 'Phoi' && (
               <View style={{ backgroundColor: '#fffaf5', borderRadius: 8, padding: 12, marginBottom: 5, borderWidth: 1, borderColor: '#ffd3b6' }}>
@@ -118,7 +121,6 @@ const SowDetailModal = ({
                 </View>
               </View>
             )}
-
             {/* KHỐI 3: CHÚ Ý CHO NHÓM CHƯA PHỐI */}
             {nhomNaiTab2 === 'Cho Phoi' && (
               <View style={{ paddingVertical: 12, backgroundColor: '#fff3cd', borderRadius: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: '#ffeeba' }}>
@@ -131,43 +133,60 @@ const SowDetailModal = ({
             {/* KHỐI 4: CHI TIẾT SẢN XUẤT CHO NHÓM NUÔI CON */}
             {nhomNaiTab2 === 'De' && (
               <View style={{ backgroundColor: '#f4fbf7', borderRadius: 8, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#c3e6cb' }}>
+                
+                {/* 🧠 ĐỘT PHÁ: Quét trực tiếp lịch sử Đẻ từ Nhật ký sự kiện ngoài RAM giống hệt Tab Đang Đẻ */}
+                {(() => {
+                  const mangLichSuDe = Array.isArray(danhSachLichSu)
+                    ? danhSachLichSu.filter(i => i && i.maTai && i.maTai.toString().toUpperCase().trim() === maTaiModal && i.suKien === "Đẻ" && i.actionType !== "delete")
+                    : [];
+
+                  mangLichSuDe.sort((a, b) => {
+                    const timeA = parseToDateObject(a.ngay) ? parseToDateObject(a.ngay).getTime() : 0;
+                    const timeB = parseToDateObject(b.ngay) ? parseToDateObject(b.ngay).getTime() : 0;
+                    return timeB - timeA;
+                  });
+
+                  const skDeGanNhat = mangLichSuDe.length > 0 ? mangLichSuDe[0] : null;
+
+                  global.soLieuNuoiConRamTmp = {
+                    ngayDe: selectedHeoDetail?.ngayDeDongThoiGianThuc || (skDeGanNhat ? skDeGanNhat.ngay : "---"),
+                    soHeoCon: skDeGanNhat ? String(skDeGanNhat.soHeo) : "0",
+                    khoThai: skDeGanNhat ? String(skDeGanNhat.khoThai) : "0",
+                    coiCoc: skDeGanNhat ? String(skDeGanNhat.coiCoc) : "0",
+                    chetNgop: skDeGanNhat ? String(skDeGanNhat.chetNgop) : "0",
+                    chonNuoi: skDeGanNhat ? String(skDeGanNhat.chonNuoi) : "0"
+                  };
+                  return null;
+                })()}
+
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#d4edda' }}>
                   <Text style={{ fontSize: 13, color: '#555555' }}>Ngày Đẻ Thực Tế</Text>
-                  <Text style={{ fontSize: 13, color: '#111111', fontWeight: '600' }}>{epNgayChuanVietNam(selectedHeoDetail?.ngayDeCotJ)}</Text>
+                  <Text style={{ fontSize: 13, color: '#111111', fontWeight: '600' }}>{epNgayChuanVietNam(global.soLieuNuoiConRamTmp?.ngayDe)}</Text>
                 </View>
                 
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#d4edda' }}>
                   <Text style={{ fontSize: 13, color: '#555555' }}>Tổng Số Heo Sơ Sinh</Text>
-                  <Text style={{ fontSize: 13, color: '#28a745', fontWeight: 'bold' }}>{selectedHeoDetail?.soHeoCon || "0"} con</Text>
+                  <Text style={{ fontSize: 13, color: '#28a745', fontWeight: 'bold' }}>{global.soLieuNuoiConRamTmp?.soHeoCon} con</Text>
                 </View>
 
                 <View style={{ backgroundColor: '#ffffff', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 8, marginTop: 4, marginBottom: 4, borderWidth: 0.5, borderColor: '#dee2e6' }}>
                   <Text style={{ fontSize: 12, color: '#666666', lineHeight: 18 }}>
-                    Khô thai: {selectedHeoDetail?.khoThai || 0} | Còi: {selectedHeoDetail?.coiCoc || 0} | Ngộp: {selectedHeoDetail?.chetNgop || 0}
+                    Khô thai: {global.soLieuNuoiConRamTmp?.khoThai} | Còi: {global.soLieuNuoiConRamTmp?.coiCoc} | Ngộp: {global.soLieuNuoiConRamTmp?.chetNgop}
                   </Text>
                   <Text style={{ fontSize: 12, color: '#111111', fontWeight: 'bold', marginTop: 5 }}>
-                    Chọn Nuôi Thực Tế: <Text style={{color:'#28a745'}}>{selectedHeoDetail?.chonNuoi || 0} con</Text>
+                    Chọn Nuôi Thực Tế: <Text style={{color:'#28a745'}}>{global.soLieuNuoiConRamTmp?.chonNuoi} con</Text>
                   </Text>
                 </View>
 
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#d4edda' }}>
-                  <Text style={{ fontSize: 13, color: '#555555' }}>Ngày Cai Sữa Đàn</Text>
-                  <Text style={{ fontSize: 13, color: '#111111', fontWeight: '600' }}>{epNgayChuanVietNam(selectedHeoDetail?.ngayCaiSuaCotKhat)}</Text>
-                </View>
-
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 }}>
-                  <Text style={{ fontSize: 13, color: '#555555', fontWeight: '600' }}>Số Con Cai Sữa Đạt</Text>
-                  <Text style={{ fontSize: 14, color: '#007bff', fontWeight: 'bold' }}>{selectedHeoDetail?.soConCaiSua || "0"} con</Text>
-                </View>
+               
               </View>
             )}
-
             {/* KHỐI 5: CHI TIẾT SẢN XUẤT CHO NHÓM HEO ĐÃ THẢI */}
             {nhomNaiTab2 === 'Thai' && (
               <View style={{ backgroundColor: '#f8f9fa', borderRadius: 8, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#dee2e6' }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#dee2e6' }}>
                   <Text style={{ fontSize: 13, color: '#555555' }}>Ngày Đẻ Thực Tế</Text>
-                  <Text style={{ fontSize: 13, color: '#6c757d', fontWeight: 'bold' }}>{epNgayChuanVietNam(selectedHeoDetail?.ngayDeCotJ)}</Text>
+                  <Text style={{ fontSize: 13, color: '#6c757d', fontWeight: 'bold' }}>{epNgayChuanVietNam(global.soLieuNuoiConRamTmp?.ngayDe || selectedHeoDetail?.ngayDeCotJ)}</Text>
                 </View>
                 
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#dee2e6' }}>
@@ -188,6 +207,7 @@ const SowDetailModal = ({
                 </View>
               </View>
             )}
+
             {/* 📜 KHỐI LỊCH SỬ CÁC LỨA ĐÃ ĐẺ THÀNH CÔNG */}
             <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#495057', marginTop: 10, marginBottom: 8 }}>📜 LỊCH SỬ CÁC LỨA ĐÃ ĐẺ THÀNH CÔNG</Text>
             

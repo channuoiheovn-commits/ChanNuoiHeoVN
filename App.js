@@ -291,11 +291,8 @@ const {
   // 🌐 CẤU HÌNH MẢNG CỔNG LINK WEB APP PHÂN TẢI CHỐNG NGHẼN SERVER TRẠI
   // 🎯 BẢN VÁ XOAY VÒNG ĐỘNG TỐI CAO: CHÈN ĐỦ 4 LINK VÀ TỰ ĐỔI LINK LIÊN TỤC TRÊN MỖI LỆNH FETCH
   const MANG_LINKS_WEB_APP = [
-    'https://script.google.com/macros/s/AKfycbwQl9CxRVMLhtO5fqlySeE-AUZtivY4Ez0UqieLkUl9DBPFoMmI4XE4TRKOmkJob8sCSQ/exec', // Mail chính - Link 1
-    'https://script.google.com/macros/s/AKfycbzcyY0GkafF_WyRbwckRv-WNfzIG9FYx9txQpeduWAsOIm09QLNWo08a6mB3_WXnzYh2A/exec', // Mail chính - Link 2
-    'https://script.google.com/macros/s/AKfycbyPG7pcUMSmHeLOIgJ2FUkOjiHamBzOjGeWh79dA6uGDZ3nS4o0NKEMMiVDGxrvULpVlQ/exec', // Mail phụ - Link 3
-    'https://script.google.com/macros/s/AKfycbx4uHc3Vq4ppQPXLke1v7HpHDp3mitK-rG3ZdbjRv7X3uxdER4ulYHkc-2g7Hviw2P_9w/exec'  // Mail phụ - Link 4
-  ];
+    'https://script.google.com/macros/s/AKfycbzOQAIbq5KgdHHRttCQsJ6Oy-3wllvUi3QjzI0dnjCP_Wu0XR_y31YsehcMGuDrVNdr5g/exec' // Mail chính - Link 1
+     ];
 const WEB_APP_URL = useMemo(() => {
     const chiSoNgauNhien = Math.floor(Math.random() * MANG_LINKS_WEB_APP.length);
     const linkBocDuoc = MANG_LINKS_WEB_APP[chiSoNgauNhien];
@@ -605,8 +602,56 @@ const [selectedType, setSelectedType] = useState("Vắc-xin");
     if (!Array.isArray(danhSachMaTai)) return;
 
     // 1. Lọc bỏ các dòng rỗng lỗi từ bản ghi Sheets
-    const mangSachDuLieu = danhSachMaTai.filter(h => h && h.maTai && h.maTai.toString().trim() !== "");
+// ========================================================
+    // 🟢 HẠT NHÂN TỰ ĐỘNG ĐẾM CỘNG DỒN LỨA HEO TỪ NHẬT KÝ SỰ KIỆN (MỚI BỔ SUNG)
+    // ========================================================
+    const banDoDemSoLanDeAnToan = {};
+    if (Array.isArray(danhSachLichSu)) {
+      danhSachLichSu.forEach(nhatKy => {
+        if (!nhatKy || !nhatKy.maTai) return;
+        
+        const maTaiChuan = nhatKy.maTai.toString().toUpperCase().trim();
+        const tenSuKien = nhatKy.suKien ? nhatKy.suKien.toString().trim().toLowerCase() : "";
+        const kieuHanhDong = nhatKy.actionType ? nhatKy.actionType.toString().trim().toLowerCase() : "";
 
+        if (kieuHanhDong === 'delete' || nhatKy.syncStatus === 'delete') return;
+
+        // Cứ có sự kiện "Đẻ" hoặc "Báo đẻ" dán trong nhật ký là tính thêm 1 lứa đẻ ngoài RAM
+        if (tenSuKien.includes("đẻ") || tenSuKien.includes("de")) {
+          if (!banDoDemSoLanDeAnToan[maTaiChuan]) {
+            banDoDemSoLanDeAnToan[maTaiChuan] = 0;
+          }
+          banDoDemSoLanDeAnToan[maTaiChuan] += 1;
+        }
+      });
+    }
+
+    // Lọc sạch dòng rỗng đồng thời tự động tính tích lũy lứa heo thời gian thực kịch sàn
+    const mangSachDuLieu = Array.isArray(danhSachMaTai) 
+      ? danhSachMaTai.filter(h => h && h.maTai && h.maTai.toString().trim() !== "").map(heo => {
+          const maTaiChuan = heo.maTai.toString().toUpperCase().trim();
+          const soLanDeThemInLichSu = banDoDemSoLanDeAnToan[maTaiChuan] || 0;
+          
+          const chuoiLuaGoc = heo.luaGoc ? heo.luaGoc.toString().trim().toLowerCase() : "";
+          let soLuaGocSoHoc = 0; // Mặc định nếu là chữ "Hậu bị" hoặc trống sẽ tính là số 0
+
+          if (chuoiLuaGoc !== "" && !chuoiLuaGoc.includes("hậu") && !chuoiLuaGoc.includes("hau") && !chuoiLuaGoc.includes("bị") && !chuoiLuaGoc.includes("bi")) {
+            const soTachDuoc = parseInt(chuoiLuaGoc.replace(/\D/g, ''), 10);
+            if (!isNaN(soTachDuoc)) {
+              soLuaGocSoHoc = soTachDuoc;
+            }
+          }
+
+          // Lứa Hiện Tại = Lứa Nhập Ban Đầu + Số Lần Đẻ Thêm Trong Nhật Ký Sự Kiện
+          let ketQuaLuaHienTai = soLuaGocSoHoc + soLanDeThemInLichSu;
+          let chuoiLuaHienThiCuoiCung = ketQuaLuaHienTai === 0 ? "Hậu bị" : "Lứa " + ketQuaLuaHienTai;
+
+          return {
+            ...heo,
+            lua: chuoiLuaHienThiCuoiCung // Ghi đè thuộc tính lứa hiển thị ngoài màn hình và pop-up chi tiết
+          };
+        })
+      : [];
     // 2. Tính toán dịch tễ sinh sản thời gian thực ngoài lán trại
     const ketQuaQuetTrangThaiNai = mangSachDuLieu.map(heoGoc => {
       const maTaiInHoa = heoGoc.maTai.toString().toUpperCase().trim();
@@ -639,11 +684,7 @@ const [selectedType, setSelectedType] = useState("Vắc-xin");
         else if (skTho === "Sảy Thai" || skTho === "SẢY THAI") { trangThaiThucTe = "Sảy Thai"; } 
         else { trangThaiThucTe = "Chờ Phối"; }
       } else {
-        const ttH = heoGoc.trangThaiCotH ? heoGoc.trangThaiCotH.toString().trim().normalize("NFC") : "";
-        if (ttH === "Phối") { trangThaiThucTe = "Phối"; ngayTinhNgayBau = heoGoc.ngayCotI || ""; } 
-        else if (ttH === "Chờ Phối" || ttH === "Lốc" || ttH === "Sảy Thai" || ttH === "") { trangThaiThucTe = ttH !== "" ? ttH : "Chờ Phối"; } 
-        else if (ttH === "Đẻ" || ttH === "Cai Sữa") { trangThaiThucTe = "Đẻ"; } 
-        else if (ttH === "Thải") { trangThaiThucTe = "Thải"; }
+         trangThaiThucTe = "Chờ Phối";
       }
 
       return {
@@ -841,8 +882,9 @@ const handleXemChiTietHeo = (item) => {
     // Nạp toàn bộ cục dữ liệu lứa mới nhất này vào State hiển thị của Pop-up Modal
     setSelectedHeoDetail(duLieuGopDayDu);
 
-    // 3. Tự động nhận diện trạng thái Cột H thực tế để mở đúng giao diện tuần bầu hoặc nuôi con
-const ttH = duLieuGopDayDu.trangThaiCotH ? duLieuGopDayDu.trangThaiCotH.toString().trim().normalize("NFC") : "";
+     // 🎯 2. Tự động nhận diện trạng thái RAM Thông Minh thực tế để mở đúng giao diện tuần bầu hoặc nuôi con
+    // (Đã chuyển đổi sang trangThaiDienThoai để dẹp bỏ hoàn toàn cột H trên Cloud Sheet)
+    const ttH = duLieuGopDayDu.trangThaiDienThoai ? duLieuGopDayDu.trangThaiDienThoai.toString().trim().normalize("NFC") : "";
     if (ttH === "Phối") {
       setNhomNaiTab2('Phoi');
     } else if (ttH === "Đẻ" || ttH === "Cai Sữa") {
@@ -852,6 +894,7 @@ const ttH = duLieuGopDayDu.trangThaiCotH ? duLieuGopDayDu.trangThaiCotH.toString
     } else {
       setNhomNaiTab2('Cho Phoi');
     }
+
 
 
     // 4. Vẫn phát lệnh gọi mạng kéo thêm danh sách các lứa đẻ cũ trong lịch sử như bình thường
@@ -1107,31 +1150,37 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
   // ========================================================
   // 🚀 BẢN VÁ TỐI CAO: BỔ SUNG HÀM PHÁT LỆNH GHI NGẦM TRÊN BACKGROUND VacXin
   // ========================================================
-   const xuLyMangCauHinhVacXin = (loaiHanhDongMang, dataBody) => {
+  const xuLyMangCauHinhVacXin = (loaiHanhDongMang, dataBody) => {
     setDongBoStatus("⏳ Đang đồng bộ quy trình dịch tễ...");
     const emailChuan = userEmail ? userEmail.toLowerCase().trim() : "";
     
     let linkGui = `${WEB_APP_URL}?action=${loaiHanhDongMang}&id=${dataBody.id}&userEmail=${emailChuan}`;
     if (loaiHanhDongMang !== "delete_cauhinh") {
-      // 🎯 ĐÃ VÁ: Nối thêm tham số ngayTiemTruoc vào đường link gửi dữ liệu lên Google Sheets
       linkGui += `&loaiHanhDong=${encodeURIComponent(dataBody.loaiHanhDong)}&soNgay=${Number(dataBody.soNgay)}&tenNhiemVu=${encodeURIComponent(dataBody.tenNhiemVu)}&ghiChu=${encodeURIComponent(dataBody.ghiChu || "")}&ngayTiemTruoc=${encodeURIComponent(dataBody.ngayTiemTruoc || "")}`;
     }
 
     fetch(linkGui, { method: 'GET', redirect: 'follow' })
-      .then(res => res.json())
-      .then(res => {
-        if (res && res.status === 'success') {
+      .then(res => res.text())
+      .then(textData => {
+        let laThanhCong = false;
+        try {
+          const json = JSON.parse(textData);
+          if (json && json.status === 'success') laThanhCong = true;
+        } catch (e) {
+          if (textData.toLowerCase().includes("success")) laThanhCong = true;
+        }
+
+        if (laThanhCong) {
           setDongBoStatus("✅ Đã đồng bộ!");
           
-          // Cập nhật đè dữ liệu mới vào bộ nhớ đệm ổ cứng điện thoại (Cache)
           const khoaDemTongHop = `cache_tonghop_pigvn_${emailChuan}`;
           AsyncStorage.getItem(khoaDemTongHop).then(dataDemTho => {
             if (dataDemTho !== null) {
               const result = JSON.parse(dataDemTho);
               if (loaiHanhDongMang === "delete_cauhinh") {
-                result.tab6 = (result.tab6 || []).filter(i => i.id !== dataBody.id);
+                result.tab6 = (result.tab6 || []).filter(i => i && i.id !== dataBody.id);
               } else {
-                const mangMoi = (result.tab6 || []).filter(i => i.id !== dataBody.id);
+                const mangMoi = (result.tab6 || []).filter(i => i && i.id !== dataBody.id);
                 result.tab6 = [...mangMoi, dataBody];
               }
               AsyncStorage.setItem(khoaDemTongHop, JSON.stringify(result));
@@ -1145,6 +1194,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
         setDongBoStatus("⚠️ Mất mạng ngầm. Hãy thử lại!");
       });
   };
+
 
 
 
@@ -1292,7 +1342,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
       syncStatus: "waiting" 
     };
     
-    setDanhSachLichSu(prev => [dongMoi, ...prev]);
+    setDanhSachLichSu(prev => [...prev, dongMoi]);
 
     // 🎯 🚀 THUẬT TOÁN ĐỘT PHÁ CẬP NHẬT CHÉO: Ép mảng toàn cục mặt tiền đổi trạng thái thực tế lập tức ngoài RAM!
     if (global && Array.isArray(global.danhSachCapNhatTrangThai)) {
@@ -2172,7 +2222,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
             </Text>
 
             <Text style={{ fontSize: 10, color: '#adb5bd', marginTop: 5, fontWeight: '500' }}>
-              © 2026 PigVN • Phiên bản 3
+              © 2026 PigVN • Phiên bản 3.1
             </Text>
           </View>
 
@@ -2407,6 +2457,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
   parseToDateObject={parseToDateObject}
   
   dataThongKe={dataThongKe}
+  dataHeoThit={dataHeoThit}
   danhSachLichSu={danhSachLichSu}
   tuanBauDangMoTab3={tuanBauDangMoTab3}
   setTuanBauDangMoTab3={setTuanBauDangMoTab3}

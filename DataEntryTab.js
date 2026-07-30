@@ -39,6 +39,9 @@ const DataEntryTab = ({
 }) => {
   if (currentTab !== 'nhap_lieu') return null;
 
+  const [sortMode, setSortMode] = React.useState('thu_tu_nhap'); // Mặc định ban đầu: 'thu_tu_nhap' hoặc 'ngay_thang'
+
+
   return (
     <View style={{ flex: 1, paddingBottom: 80, width: '100%' }}>
       <View style={{ paddingHorizontal: 15, marginTop: 12, marginBottom: 5 }}>
@@ -51,35 +54,60 @@ const DataEntryTab = ({
           autoCapitalize="characters" 
         />
       </View>
-      <FlatList 
-        data={danhSachLichSu
-          .filter(i => i.actionType !== "delete")
-          .filter(i => i && i.suKien !== "Nhập Đàn" && i.suKien !== "Hao Hụt" && i.suKien !== "Bán")
-          .filter(i => {
-            if (!searchTxtTab1) return true;
-            if (!i.maTai) return false;
-            return i.maTai.toLowerCase().includes(searchTxtTab1.toLowerCase());
-          })
-          .sort((a, b) => {
-            const quyDoiThoiGian = (item) => {
-              if (!item || !item.ngay) return 0;
-              try {
-                let ngayGoc = item.ngay.toString().trim();
-                if (ngayGoc.includes('/')) {
-                  let p = ngayGoc.substring(0, 10).split('/');
-                  if (p.length === 3) return new Date(p[2], p[1] - 1, p[0]).getTime();
-                }
-                let timestamp = Date.parse(ngayGoc);
-                return isNaN(timestamp) ? 0 : timestamp;
-              } catch (e) { return 0; }
-            };
-            const timeA = quyDoiThoiGian(a); const timeB = quyDoiThoiGian(b);
-            if (timeB !== timeA) return timeB - timeA;
-            return (b.id ? b.id.toString() : "").localeCompare(a.id ? a.id.toString() : "");
-          })
-        } 
+     <FlatList 
+        data={(() => {
+          // Lọc sạch các dòng rác và dòng sự kiện heo thịt để thu về Nhật ký heo nái sạch
+          let nhatKyFiltered = danhSachLichSu
+            .filter(i => i && i.actionType !== "delete")
+            .filter(i => i && i.suKien !== "Nhập Đàn" && i.suKien !== "Hao Hụt" && i.suKien !== "Bán");
+
+          if (searchTxtTab1) {
+            nhatKyFiltered = nhatKyFiltered.filter(i => i && i.maTai && i.maTai.toLowerCase().includes(searchTxtTab1.toLowerCase()));
+          }
+
+          // 🧠 THUẬT TOÁN ĐIỀU PHỐI ĐẢO TRỤC THỜI GIAN THEO BIẾN SORTMODE NGOÀI RAM DI ĐỘNG (BẢN CHUẨN ĐẾT VẠN NĂNG)
+          nhatKyFiltered.sort((a, b) => {
+            // 💡 Cửa gác vạn năng: Dòng nào mới nhập tinh đang nằm ở khay chờ mạng, ép nảy phốc lên đầu App lập tức 0 giây!
+            if (a.syncStatus === 'waiting' && b.syncStatus !== 'waiting') return -1;
+            if (b.syncStatus === 'waiting' && a.syncStatus !== 'waiting') return 1;
+
+            if (sortMode === 'thu_tu_nhap') {
+              // 🎯 CHẾ ĐỘ A: XẾP THỨ TỰ NHẬP (Quét ngược từ dưới đáy file Excel dán lên đỉnh đầu hàng App)
+              // Dòng nào nằm cuối mảng danhSachLichSu (vừa mới gõ xong mang index lớn hơn) tự động vọt lên đầu 100%
+              return danhSachLichSu.indexOf(b) - danhSachLichSu.indexOf(a);
+            } else {
+              // 🎯 CHẾ ĐỘ B: XẾP THEO NGÀY THÁNG SỔ TAY TRẠI
+              const quyDoiThoiGian = (item) => {
+                if (!item || !item.ngay) return 0;
+                try {
+                  let ngayGoc = item.ngay.toString().trim();
+                  if (ngayGoc.includes('/')) {
+                    // Cắt chính xác mảng chuỗi ngày dd/mm/yyyy chuẩn cơ số 10
+                    let p = ngayGoc.substring(0, 10).split('/');
+                    if (p.length === 3) {
+                      const dObj = new Date(parseInt(p[2], 10), parseInt(p[1], 10) - 1, parseInt(p[0], 10));
+                      return !isNaN(dObj.getTime()) ? dObj.getTime() : 0;
+                    }
+                  }
+                  let timestamp = Date.parse(ngayGoc);
+                  return isNaN(timestamp) ? 0 : timestamp;
+                } catch (e) { return 0; }
+              };
+
+              const timeA = quyDoiThoiGian(a); 
+              const timeB = quyDoiThoiGian(b);
+              
+              if (timeB !== timeA) return timeB - timeA; // Ngày gần nhất nhảy lên đầu hàng
+              // Nếu trùng khít ngày tháng thực tế, dòng nào vừa nhập sau (ở đáy file) vẫn ưu tiên xếp lên trên đỉnh đầu
+              return danhSachLichSu.indexOf(b) - danhSachLichSu.indexOf(a);
+            }
+          });
+
+          return nhatKyFiltered;
+        })()} 
         keyExtractor={(i) => i.id} 
         contentContainerStyle={{ paddingBottom: 80 }} 
+
         ListHeaderComponent={
           !searchTxtTab1 ? (
             <View style={{ backgroundColor: '#ffffff', paddingBottom: 5 }}>
@@ -219,9 +247,50 @@ const DataEntryTab = ({
                 <TextInput style={[styles.inputStandard, { color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6', marginBottom: 10, height: 42, fontSize: 14, paddingVertical: 0 }]} placeholder="Nhập Ghi chú (nếu có)" placeholderTextColor="#888888" value={ghiChu} onChangeText={setGhiChu} />
                 <TouchableOpacity onPress={handleSaveNew} activeOpacity={0.5} style={{ backgroundColor: '#e65100', paddingVertical: 9, borderRadius: 6, alignItems: 'center', marginTop: 4 }}><Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 14 }}>Thêm Mới Nhật Ký</Text></TouchableOpacity>
               </View>
+              <View style={{ flexDirection: 'row', gap: 6, marginTop: 12, marginBottom: 4, width: '100%', paddingHorizontal: 4 }}>
+                <TouchableOpacity 
+                  activeOpacity={0.7} 
+                  onPress={() => setSortMode('thu_tu_nhap')}
+                  style={{ 
+                    flex: 1, 
+                    paddingVertical: 9, 
+                    borderRadius: 20, 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    backgroundColor: sortMode === 'thu_tu_nhap' ? '#e65100' : '#ffffff', 
+                    borderWidth: 1, 
+                    borderColor: sortMode === 'thu_tu_nhap' ? '#e65100' : '#ffd3b6' 
+                  }}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: 'bold', color: sortMode === 'thu_tu_nhap' ? '#ffffff' : '#e65100' }} numberOfLines={1} adjustsFontSizeToFit>
+                    Theo Thứ Tự Nhập
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  activeOpacity={0.7} 
+                  onPress={() => setSortMode('ngay_thang')}
+                  style={{ 
+                    flex: 1, 
+                    paddingVertical: 9, 
+                    borderRadius: 20, 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    backgroundColor: sortMode === 'ngay_thang' ? '#28a745' : '#ffffff', 
+                    borderWidth: 1, 
+                    borderColor: sortMode === 'ngay_thang' ? '#28a745' : '#ced4da' 
+                  }}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: 'bold', color: sortMode === 'ngay_thang' ? '#ffffff' : '#28a745' }} numberOfLines={1} adjustsFontSizeToFit>
+                    Theo Ngày Tháng
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
             </View>
           ) : null
         }
+        
         renderItem={({ item }) => 
           (item && ((item.suKien || "").toString().trim().toUpperCase() === "VẮC-XIN" || (item.suKien || "").toString().trim().toUpperCase() === "VACXIN")) ? null : (
             <View style={[

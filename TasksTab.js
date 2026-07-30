@@ -432,9 +432,9 @@ const TasksTab = ({
                               const kieuMocVx = (campaign.loaiMocGoc || "").toString().toUpperCase();
 
                               if (kieuMocVx.includes("SAU_PHOI") || kieuMocVx.includes("PHOI")) {
-                                nhanMocChuKy = `Sau Phối: ${soNgayCuaHeo} ngày`;
+                                nhanMocChuKy = `Đang Bầu: ${soNgayCuaHeo} ngày`;
                               } else if (kieuMocVx.includes("DE") || kieuMocVx.includes("SAU_NGAY_DE")) {
-                                nhanMocChuKy = `Sau Đẻ: ${soNgayCuaHeo} ngày`;
+                                nhanMocChuKy = `Đã Đẻ: ${soNgayCuaHeo} ngày`;
                               } else if (kieuMocVx.includes("DINH_KY")) {
                                 nhanMocChuKy = `Chu kỳ chu kỳ: ${soNgayCuaHeo} ngày`;
                               }
@@ -600,8 +600,19 @@ const TasksTab = ({
                   </View>
                   <View style={{ flexDirection: 'row', gap: 4 }}>
                     <TouchableOpacity onPress={() => { setEditingConfigId(item.id); setInputDays(item.soNgay?.toString() || ""); if (typeof setInputName === 'function') setInputName(item.tenNhiemVu || ""); setGhiChuVacXinInput(item.ghiChu || ""); setLoaiMocInput("SAU_PHOI"); setNgayTiemTruocLocal(""); }} style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#f1f3f9', borderRadius: 4 }}><Text style={{ fontSize: 10.5, fontWeight: 'bold' }}>Sửa</Text></TouchableOpacity>
-                    <TouchableOpacity onPress={() => setDanhSachCauHinhVacXin(prev => prev.filter(i => i.id !== item.id))} style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#fdfdf2', borderRadius: 4 }}><Text style={{ fontSize: 10.5, fontWeight: 'bold', color: '#dc3545' }}>Xóa</Text></TouchableOpacity>
-                  </View>
+                   <TouchableOpacity 
+    onPress={() => {
+      setDanhSachCauHinhVacXin(prev => prev.filter(i => i.id !== item.id));
+      if (typeof xuLyMangCauHinhVacXin === 'function') {
+        xuLyMangCauHinhVacXin("delete_cauhinh", { id: item.id });
+      }
+    }}
+    // Thêm lại style gốc để nút có màu hồng nhạt, bo góc và khoảng đệm đẹp mắt
+    style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#fdf2f2', borderRadius: 4 }}
+  >
+    <Text style={{ fontSize: 10.5, fontWeight: 'bold', color: '#dc3545' }}>Xóa</Text>
+  </TouchableOpacity>
+</View>
                 </View>
               ))
             )}
@@ -621,8 +632,19 @@ const TasksTab = ({
                   </View>
                   <View style={{ flexDirection: 'row', gap: 4 }}>
                     <TouchableOpacity onPress={() => { setEditingConfigId(item.id); setInputDays(item.soNgay?.toString() || ""); if (typeof setInputName === 'function') setInputName(item.tenNhiemVu || ""); setGhiChuVacXinInput(item.ghiChu || ""); setLoaiMocInput("SAU_NGAY_DE"); setNgayTiemTruocLocal(""); }} style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#f1f3f9', borderRadius: 4 }}><Text style={{ fontSize: 10.5, fontWeight: 'bold' }}>Sửa</Text></TouchableOpacity>
-                    <TouchableOpacity onPress={() => setDanhSachCauHinhVacXin(prev => prev.filter(i => i.id !== item.id))} style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#fdf2f2', borderRadius: 4 }}><Text style={{ fontSize: 10.5, fontWeight: 'bold', color: '#dc3545' }}>Xóa</Text></TouchableOpacity>
-                  </View>
+<TouchableOpacity 
+    onPress={() => {
+      setDanhSachCauHinhVacXin(prev => prev.filter(i => i.id !== item.id));
+      if (typeof xuLyMangCauHinhVacXin === 'function') {
+        xuLyMangCauHinhVacXin("delete_cauhinh", { id: item.id });
+      }
+    }}
+    // Thêm lại style gốc để nút có màu hồng nhạt, bo góc và khoảng đệm đẹp mắt
+    style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#fdf2f2', borderRadius: 4 }}
+  >
+    <Text style={{ fontSize: 10.5, fontWeight: 'bold', color: '#dc3545' }}>Xóa</Text>
+  </TouchableOpacity>
+                    </View>
                 </View>
               ))
             )}
@@ -680,8 +702,19 @@ const TasksTab = ({
                       >
                         <Text style={{ fontSize: 10.5, fontWeight: 'bold' }}>Sửa</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity onPress={() => setDanhSachCauHinhVacXin(prev => prev.filter(i => i.id !== item.id))} style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#fdf2f2', borderRadius: 4 }}><Text style={{ fontSize: 10.5, fontWeight: 'bold', color: '#dc3545' }}>Xóa</Text></TouchableOpacity>
-                    </View>
+<TouchableOpacity 
+    onPress={() => {
+      setDanhSachCauHinhVacXin(prev => prev.filter(i => i.id !== item.id));
+      if (typeof xuLyMangCauHinhVacXin === 'function') {
+        xuLyMangCauHinhVacXin("delete_cauhinh", { id: item.id });
+      }
+    }}
+    // Thêm lại style gốc để nút có màu hồng nhạt, bo góc và khoảng đệm đẹp mắt
+    style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#fdf2f2', borderRadius: 4 }}
+  >
+    <Text style={{ fontSize: 10.5, fontWeight: 'bold', color: '#dc3545' }}>Xóa</Text>
+  </TouchableOpacity>
+                      </View>
                   </View>
                 );
               })
