@@ -291,7 +291,8 @@ const {
   // 🌐 CẤU HÌNH MẢNG CỔNG LINK WEB APP PHÂN TẢI CHỐNG NGHẼN SERVER TRẠI
   // 🎯 BẢN VÁ XOAY VÒNG ĐỘNG TỐI CAO: CHÈN ĐỦ 4 LINK VÀ TỰ ĐỔI LINK LIÊN TỤC TRÊN MỖI LỆNH FETCH
   const MANG_LINKS_WEB_APP = [
-    'https://script.google.com/macros/s/AKfycbzOQAIbq5KgdHHRttCQsJ6Oy-3wllvUi3QjzI0dnjCP_Wu0XR_y31YsehcMGuDrVNdr5g/exec' // Mail chính - Link 1
+    'https://script.google.com/macros/s/AKfycbzOQAIbq5KgdHHRttCQsJ6Oy-3wllvUi3QjzI0dnjCP_Wu0XR_y31YsehcMGuDrVNdr5g/exec',
+    'https://script.google.com/macros/s/AKfycbzkrNUPuQ4BUfkXx-0UFltOQD-xon8lGfsKV6uX998wX6k7o0JT8JSpeGnl8twCF_UliA/exec' // Mail chính - Link 1
      ];
 const WEB_APP_URL = useMemo(() => {
     const chiSoNgauNhien = Math.floor(Math.random() * MANG_LINKS_WEB_APP.length);
