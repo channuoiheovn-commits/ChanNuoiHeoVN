@@ -12,7 +12,11 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { Image } from 'react-native';
 
 import { auth } from './FirebaseConfig';
-import { signInWithEmailAndPassword } from 'firebase/auth'; 
+import { signInWithEmailAndPassword } from 'firebase/auth';
+// 🛰️ ĐẤU NỐI THÔNG MẠCH FIRESTORE EXPO (DÁN ĐỈNH FILE APP.JS)
+import { db } from './FirebaseConfig'; // Trỏ đúng đường dẫn đến file firebase.js của bạn
+import { doc, setDoc } from 'firebase/firestore';
+
 import { 
   formatVNDate, 
   parseToDateObject, 
@@ -291,8 +295,7 @@ const {
   // 🌐 CẤU HÌNH MẢNG CỔNG LINK WEB APP PHÂN TẢI CHỐNG NGHẼN SERVER TRẠI
   // 🎯 BẢN VÁ XOAY VÒNG ĐỘNG TỐI CAO: CHÈN ĐỦ 4 LINK VÀ TỰ ĐỔI LINK LIÊN TỤC TRÊN MỖI LỆNH FETCH
   const MANG_LINKS_WEB_APP = [
-    'https://script.google.com/macros/s/AKfycbzOQAIbq5KgdHHRttCQsJ6Oy-3wllvUi3QjzI0dnjCP_Wu0XR_y31YsehcMGuDrVNdr5g/exec',
-    'https://script.google.com/macros/s/AKfycbzkrNUPuQ4BUfkXx-0UFltOQD-xon8lGfsKV6uX998wX6k7o0JT8JSpeGnl8twCF_UliA/exec' // Mail chính - Link 1
+    'https://script.google.com/macros/s/AKfycbz6AgZ19QxFaE9eN5Bb9f9qlRhNzDzS4Gh1sOT9kyzHijk2RS9gEWRCl6QHShSeCeyx8w/exec' // Mail chính - Link 1
      ];
 const WEB_APP_URL = useMemo(() => {
     const chiSoNgauNhien = Math.floor(Math.random() * MANG_LINKS_WEB_APP.length);
@@ -1379,7 +1382,6 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
 
 
 
-
     const handleEditClick = (item) => {
     setEditingId(item.id); 
     setEditMaTai(item.maTai); 
@@ -2223,7 +2225,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
             </Text>
 
             <Text style={{ fontSize: 10, color: '#adb5bd', marginTop: 5, fontWeight: '500' }}>
-              © 2026 PigVN • Phiên bản 3.1
+              © 2026 PigVN • Phiên bản 3.1.1
             </Text>
           </View>
 
@@ -2745,7 +2747,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
   txtThanhCongNoiDung={txtThanhCongNoiDung}
 />
 
-      <AddPigMeatModal
+ <AddPigMeatModal
   visible={isHeoThitModalVisible}
   onClose={() => setIsHeoThitModalVisible(false)}
   styles={styles}
@@ -2791,6 +2793,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
   
   onSave={handleLuuSuaHeoThit}
 />
+
 
 
 
