@@ -123,12 +123,12 @@ const SowDetailModal = ({
             )}
             {/* KHỐI 3: CHÚ Ý CHO NHÓM CHƯA PHỐI */}
             {nhomNaiTab2 === 'Cho Phoi' && (
-              <View style={{ paddingVertical: 12, backgroundColor: '#fff3cd', borderRadius: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: '#ffeeba' }}>
-                <Text style={{ fontSize: 13, color: '#856404', fontWeight: 'bold', textAlign: 'center', lineHeight: 18 }}>
-                  Chú ý: Heo nái chờ phối. Hãy theo dõi chu kỳ lên giống để phối kịp thời!
-                </Text>
-              </View>
-            )}
+  <View style={{ paddingVertical: 12, backgroundColor: '#fff3cd', borderRadius: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: '#ffeeba' }}>
+    <Text style={{ fontSize: 13, color: '#856404', fontWeight: 'bold', textAlign: 'center', lineHeight: 18 }}>
+      Chú ý: Heo nái đang theo dõi. Hãy chú ý chu kỳ lên giống tiếp theo để phối kịp thời!
+    </Text>
+  </View>
+)}
 
             {/* KHỐI 4: CHI TIẾT SẢN XUẤT CHO NHÓM NUÔI CON */}
             {nhomNaiTab2 === 'De' && (

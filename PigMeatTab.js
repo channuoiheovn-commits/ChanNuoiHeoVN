@@ -292,7 +292,42 @@ const PigMeatTab = ({ currentTab, styles, formatVNDate, dataHeoThit, danhSachLic
                         </View>
                         <View style={{ flexDirection: 'row', gap: 6 }}>
                           <TouchableOpacity activeOpacity={0.6} onPress={() => handleMoSuaHeoThit(item)} style={{ backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#ffc107', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 6 }}><Text style={{ color: '#b58100', fontSize: 11, fontWeight: 'bold' }}>Sửa</Text></TouchableOpacity>
-                          <TouchableOpacity activeOpacity={0.6} onPress={() => handleXoaXoaNhatKyChuDong ? handleXoaXoaNhatKyChuDong(item) : (handleXoaNhatKyChuDong && handleXoaNhatKyChuDong(item))} style={{ backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#dc3545', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 6 }}><Text style={{ color: '#dc3545', fontSize: 11, fontWeight: 'bold' }}>Xóa</Text></TouchableOpacity>
+{/* NÚT XÓA ĐÃ ĐƯỢC CHÈN THÊM POP-UP XÁC NHẬN AN TOÀN */}
+<TouchableOpacity 
+  activeOpacity={0.6} 
+  onPress={() => {
+    const nhanTuan = item.tuanBan !== undefined ? String(item.tuanBan).trim() : "";
+    const tenLo = (nhanTuan === "3" || nhanTuan === "theoMe") ? "Theo Mẹ" : ((nhanTuan === "4" || nhanTuan === "caiSua") ? "Cai Sữa" : (nhanTuan !== "" ? `Tuần ${nhanTuan}` : "Lô Tổng"));
+    const txtHienBadge = (item.suKien || "Biến Động").toUpperCase();
+
+    // Kích nổ Pop-up hệ thống hỏi ý kiến người nuôi trước khi xóa sạch dữ liệu
+    const { Alert } = require('react-native');
+    Alert.alert(
+      "🗑️ Xác nhận xóa",
+      `Bạn có chắc chắn muốn xóa Dòng [${txtHienBadge}] ${item.soHeo} này không?`,
+      [
+        { 
+          text: "Hủy bỏ", 
+          style: "cancel" 
+        },
+        { 
+          text: "Đồng ý xóa", 
+          style: "destructive",
+          onPress: () => {
+            if (typeof handleXoaNhatKyChuDong === 'function') {
+              handleXoaNhatKyChuDong(item);
+            } else if (typeof handleXoaXoaNhatKyChuDong === 'function') {
+              handleXoaXoaNhatKyChuDong(item);
+            }
+          }
+        }
+      ]
+    );
+  }} 
+  style={{ backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#dc3545', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 6 }}
+>
+  <Text style={{ color: '#dc3545', fontSize: 11, fontWeight: 'bold' }}>Xóa</Text>
+</TouchableOpacity>
                         </View>
                       </View>
                     </View>

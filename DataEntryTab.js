@@ -35,7 +35,8 @@ const DataEntryTab = ({
   handleXemChiTietHeo,
   tinhNgayDuKienDe,
   setDongBoStatus,
-  guiYeuCauMang
+  guiYeuCauMang,
+  handleXoaNhatKyChuDong
 }) => {
   if (currentTab !== 'nhap_lieu') return null;
 
@@ -362,7 +363,7 @@ const DataEntryTab = ({
                 {!!item.ghiChu && <Text style={{ fontSize: 12, color: '#e65100', fontStyle: 'italic', marginTop: 2 }}>📌 Ghi chú: {String(item.ghiChu)}</Text>}
               </View>
 
-              <View style={styles.cardActions}>
+            <View style={styles.cardActions}>
                 <TouchableOpacity onPress={() => handleEditClick(item)} style={styles.editBtn}>
                   <Text style={styles.btnText}>Sửa</Text>
                 </TouchableOpacity>
@@ -372,31 +373,8 @@ const DataEntryTab = ({
                       { text: "Hủy" },
                       { 
                         text: "Xóa", 
-                        onPress: () => {
-                          const dongMuonXoa = { 
-                            id: item.id,
-                            userEmail: userEmail ? userEmail.toLowerCase().trim() : "",
-                            actionType: "delete",
-                            ngay: "", 
-                            maTai: item.maTai || "", 
-                            suKien: item.suKien || "", 
-                            soHeo: 0,
-                            giong: "", lua: "", khoThai: "", coiCoc: "", chetNgop: "", chonNuoi: "", ghiChu: "", tuanBan: ""
-                          };
-                          
-                          setDongBoStatus("⏳ Đang thực hiện xóa nhật ký...");
-                          setDanhSachLichSu(prev => prev.map(i => i.id === item.id ? { ...i, syncStatus: "waiting" } : i));
-                          
-                          guiYeuCauMang(dongMuonXoa, (res) => {
-                            if (res && (res.status === 'success' || res.status === 'offline_queue')) {
-                              setDanhSachLichSu(prev => prev.filter(i => i.id !== item.id));
-                              setDongBoStatus("✅ Đã xóa dòng nhật ký thành công!");
-                            } else {
-                              setDanhSachLichSu(prev => prev.map(i => i.id === item.id ? { ...i, syncStatus: "synced" } : i));
-                              setDongBoStatus("❌ Lỗi mạng thực sự, không thể xóa dòng nhật ký.");
-                            }
-                          });
-                        } 
+                        // 🎯 ĐÃ VÁ: Gọi trực tiếp hàm xử lý Firestore, xóa mất tích khỏi màn hình trong 0.01 giây!
+                        onPress: () => handleXoaNhatKyChuDong(item) 
                       }
                     ]);
                   }}

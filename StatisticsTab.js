@@ -66,7 +66,7 @@ const StatisticsTab = ({
 
             <View style={{ paddingLeft: 12, marginTop: 4, borderLeftWidth: 2, borderLeftColor: '#fbc48c' }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 }}>
-                <Text style={{ fontSize: 12.5, color: '#666666' }}>Chờ Phối</Text>
+                <Text style={{ fontSize: 12.5, color: '#666666' }}>Theo Dõi</Text>
                 <Text style={{ fontSize: 13, color: '#111111', fontWeight: '600' }}>{soConChoPhoi} con</Text>
               </View>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 }}>
