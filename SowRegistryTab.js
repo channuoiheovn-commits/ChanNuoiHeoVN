@@ -5,7 +5,7 @@ const SowRegistryTab = ({
   currentTab, styles, parseToDateObject, formatStringtoVN, formatVNDate, WEB_APP_URL, userEmail,
   searchTxtTab2, setSearchTxtTab2, nhomNaiTab2, setNhomNaiTab2, danhSachLichSu, danhSachMaTai, setDanhSachMaTai, danhSachLuaHeo,
   mtMaTai, setMtMaTai, mtGiong, setMtGiong, mtLua, setMtLua,
-  setIsQuickAddModalVisible, setSelectedHeoDetail, setIsDetailModalVisible, setLoadingLichSuDe, setMangLichSuDeCuaTai, handleSaveMaTai, handleMtEditClick, setDongBoStatus, guiYeuCauMang, goiYMaTaiLoc, setGoiYMaTaiLoc
+  setIsQuickAddModalVisible, setSelectedHeoDetail, setIsDetailModalVisible, setLoadingLichSuDe, setMangLichSuDeCuaTai, handleSaveMaTai, handleMtEditClick, setDongBoStatus, guiYeuCauMang, goiYMaTaiLoc, setGoiYMaTaiLoc, handleXemChiTietHeo
 }) => {
   if (currentTab !== 'ma_tai') return null;
 
@@ -303,21 +303,13 @@ const SowRegistryTab = ({
                 
                 {/* 1.1 CỘT TRÁI (flex: 1): CHỨA LÝ LỊCH VÀ KHỐI GHI CHÚ ĐI KÈM */}
                 <View style={{ flex: 1, paddingRight: 8 }}>
-                  <TouchableOpacity 
+                   <TouchableOpacity 
                     activeOpacity={0.6}
                     style={{ width: '100%' }}
                     onPress={() => {
-                      setSelectedHeoDetail(item);
-                      setIsDetailModalVisible(true);
-                      setLoadingLichSuDe(true);
-                      fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().trim()}&maTai=${item.maTai}`, { method: 'GET', redirect: 'follow' })
-                        .then(res => res.json())
-                        .then(result => {
-                          setLoadingLichSuDe(false);
-                          if (result.status === 'success' && result.data) {
-                            setMangLichSuDeCuaTai(result.data);
-                          }
-                        }).catch(() => setLoadingLichSuDe(false));
+                      if (typeof handleXemChiTietHeo === 'function') {
+                        handleXemChiTietHeo(item);
+                      }
                     }}
                   >
                     {/* Hàng 1: Mã số nái */}
@@ -410,10 +402,62 @@ const SowRegistryTab = ({
                     {item.trangThaiDienThoai === "Phối" && (
                       <View style={{ marginTop: 2, borderTopWidth: 0.5, borderTopColor: '#e9ecef', paddingTop: 4, gap: 2 }}>
                         {item.ngayPhoiDong && item.ngayPhoiDong.toString().trim() !== "---" && (
-                          <Text style={{ fontSize: 12.5, color: '#555555' }}>Ngày phối giống: <Text style={{ color: '#111111', fontWeight: '700' }}>{formatStringtoVN(item.ngayPhoiDong)}</Text></Text>
+<Text style={{ fontSize: 12.5, color: '#555555' }}>
+  Ngày phối giống:{" "}
+  <Text style={{ color: '#111111', fontWeight: '700' }}>
+    {formatStringtoVN(item.ngayPhoiDong)}
+    {(() => {
+      try {
+        const dateChonObj = parseToDateObject(item.ngayPhoiDong);
+        if (!dateChonObj) return "";
+
+        // 🧠 THUẬT TOÁN TÍNH CHÍNH XÁC TUẦN LỊCH TRONG NĂM CỦA NGÀY ĐÓ
+        const ngayThuNamCuaTuan = new Date(dateChonObj.valueOf());
+        const thuHienTai = dateChonObj.getDay();
+        const thuChuanHienTai = thuHienTai === 0 ? 7 : thuHienTai;
+        
+        ngayThuNamCuaTuan.setDate(ngayThuNamCuaTuan.getDate() + 4 - thuChuanHienTai);
+        const ngayDauNamObj = new Date(ngayThuNamCuaTuan.getFullYear(), 0, 1);
+        const khoangCachMs = ngayThuNamCuaTuan.getTime() - ngayDauNamObj.getTime();
+        const soNgayTroiQua = Math.floor(khoangCachMs / 86400000);
+        const soTuanLich = Math.ceil((soNgayTroiQua + 1) / 7);
+
+        return (soTuanLich > 0 && soTuanLich <= 54) ? ` (Tuần Phối ${soTuanLich})` : "";
+      } catch (err) {
+        return "";
+      }
+    })()}
+  </Text>
+</Text>
                         )}
                         {item.ngayDuKienDeMoi && item.ngayDuKienDeMoi.toString().trim() !== "---" && (
-                          <Text style={{ fontSize: 12.5, color: '#555555' }}>Dự kiến đẻ: <Text style={{ color: '#e65100', fontWeight: '700' }}>{formatStringtoVN(item.ngayDuKienDeMoi)}</Text></Text>
+<Text style={{ fontSize: 12.5, color: '#555555' }}>
+  Dự kiến đẻ:{" "}
+  <Text style={{ color: '#e65100', fontWeight: '700' }}>
+    {formatStringtoVN(item.ngayDuKienDeMoi)}
+    {(() => {
+      try {
+        const dateChonObj = parseToDateObject(item.ngayDuKienDeMoi);
+        if (!dateChonObj) return "";
+
+        // 🧠 THUẬT TOÁN TÍNH CHÍNH XÁC TUẦN LỊCH TRONG NĂM CỦA NGÀY DỰ KIẾN ĐẺ
+        const ngayThuNamCuaTuan = new Date(dateChonObj.valueOf());
+        const thuHienTai = dateChonObj.getDay();
+        const thuChuanHienTai = thuHienTai === 0 ? 7 : thuHienTai;
+        
+        ngayThuNamCuaTuan.setDate(ngayThuNamCuaTuan.getDate() + 4 - thuChuanHienTai);
+        const ngayDauNamObj = new Date(ngayThuNamCuaTuan.getFullYear(), 0, 1);
+        const khoangCachMs = ngayThuNamCuaTuan.getTime() - ngayDauNamObj.getTime();
+        const soNgayTroiQua = Math.floor(khoangCachMs / 86400000);
+        const soTuanLich = Math.ceil((soNgayTroiQua + 1) / 7);
+
+        return (soTuanLich > 0 && soTuanLich <= 54) ? ` (Tuần Đẻ ${soTuanLich})` : "";
+      } catch (err) {
+        return "";
+      }
+    })()}
+  </Text>
+</Text>
                         )}
                         {item.ngayPhoiDong && item.ngayPhoiDong.toString().trim() !== "---" && (
                           <Text style={{ fontSize: 12.5, color: '#555555' }}>

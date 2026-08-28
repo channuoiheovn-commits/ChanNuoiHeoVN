@@ -15,8 +15,7 @@ import { auth } from './FirebaseConfig';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 // 🛰️ ĐẤU NỐI THÔNG MẠCH FIRESTORE EXPO (DÁN ĐỈNH FILE APP.JS)
 import { db } from './FirebaseConfig'; // Trỏ đúng đường dẫn đến file firebase.js của bạn
-import { doc, setDoc } from 'firebase/firestore';
-
+import { doc, setDoc, collection, query, where, onSnapshot, getDoc } from 'firebase/firestore';
 import { 
   formatVNDate, 
   parseToDateObject, 
@@ -49,6 +48,11 @@ const {
     setDanhSachHeoLocCanhBao, setDanhSachHeoSapDeCanhBao, setDanhSachHeoCaiSuaCanhBao
   } = useSow();
   const { setDanhSachViecCanLamThuy } = useTask(); // Gọi trạm 2 (Lịch thú y)
+  const [danhSachLichSu, setDanhSachLichSu] = useState([]); // Khay lưu Nhật ký sự kiện toàn trại
+  const [danhSachMaTai, setDanhSachMaTai] = useState([]);   // Khay lưu Danh bạ Sổ mã tai heo nái
+
+    const [vuaBamLoginTay, setVuaBamLoginTay] = useState(false);
+
  const [danhSachCauHinhVacXin, setDanhSachCauHinhVacXin] = useState([]);
  const [danhSachSoTay, setDanhSachSoTay] = useState([]);
   
@@ -295,8 +299,8 @@ const {
   
   // 🌐 CẤU HÌNH MẢNG CỔNG LINK WEB APP PHÂN TẢI CHỐNG NGHẼN SERVER TRẠI
   // 🎯 BẢN VÁ XOAY VÒNG ĐỘNG TỐI CAO: CHÈN ĐỦ 4 LINK VÀ TỰ ĐỔI LINK LIÊN TỤC TRÊN MỖI LỆNH FETCH
-  const MANG_LINKS_WEB_APP = [
-    'https://script.google.com/macros/s/AKfycbxd0AHkSSwK1WlcWv7odzIimoGWwUiXgGq-UxJsXe6-D2sHE730kpQ3B5Q99zdD-_dmuw/exec' // Mail chính - Link 1
+   const MANG_LINKS_WEB_APP = [
+    'https://script.google.com/macros/s/AKfycbyHQR04w_g-VDUjnbBv8OTRuuWCuX_uB48lNcSYJh2S0ZXaNTaMNnu0I3qcdLHp2OEroQ/exec' // Mail chính - Link 1
      ];
 const WEB_APP_URL = useMemo(() => {
     const chiSoNgauNhien = Math.floor(Math.random() * MANG_LINKS_WEB_APP.length);
@@ -319,6 +323,7 @@ const WEB_APP_URL = useMemo(() => {
   const [typedPassword, setTypedPassword] = useState('');
   const [isAuthLoading, setIsAuthLoading] = useState(false); 
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const unsubscribeRefs = React.useRef({ lichSu: null, maTai: null });
 
     // ========================================================
   // 🚀 BẢN VÁ TỐI CAO: CỜ TRẠNG THÁI THEO DÕI ĐỒNG BỘ NGẦM ĐỂ HIỂN THỊ ICON TẢI NHẸ
@@ -342,7 +347,6 @@ const [txtAlertNoiDung, setTxtAlertNoiDung] = useState({ tieuDe: '', maTai: '', 
 
   // Tự động kiểm tra và kéo tin nhắn chung từ Firebase về máy mỗi khi mở app hoặc đổi Tab
   useEffect(() => {
-    const { doc, getDoc } = require('firebase/firestore');
     
     // Thọc thẳng lên kho chung lấy tài liệu "he_thong" nằm trong bảng "Thong_Bao"
     getDoc(doc(db, "Thong_Bao", "he_thong"))
@@ -408,7 +412,7 @@ const [loaiMocInput, setLoaiMocInput] = useState("SAU_PHOI");
     // ========================================================
   // 🚀 BẢN VÁ TỐI CAO: BẮN EMAIL TRỰC TIẾP ĐỂ PHÁ BẦY CẤM VẬN MẠNG KHI KHỞI ĐỘNG
   // ========================================================
-  useEffect(() => {
+   useEffect(() => {
     const khoiDongLuuDemAnToan = async () => {
       try {
         // 1. Đọc nhanh email găm trong chip ổ cứng điện thoại lên trước
@@ -419,6 +423,10 @@ const [loaiMocInput, setLoaiMocInput] = useState("SAU_PHOI");
           
           setIsLoggedIn(true); 
           setUserEmail(emailChuan);
+
+          // 🎯 BIỆN PHÁP CHỮA CHÁY TỐI CAO: Phải gọi listener Firestore ngay tại đây 
+          // để mở cổng hứng dữ liệu đám mây lập tức, chặn đứng hiện tượng mảng rỗng đè lên!
+          batDauLangNgheFirestore(emailChuan);
           
           const khoaDemTongHop = `cache_tonghop_pigvn_${emailChuan}`;
           const dataDemTho = await AsyncStorage.getItem(khoaDemTongHop);
@@ -426,8 +434,18 @@ const [loaiMocInput, setLoaiMocInput] = useState("SAU_PHOI");
           // Nạp tạm dữ liệu cũ từ cache lên trước để người nuôi không phải nhìn màn hình trắng
           if (dataDemTho !== null) {
             const result = JSON.parse(dataDemTho);
-            setDanhSachLichSu(result.tab1 || []);
-            setDanhSachMaTai(result.tab2 || []);
+            // 🎯 Chặn không cho bộ nhớ đệm ghi đè mảng trống lên RAM nếu cache cũ bị lỗi
+            if (result.tab1 && result.tab1.length > 0) setDanhSachLichSu(result.tab1);
+             if (result.tab2 && result.tab2.length > 0) {
+    // 📥 TẮT APP MỞ LẠI: Quét cache lên, ép tất cả trạng thái thông báo cam cũ về false
+    const tab2DaResetTrangThai = result.tab2.map(heo => {
+      if (heo && heo.vuaNhapMoi === "chua_reload") {
+        return { ...heo, vuaNhapMoi: false };
+      }
+      return heo;
+    });
+    setDanhSachMaTai(tab2DaResetTrangThai);
+  }
             setDataThongKe(result.tab3 || null);
             setDanhSachDangDe(result.tab4 || []);
             if (result.tab5) {
@@ -445,24 +463,15 @@ const [loaiMocInput, setLoaiMocInput] = useState("SAU_PHOI");
             } else {
               setDanhSachSoTay([]);
             }
-          } else {
-            // Nếu máy mới tinh chưa có cache thì dọn sạch mảng để nạp mới
-            setDanhSachLichSu([]);
-            setDanhSachMaTai([]);
-            setDanhSachDangDe([]);
-            setDanhSachCauHinhVacXin([]);
-            setDanhSachSoTay([]);
           }
 
           // 🎯 ÉP KÍCH HOẠT LỆNH MẠNG THỜI GIAN THỰC (NHƯ BẤM TAY VÀO NÚT CẬP NHẬT)
           if (typeof handleRefreshData === 'function') {
             console.log("🔄 [HỆ THỐNG KÍCH HOẠT LỆNH TỰ ĐỘNG CẬP NHẬT DATA TRẠI KHI VÀO APP]");
-            
-            // Ép hệ thống hiển thị chữ trạng thái đang tải dữ liệu và bật bánh xe xoay
             setDongBoStatus("⏳ Đang cập nhật dữ liệu trại mới nhất...");
             setIsInitialLoading(true);
             
-            // Phát sóng lệnh mạng kéo dữ liệu trực tiếp
+            // Phát sóng lệnh mạng kéo dữ liệu phụ trợ
             handleRefreshData(emailChuan); 
             
             setTimeout(() => {
@@ -480,7 +489,7 @@ const [loaiMocInput, setLoaiMocInput] = useState("SAU_PHOI");
     };
 
     khoiDongLuuDemAnToan();
-  }, []);
+  }, [vuaBamLoginTay]);
 
 
 
@@ -491,7 +500,6 @@ const [loaiMocInput, setLoaiMocInput] = useState("SAU_PHOI");
   const [maTai, setMaTai] = useState('');
   const [suKien, setSuKien] = useState('Phối');
   const [soHeo, setSoHeo] = useState('');
-  const [danhSachLichSu, setDanhSachLichSu] = useState([]);
   const [khoThai, setKhoThai] = useState('');
   const [coiCoc, setCoiCoc] = useState('');
   const [chetNgop, setChetNgop] = useState('');
@@ -546,7 +554,6 @@ const laSuKienBanHeo = false; // Triệt tiêu cờ bán heo ở Tab 1
   const [mtMaTai, setMtMaTai] = useState('');
   const [mtGiong, setMtGiong] = useState('');
   const [mtLua, setMtLua] = useState('Hậu Bị'); 
-  const [danhSachMaTai, setDanhSachMaTai] = useState([]);
   const [mangLichSuDeCuaTai, setMangLichSuDeCuaTai] = useState([]);
   const [isThaiListVisible, setIsThaiListVisible] = useState(false);
   const [nhomNaiTab2, setNhomNaiTab2] = useState('Phoi'); // Các nhóm: 'BAU', 'CHUA_PHOI', 'NUOI_CON', 'THAI'
@@ -839,31 +846,44 @@ const [dataHeoThit, setDataHeoThit] = useState(null);
 
         // Găm cứng email vào bộ nhớ máy để tự động đăng nhập lần sau
         await AsyncStorage.setItem('userEmail', emailKhachStandard);
+                setVuaBamLoginTay(true); 
+
+        batDauLangNgheFirestore(emailKhachStandard); // 👈 THÊM DÒNG NÀY
 
         setDongBoStatus('⏳ Xác thực thành công! Đang tải sổ liệu nhật ký...');
 
+        
         // 2. PHÁ VỠ CHỌN TRẠI TRUNG GIAN: Thọc thẳng lên Server kéo dữ liệu 5 Tab về máy lập tức
+       
         const xauNgauNhien = Math.random().toString(36).substring(7);
-        fetch(`${WEB_APP_URL}?action=get_all_data&userEmail=${emailKhachStandard}&_nocache=${xauNgauNhien}`, { method: 'GET', redirect: 'follow' })
-          .then((res) => res.json())
-          .then((result) => {
-            setIsAuthLoading(false);
-            if (result && result.status === 'success') {
-              // Ghim sạch dữ liệu lên RAM điện thoại trong 0.01 giây
-              setDanhSachLichSu(result.tab1 || []);
-              setDanhSachMaTai(result.tab2 || []);
-              setDataThongKe(result.tab3 || null);
-              setDanhSachDangDe(result.tab4 || []);
-              if (result && result.tab5) {
-  // Ép bốc đúng Object dataLocHt phẳng sạch từ Server gửi về để nuôi sống bàn cờ
-  setDataHeoThit(result.tab5.dataLocHt ? result.tab5.dataLocHt : result.tab5);
-} else {
-  setDataHeoThit(null);
-}
+       
+      fetch(`${WEB_APP_URL}?action=get_all_data&userEmail=${emailKhachStandard}&_nocache=${xauNgauNhien}`, { method: 'GET', redirect: 'follow' })
+  .then((res) => res.json())
+  .then((result) => {
+    setIsAuthLoading(false);
+    if (result && result.status === 'success') {
+      
+      // 🎯 BẢN VÁ TỐI CAO: TUYỆT ĐỐI KHÔNG sử dụng result.tab1 và result.tab2 để tránh bị [] đè lên
+      // Hãy để cho hàm batDauLangNgheFirestore độc quyền gán dữ liệu cho 2 tab này!
+      batDauLangNgheFirestore(emailKhachStandard);
 
-              // Mở khóa màn hình chính, bỏ qua hoàn toàn pop-up chọn trại
-              setIsLoggedIn(true);
-              setDongBoStatus('🟢 Hệ thống sẵn sàng');
+      // Chỉ lấy các tab phụ trợ tính toán từ Google Sheets về máy khách
+      setDanhSachDangDe(result.tab4 || []);
+      if (result && result.tab5) {
+        setDataHeoThit(result.tab5.dataLocHt ? result.tab5.dataLocHt : result.tab5);
+      } else {
+        setDataHeoThit(null);
+      }
+      if (result.tab6 && Array.isArray(result.tab6)) {
+        setDanhSachCauHinhVacXin(result.tab6);
+      }
+      if (result.tab7 && Array.isArray(result.tab7)) {
+        setDanhSachSoTay(result.tab7);
+      }
+
+      // Mở khóa màn hình chính lán trại
+      setIsLoggedIn(true);
+      setDongBoStatus('🟢 Hệ thống sẵn sàng');
             } else {
               setDongBoStatus('🔴 Lỗi đồng bộ cấu trúc Server');
               Alert.alert("Thông báo", "Đăng nhập thành công nhưng không thể nạp sổ liệu. Vui lòng bấm Tải lại!");
@@ -886,12 +906,68 @@ const [dataHeoThit, setDataHeoThit] = useState(null);
         Alert.alert("Lỗi truy cập", chuoiLoi);
       });
   };
+const batDauLangNgheFirestore = (emailChuan) => {
+  // Hủy listener cũ nếu có (tránh chồng lắng nghe khi gọi lại)
+  if (unsubscribeRefs.current.lichSu) unsubscribeRefs.current.lichSu();
+  if (unsubscribeRefs.current.maTai) unsubscribeRefs.current.maTai();
+
+  const emailChuanQuet = emailChuan.toString().toLowerCase().trim();
+  console.log("🛰️ [FIRESTORE] Kích nổ cổng lắng nghe thời gian thực cho:", emailChuanQuet);
+
+  // 1. KÊNH LẮNG NGHE NHẬT KÝ SỰ KIỆN (Du_Lieu_Goc)
+  const qLichSu = query(collection(db, "Du_Lieu_Goc"), where("userEmail", "==", emailChuanQuet));
+  unsubscribeRefs.current.lichSu = onSnapshot(qLichSu, (snapshot) => {
+    if (!snapshot.empty) {
+      // 🎯 BẢN VÁ TỐI CAO: Bắt buộc phải gộp d.id vào Object để nuôi sống keyExtractor và bộ lọc so sánh
+      const ds = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      console.log(`✅ [FIRESTORE] Đã cập nhật ngầm thành công ${ds.length} dòng dữ liệu Nhật ký!`);
+      setDanhSachLichSu(ds);
+    } else {
+      console.log("⚠️ [FIRESTORE] Bộ sưu tập Du_Lieu_Goc trả về mảng rỗng.");
+      setDanhSachLichSu([]);
+    }
+  }, (err) => console.log("❌ Lỗi nghẽn cổng kết nối Du_Lieu_Goc:", err));
+
+  // 2. KÊNH LẮNG NGHE DANH BẠ SỔ MÃ TAI NÁI (Danh_Sach_Ma_Tai)
+  const qMaTai = query(collection(db, "Danh_Sach_Ma_Tai"), where("userEmail", "==", emailChuanQuet));
+  unsubscribeRefs.current.maTai = onSnapshot(qMaTai, (snapshot) => {
+    if (!snapshot.empty) {
+      const ds = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      console.log(`✅ [FIRESTORE] Đã cập nhật ngầm thành công ${ds.length} dòng Sổ mã tai nái!`);
+      
+      // 🧠 THUẬT TOÁN GÁC CỔNG FIRESTORE: Sắp xếp tìm ra con heo có mã ID lớn nhất (tức là con vừa gõ mới nhất lán trại)
+      let maIdMoiNhatThucTe = "";
+      ds.forEach(h => {
+        if (h && h.id && h.id.toString().includes("MTSK_")) {
+          if (h.id.toString() > maIdMoiNhatThucTe) {
+            maIdMoiNhatThucTe = h.id.toString();
+          }
+        }
+      });
+
+      // 🌟 TIẾN HÀNH DON DẸP: Duyệt mảng mạng đổ về, con nào cũ hơn con vừa gõ là ép dập cờ màu cam ngay lập tức
+      const dsDonSachCoCam = ds.map(heo => {
+        if (heo && heo.vuaNhapMoi === "chua_reload" && heo.id !== maIdMoiNhatThucTe) {
+          return { ...heo, vuaNhapMoi: false }; // Tắt trạng thái thông báo màu cam của các con cũ vĩnh viễn
+        }
+        return heo;
+      });
+
+      setDanhSachMaTai(dsDonSachCoCam);
+    } else {
+      console.log("⚠️ [FIRESTORE] Bộ sưu tập Danh_Sach_Ma_Tai trả về mảng rỗng.");
+      setDanhSachMaTai([]);
+    }
+  }, (err) => console.log("❌ Lỗi nghẽn cổng kết nối Danh_Sach_Ma_Tai:", err));
+};
 
 
 
 
   // 🔑 HÀM XỬ LÝ ĐĂNG XUẤT - XÓA SẠCH BỘ NHỚ TRÊN CHIP ĐIỆN THOẠI
    const handleLogOut = async () => {
+    if (unsubscribeRefs.current.lichSu) unsubscribeRefs.current.lichSu();
+if (unsubscribeRefs.current.maTai) unsubscribeRefs.current.maTai();
     try {
       // Xóa sạch bộ nhớ tạm thời trên ổ cứng điện thoại
       await AsyncStorage.clear();
@@ -1010,33 +1086,71 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
     const xauNgauNhien = Math.random().toString(36).substring(7);
     const khoaDemTongHop = `cache_tonghop_pigvn_${emailChuan}`;
 
-    fetch(`${WEB_APP_URL}?action=get_all_data&userEmail=${emailChuan}&_nocache=${xauNgauNhien}`, { method: 'GET', redirect: 'follow' })
-      .then((res) => res.json())
-      .then((result) => {
-        setIsInitialLoading(false);
-        if (result && result.status === 'success') {
-          setDanhSachLichSu(result.tab1 || []);
-          setDanhSachMaTai(result.tab2 || []);
-          setDataThongKe(result.tab3 || null);
-          setDanhSachDangDe(result.tab4 || []);
-          if (result && result.tab5) {
-            setDataHeoThit(result.tab5.dataLocHt ? result.tab5.dataLocHt : result.tab5);
-          } else {
-            setDataHeoThit(null);
-          }
-          if (result.tab6 && Array.isArray(result.tab6)) {
-            setDanhSachCauHinhVacXin(result.tab6);
-          } else {
-            setDanhSachCauHinhVacXin([]);
-          }
-          if (result.tab7 && Array.isArray(result.tab7)) {
-  setDanhSachSoTay(result.tab7);
-} else {
-  setDanhSachSoTay([]);
-}
+   fetch(`${WEB_APP_URL}?action=get_all_data&userEmail=${emailChuan}&_nocache=${xauNgauNhien}`, { method: 'GET', redirect: 'follow' })
+  .then((res) => res.json())
+  .then((result) => {
+    setIsInitialLoading(false);
+    if (result && result.status === 'success') {
+      setDanhSachDangDe(result.tab4 || []);
+      if (result && result.tab5) {
+        setDataHeoThit(result.tab5.dataLocHt ? result.tab5.dataLocHt : result.tab5);
+      } else {
+        setDataHeoThit(null);
+      }
+      if (result.tab6 && Array.isArray(result.tab6)) {
+        setDanhSachCauHinhVacXin(result.tab6);
+      } else {
+        setDanhSachCauHinhVacXin([]);
+      }
+      if (result.tab7 && Array.isArray(result.tab7)) {
+        setDanhSachSoTay(result.tab7);
+      } else {
+        setDanhSachSoTay([]);
+      }
 
-          AsyncStorage.setItem(khoaDemTongHop, JSON.stringify(result)).catch(e => console.log(e));
-          setDongBoStatus('✅ Đã cập nhật!');
+     // ✅ CHÈN THÊM TOÀN BỘ ĐOẠN CODE NÀY VÀO ĐÂY:
+
+      // 1. Dập cờ trực tiếp trên mảng RAM hiển thị của Sổ mã tai ngoài màn hình lập tức
+      setDanhSachMaTai(prev => {
+        if (!Array.isArray(prev)) return [];
+        return prev.map(heo => {
+          if (heo && heo.vuaNhapMoi === "chua_reload") {
+            return { ...heo, vuaNhapMoi: false }; // Tắt trạng thái hiển thị màu cam
+          }
+          return heo;
+        });
+      });
+
+      // 2. Dập cờ trên mảng global mặt tiền để đồng bộ các bộ lọc phân nhóm của Tab 2
+      if (global && Array.isArray(global.danhSachCapNhatTrangThai)) {
+        global.danhSachCapNhatTrangThai = global.danhSachCapNhatTrangThai.map(heo => {
+          if (heo && heo.vuaNhapMoi === "chua_reload") {
+            return { ...heo, vuaNhapMoi: false };
+          }
+          return heo;
+        });
+      }
+
+      // 3. Lọc sạch cờ trong cục dữ liệu Sheets vừa tải về từ Server trước khi nén gói lưu xuống máy
+      if (result && result.tab2 && Array.isArray(result.tab2)) {
+        result.tab2 = result.tab2.map(heo => {
+          if (heo && heo.vuaNhapMoi === "chua_reload") {
+            return { ...heo, vuaNhapMoi: false };
+          }
+          return heo;
+        });
+      }
+
+      // 🎯 (Giữ nguyên luồng đóng gói lưu dữ liệu cũ của anh ngay phía dưới)
+      const duLieuGopDeLuu = {
+
+        ...result,
+        tab1: danhSachLichSu, // Giữ nguyên nhật ký lịch sử Firestore đang có trên máy
+        tab2: danhSachMaTai   // Giữ nguyên danh bạ mã tai Firestore đang có trên máy
+      };
+
+      AsyncStorage.setItem(khoaDemTongHop, JSON.stringify(duLieuGopDeLuu)).catch(e => console.log(e));
+      setDongBoStatus('✅ Đã cập nhật!');
         } else {
           setDongBoStatus('❌ Không thể cập nhật dữ liệu trại');
         }
@@ -2204,7 +2318,7 @@ else if (checkSuKien === "đẻ" || checkSuKien === "de" || checkSuKien === "cai
       ngay: suaHeoThitNgay,
       maTai: suaHeoThitActionType,   
       suKien: suaHeoThitActionType, 
-      soHeo: newQty,
+      soHeo: newQty.toString(), 
       khoThai: "", coiCoc: "", chetNgop: "", chonNuoi: "", 
       ghiChu: suaHeoThitGhiChu ? suaHeoThitGhiChu.trim() : "",
       tuanBan: newWeekStr 
@@ -2330,10 +2444,16 @@ else if (checkSuKien === "đẻ" || checkSuKien === "de" || checkSuKien === "cai
     };
 
     // Chọc RAM cập nhật lập tức danh sách hiển thị ngoài màn hình chính lán trại trong 0.001s
-    setDanhSachMaTai(prev => [dongMoiMaTai, ...prev]);
-    if (global && Array.isArray(global.danhSachCapNhatTrangThai)) {
-      global.danhSachCapNhatTrangThai = [dongMoiMaTai, ...global.danhSachCapNhatTrangThai];
-    }
+    setDanhSachMaTai(prev => {
+  if (!Array.isArray(prev)) return [dongMoiMaTai];
+  const mangCuDaDonDep = prev.map(heo => heo && heo.vuaNhapMoi === "chua_reload" ? { ...heo, vuaNhapMoi: false } : heo);
+  return [dongMoiMaTai, ...mangCuDaDonDep];
+});
+
+if (global && Array.isArray(global.danhSachCapNhatTrangThai)) {
+  const mangGlobalCuDaDonDep = global.danhSachCapNhatTrangThai.map(heo => heo && heo.vuaNhapMoi === "chua_reload" ? { ...heo, vuaNhapMoi: false } : heo);
+  global.danhSachCapNhatTrangThai = [dongMoiMaTai, ...mangGlobalCuDaDonDep];
+}
 
     // 🛰️ 3. Gọi trực tiếp thư viện ghi đè tài liệu Cloud Firestore NoSQL
     const { doc, setDoc } = require('firebase/firestore');
@@ -2434,10 +2554,16 @@ if (mtLua && mtLua.toString().trim() !== "" && mtLua !== "OPEN_MENU_MT_LUA") {
     };
     
     // Chọc RAM lập tức hiển thị giao diện phẳng sạch
-    setDanhSachMaTai(prev => [dongMoi, ...prev]); 
-    if (global && Array.isArray(global.danhSachCapNhatTrangThai)) {
-      global.danhSachCapNhatTrangThai = [dongMoi, ...global.danhSachCapNhatTrangThai];
-    }
+  setDanhSachMaTai(prev => {
+  if (!Array.isArray(prev)) return [dongMoi];
+  const mangCuDaDonDep = prev.map(heo => heo && heo.vuaNhapMoi === "chua_reload" ? { ...heo, vuaNhapMoi: false } : heo);
+  return [dongMoi, ...mangCuDaDonDep];
+});
+
+if (global && Array.isArray(global.danhSachCapNhatTrangThai)) {
+  const mangGlobalCuDaDonDep = global.danhSachCapNhatTrangThai.map(heo => heo && heo.vuaNhapMoi === "chua_reload" ? { ...heo, vuaNhapMoi: false } : heo);
+  global.danhSachCapNhatTrangThai = [dongMoi, ...mangGlobalCuDaDonDep];
+}
 
     setMtMaTai(''); 
     setMtGiong(''); 
@@ -2701,76 +2827,58 @@ if (mtLua && mtLua.toString().trim() !== "" && mtLua !== "OPEN_MENU_MT_LUA") {
 
           </View>
 
-          {/* TẦNG 2: HÀNG NGANG ĐÁY LỀ - ÉP HAI KHỐI CHỮ PHỤ CÙNG NẰM TRÊN 1 ĐƯỜNG THẲNG TĂM TẮP */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-            
-            {/* CHỮ PHỤ BÊN TRÁI: Căn lề trái tự nhiên */}
-            <Text style={{ fontSize: 8.5, fontWeight: '600', color: '#7f8c8d', fontStyle: 'italic', textAlign: 'left', flex: 1, paddingRight: 8 }}>
-              Phiên Bản 4.1
-            </Text>
+         {/* TẦNG 2: THANH TRẠNG THÁI TRUNG TÂM - HIỂN THỊ ĐỘC QUYỀN MẠNG REAL-TIME FIRESTORE */}
+<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+  
+  {/* LỀ TRÁI: Báo hiệu mạng đám mây Firestore luôn sẵn sàng 0 giây */}
+  <Text style={{ fontSize: 9, fontWeight: '700', color: '#28a745', fontStyle: 'italic', textAlign: 'left', flex: 1, paddingRight: 8 }}>
+    PigVN v4.2 • Sẵn Sàng Nhập Liệu
+  </Text>
 
-            {/* CHỮ PHỤ BÊN PHẢI: Căn lề phải tự nhiên, nằm ngang hàng tăm tắp với bên trái */}
-            <Text style={{ fontSize: 8.5, fontWeight: '600', color: '#7f8c8d', fontStyle: 'italic', textAlign: 'right' }}>
-              Bấm cập nhật để tính số liệu mới nhất!
-            </Text>
+  {/* LỀ PHẢI: Trạng thái kéo dữ liệu nền từ Google Sheets */}
+  <Text style={{ fontSize: 8.5, fontWeight: '600', color: dongBoStatus.includes('⏳') ? '#d35400' : '#7f8c8d', fontStyle: 'italic', textAlign: 'right' }}>
+    {dongBoStatus.includes('⏳') ? "⏳ Đang tải" : "✅ Thành Công"}
+  </Text>
 
-          </View>
+</View>
 
         </View>
 
         {/* Hàng 2: Trạng thái nạp ngầm + nút Tải Lại phẳng */}
-        <View style={{
-          backgroundColor: dongBoStatus.includes('❌') ? '#f8d7da' : (dongBoStatus.includes('⏳') ? '#fff3cd' : '#d4edda'),
-          paddingVertical: 6,
-          paddingHorizontal: 10,
-          borderRadius: 8,
-          borderWidth: 0.5,
-          borderColor: dongBoStatus.includes('❌') ? '#f5c6cb' : (dongBoStatus.includes('⏳') ? '#ffeeba' : '#c3e6cb'),
-          flexDirection: 'row',
-          justifyContent: 'center',
-          alignItems: 'center'
-        }}>
-          <Text style={{ 
-            fontSize: 11, 
-            fontWeight: '600', 
-            color: dongBoStatus.includes('❌') ? '#721c24' : (dongBoStatus.includes('⏳') ? '#856404' : '#155724'), 
-            marginRight: 6, 
-            textAlign: 'left', 
-            flex: 1 
-          }} numberOfLines={1}>
-            {dongBoStatus}
-          </Text>
-                    {/* ======================================================== */}
-          {/* 🚀 THIẾT KẾ CAO CẤP: NÚT CẬP NHẬT ĐỔ BÓNG VÀ TEXT PHỤ ĐẸP MẮT */}
-          {/* ======================================================== */}
-           {/* SỬA KHỐI NÀY: Ép nút đổi màu xám mờ và hiển thị số giây đếm ngược nếu bị khóa */}
-          <View style={{ alignItems: 'flex-end', justifyContent: 'center', marginVertical: 2 }}>
-            <TouchableOpacity 
-              activeOpacity={0.7}
-              style={{ 
-                backgroundColor: cooldownCapNhat > 0 ? '#95a5a6' : '#e65100', // Đổi sang màu xám khi bị khóa
-                paddingHorizontal: 12, 
-                paddingVertical: 6, 
-                borderRadius: 7,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                shadowColor: '#e65100',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: cooldownCapNhat > 0 ? 0 : 0.2,
-                shadowRadius: 3,
-                elevation: 3
-              }} 
-              onPress={handleRefreshData} 
-              disabled={isInitialLoading || cooldownCapNhat > 0} // Chặn bấm tuyệt đối khi cooldown > 0
-            >
-              <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '800', letterSpacing: 0.3 }}>
-                {cooldownCapNhat > 0 ? `⏳ Chờ ${cooldownCapNhat}s` : "🔄 Cập Nhật Số Liệu"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
+          <View 
+          style={{ 
+            flexDirection: 'row', 
+            justifyContent: 'flex-end', 
+            alignItems: 'center', 
+            marginTop: 6,
+            paddingHorizontal: 2,
+            display: currentTab === 'heo_thit' ? 'flex' : 'none'
+          }}
+        >
+          <TouchableOpacity 
+            activeOpacity={0.7}
+            style={{ 
+              backgroundColor: cooldownCapNhat > 0 ? '#95a5a6' : '#28a745', 
+              paddingHorizontal: 14, 
+              paddingVertical: 6, 
+              borderRadius: 14, 
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }} 
+            onPress={() => {
+              if (typeof handleRefreshData === 'function') {
+                handleRefreshData(userEmail);
+              }
+            }} 
+            disabled={isInitialLoading || cooldownCapNhat > 0} 
+          >
+            <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: 'bold' }}>
+              {cooldownCapNhat > 0 ? `⏳ Chờ ${cooldownCapNhat} giây` : "🔄 Cập Nhật Heo Thịt"}
+            </Text>
+          </TouchableOpacity>
         </View>
+
       </View>
 
       
@@ -2827,7 +2935,9 @@ if (mtLua && mtLua.toString().trim() !== "" && mtLua !== "OPEN_MENU_MT_LUA") {
   setDongBoStatus={setDongBoStatus}
   guiYeuCauMang={guiYeuCauMang}
   handleXoaNhatKyChuDong={handleXoaNhatKyChuDong} 
-
+filterSuKienTab1={filterSuKienTab1} setFilterSuKienTab1={setFilterSuKienTab1}
+  filterNgayTab1={filterNgayTab1} setFilterNgayTab1={setFilterNgayTab1}
+  isFilterDatePickerVisible={isFilterDatePickerVisible} setFilterDatePickerVisible={setFilterDatePickerVisible}
 />
 
 
@@ -2869,6 +2979,8 @@ if (mtLua && mtLua.toString().trim() !== "" && mtLua !== "OPEN_MENU_MT_LUA") {
   guiYeuCauMang={guiYeuCauMang}
   goiYMaTaiLoc={goiYMaTaiLoc}
 setGoiYMaTaiLoc={setGoiYMaTaiLoc}
+  handleXemChiTietHeo={handleXemChiTietHeo}
+
 />
 
 
@@ -2884,6 +2996,8 @@ setGoiYMaTaiLoc={setGoiYMaTaiLoc}
   dataThongKe={dataThongKe}
   dataHeoThit={dataHeoThit}
   danhSachLichSu={danhSachLichSu}
+    danhSachMaTai={danhSachMaTai} 
+        handleXemChiTietHeo={handleXemChiTietHeo}
   tuanBauDangMoTab3={tuanBauDangMoTab3}
   setTuanBauDangMoTab3={setTuanBauDangMoTab3}
 />
@@ -2957,12 +3071,11 @@ setGoiYMaTaiLoc={setGoiYMaTaiLoc}
 />
 
 
-    <SowDetailModal
-  visible={isDetailModalVisible && currentTab !== 'heo_thit'}
+<SowDetailModal
+  visible={!!isDetailModalVisible}
   onClose={() => { setIsDetailModalVisible(false); setSelectedHeoDetail(null); }}
   styles={styles}
   parseToDateObject={parseToDateObject}
-  
   selectedHeoDetail={selectedHeoDetail}
   nhomNaiTab2={nhomNaiTab2}
   danhSachLichSu={danhSachLichSu}
@@ -3084,19 +3197,29 @@ setGoiYMaTaiLoc={setGoiYMaTaiLoc}
         {/* 🎯 TẦNG 2: HÀNG DƯỚI (3 NÚT ĐỐI XỨNG PHẲNG PHIÊU CHUẨN ĐẾT) */}
         <View style={{ flexDirection: 'row', width: '100%', gap: 6 }}>
           {/* TAB 4: ĐANG ĐẺ */}
+                   {/* TAB 4: ĐANG ĐẺ - ĐÃ ĐỒNG BỘ PHẲNG THEO TOÁN TỬ PICKER TRUNG TÂM */}
           <TouchableOpacity activeOpacity={0.7} onPress={() => setCurrentTab('heo_de')} style={{ flex: 1 }}>
             <View style={{ backgroundColor: currentTab === 'heo_de' ? '#fff0e6' : '#f8f9fa', borderRadius: 8, width: '100%', height: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, borderWidth: 0.5, borderColor: currentTab === 'heo_de' ? '#ffd3b6' : '#eef2f5' }}>
               <Text style={{ fontSize: 12, fontWeight: currentTab === 'heo_de' ? '800' : '600', color: currentTab === 'heo_de' ? '#e65100' : '#495057' }}>🐖 Đang Đẻ</Text>
               <View style={{ backgroundColor: currentTab === 'heo_de' ? '#e65100' : '#28a745', paddingHorizontal: 4, paddingVertical: 0.5, borderRadius: 4 }}>
                 <Text style={{ fontSize: 8.5, fontWeight: '900', color: '#ffffff' }}>
                   {(() => {
+                    // Bốc trọn mảng trạng thái nái real-time trung tâm ra tính toán
                     const danhSachGoc = Array.isArray(global.danhSachCapNhatTrangThai) ? global.danhSachCapNhatTrangThai : [];
-                    return String(danhSachGoc.filter(heo => heo && !heo.vuaNhapMoi && heo.trangThaiDienThoai === "Đẻ").length);
+                    
+                    // 🎯 BẢN VÁ: Chỉ lọc duy nhất theo nhãn trạng thái sinh sản thực tế "Đẻ", 
+                    // phá bỏ hoàn toàn các điều kiện gác cổng ảo để khớp tuyệt đối với Picker!
+                    const soConThucTeTrongChuongDe = danhSachGoc.filter(heo => 
+                      heo && heo.trangThaiDienThoai === "Đẻ"
+                    ).length;
+
+                    return String(soConThucTeTrongChuongDe);
                   })()}
                 </Text>
               </View>
             </View>
           </TouchableOpacity>
+
  {/* TAB 6: THỐNG KÊ */}
           <TouchableOpacity activeOpacity={0.7} onPress={() => setCurrentTab('thong_ke')} style={{ flex: 1 }}>
             <View style={{ backgroundColor: currentTab === 'thong_ke' ? '#fff0e6' : '#f8f9fa', borderRadius: 8, width: '100%', height: 38, alignItems: 'center', justifyContent: 'center', borderWidth: 0.5, borderColor: currentTab === 'thong_ke' ? '#ffd3b6' : '#eef2f5' }}>

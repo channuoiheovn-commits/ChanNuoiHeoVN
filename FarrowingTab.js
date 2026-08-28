@@ -6,13 +6,9 @@ const FarrowingTab = ({
   styles,
   formatVNDate,
   parseToDateObject,
-  
-  // Các state tìm kiếm và dữ liệu nhận từ App.js
   searchTxtTab4, setSearchTxtTab4,
   danhSachLichSu,
   danhSachMaTai,
-  
-  // Hàm mở hộp thoại Cai sữa nhanh gốc của trại
   handleMoModalCaiSuaNhanh
 }) => {
   if (currentTab !== 'heo_de') return null;
@@ -21,15 +17,18 @@ const FarrowingTab = ({
     <View style={{ flex: 1, backgroundColor: '#ffffff' }}>
       <View style={{ paddingHorizontal: 15, marginTop: 10, marginBottom: 5 }}>
         <TextInput
-          style={[styles.inputStandard, { marginBottom: 0, borderRadius: 20, paddingHorizontal: 15, height: 44, backgroundColor: '#f0f0f0', borderWidth: 0, color: '#111111' }]}
-          placeholder="🔍 Tìm Heo Đang Đẻ"
+          style={[styles.inputStandard, { marginBottom: 0, borderRadius: 20, paddingHorizontal: 15, height: 42, backgroundColor: '#f0f0f0', borderWidth: 0, color: '#111111', fontSize: 13.5 }]}
+          placeholder="🔍 Tìm Heo Đang Đẻ..."
           placeholderTextColor="#888888"
           value={searchTxtTab4}
           onChangeText={setSearchTxtTab4}
           autoCapitalize="characters"
         />
       </View>
+      
       <FlatList
+        numColumns={2}
+        columnWrapperStyle={{ justifyContent: 'space-between', paddingHorizontal: 15, gap: 8 }}
         data={(() => {
           const danhSachGoc = Array.isArray(global.danhSachCapNhatTrangThai) ? global.danhSachCapNhatTrangThai : [];
 
@@ -43,17 +42,11 @@ const FarrowingTab = ({
                   : null;
                 const trangThaiMang = skCaiSuaMoiNhat ? skCaiSuaMoiNhat.syncStatus : "";
 
-                if (trangThaiHienTaiCuaApp === "Cai Sữa" && trangThaiMang === "waiting") {
-                  return true;
-                }
-                if (trangThaiHienTaiCuaApp === "Cai Sữa" || trangThaiHienTaiCuaApp === "Thải") {
-                  return false;
-                }
+                if (trangThaiHienTaiCuaApp === "Cai Sữa" && trangThaiMang === "waiting") return true;
+                if (trangThaiHienTaiCuaApp === "Cai Sữa" || trangThaiHienTaiCuaApp === "Thải") return false;
 
                 const trangThaiGocTuSheet = heo.trangThaiCotH ? heo.trangThaiCotH.toString().trim().normalize("NFC") : "";
-                if (trangThaiGocTuSheet === "Cai Sữa" || trangThaiGocTuSheet === "Thải") {
-                  return false;
-                }
+                if (trangThaiGocTuSheet === "Cai Sữa" || trangThaiGocTuSheet === "Thải") return false;
 
                 return trangThaiHienTaiCuaApp === "Đẻ" || trangThaiGocTuSheet === "Đẻ";
               })
@@ -61,17 +54,8 @@ const FarrowingTab = ({
 
           const mangDangDeChoList = mangNuoiConThucTe.map((nai, index) => {
             const maTaiInHoa = nai.maTai ? nai.maTai.toString().toUpperCase().trim() : "";
-            
-            const mangLichSuDe = Array.isArray(danhSachLichSu)
-              ? danhSachLichSu.filter(i => i && i.maTai && i.maTai.toString().toUpperCase().trim() === maTaiInHoa && i.suKien === "Đẻ" && i.actionType !== "delete")
-              : [];
-
-            mangLichSuDe.sort((a, b) => {
-              const timeA = parseToDateObject(a.ngay) ? parseToDateObject(a.ngay).getTime() : 0;
-              const timeB = parseToDateObject(b.ngay) ? parseToDateObject(b.ngay).getTime() : 0;
-              return timeB - timeA;
-            });
-
+            const mangLichSuDe = Array.isArray(danhSachLichSu) ? danhSachLichSu.filter(i => i && i.maTai && i.maTai.toString().toUpperCase().trim() === maTaiInHoa && i.suKien === "Đẻ" && i.actionType !== "delete") : [];
+  mangLichSuDe.sort((a, b) => (parseToDateObject(a.ngay)?.getTime() || 0) - (parseToDateObject(b.ngay)?.getTime() || 0));
             const skDeGanNhat = mangLichSuDe.length > 0 ? mangLichSuDe[0] : null;
 
             return {
@@ -90,6 +74,14 @@ const FarrowingTab = ({
             };
           });
 
+         mangDangDeChoList.sort((a, b) => {
+            const timeA = parseToDateObject(a.ngayDe) ? parseToDateObject(a.ngayDe).getTime() : 0;
+            const timeB = parseToDateObject(b.ngayDe) ? parseToDateObject(b.ngayDe).getTime() : 0;
+            if (timeA === 0) return 1;
+            if (timeB === 0) return -1;
+            return timeA - timeB; // Sắp xếp xuôi dòng thời gian: Cũ lên trước, Mới xuống sau
+          });
+
           return mangDangDeChoList.filter(i => {
             if (!searchTxtTab4) return true;
             if (!i || !i.maTai) return false;
@@ -97,157 +89,114 @@ const FarrowingTab = ({
           });
         })()}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingBottom: 110 }}
-        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 120, paddingTop: 8 }}
+        showsVerticalScrollIndicator={true}
         renderItem={({ item }) => {
-          return (
+          const soNgayDaDeNuoiCon = (() => {
+            if (!item.ngayDe || item.ngayDe === "---") return 0;
+            const dDe = parseToDateObject(item.ngayDe); if (!dDe) return 0;
+            const dNay = new Date(); dNay.setHours(0, 0, 0, 0);
+            return Math.max(0, Math.floor((dNay.getTime() - dDe.getTime()) / 86400000));
+          })();
+
+          const soTuanTuoiCon = Math.floor(soNgayDaDeNuoiCon / 7);
+       return (
             <View style={{ 
+              flex: 1,
               backgroundColor: '#ffffff', 
-              marginHorizontal: 15, 
               marginTop: 10, 
-              borderRadius: 10, 
-              padding: 14,
+              borderRadius: 12, 
+              padding: 10,
               borderWidth: 1, 
-              borderColor: '#eef2f5',
+              borderColor: '#e9ecef',
+              maxWidth: '48.5%', 
+              justifyContent: 'space-between',
               shadowColor: "#000000",
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.05,
-              shadowRadius: 4,
-              elevation: 3
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: 0.03,
+              shadowRadius: 2,
+              elevation: 1.5
             }}>
-              <View style={{ flex: 1 }}>
-                
-                {/* Hàng 1: Mã số nái đóng khung phẳng */}
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <Text style={{ fontSize: 13, color: '#6c757d', fontWeight: '500' }}>Mã số nái</Text>
+              <View>
+                {/* MÃ SỐ NÁI & LỨA ĐẺ */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                   <View style={{ backgroundColor: '#e7f1ff', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 0.5, borderColor: '#b8daff' }}>
-                    <Text style={{ color: '#007bff', fontWeight: 'bold', fontSize: 13 }}>{item.maTai || "---"}</Text>
-                  </View>
-                </View>
-
-                {/* Hàng 2: Giống và Lứa Đẻ */}
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5, borderBottomWidth: 0.5, borderBottomColor: '#f1f2f6' }}>
-                  <Text style={{ fontSize: 13, color: '#555555' }}>Giống / Lứa đẻ</Text>
-                  <Text style={{ fontSize: 13, color: '#111111', fontWeight: '500' }}>
-                    {item.giong || "---"} | lứa <Text style={{ fontWeight: 'bold', color: '#e83e8c' }}>{item.luaDe || "---"}</Text>
-                  </Text>
-                </View>
-
-                {/* Hàng 3: Ngày thực tế đẻ */}
-                {item.ngayDe && item.ngayDe !== "---" ? (
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5, borderBottomWidth: 0.5, borderBottomColor: '#f1f2f6' }}>
-                    <Text style={{ fontSize: 13, color: '#555555' }}>Ngày thực tế đẻ</Text>
-                    <Text style={{ fontSize: 13, color: '#111111', fontWeight: '600' }}>
-                      {(() => {
-                        const str = item.ngayDe.toString().trim();
-                        if (str.includes('/') && str.split('/').length === 3) return str.substring(0, 10);
-                        const d = new Date(str);
-                        if (isNaN(d.getTime())) return str.substring(0, 10);
-                        return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-                      })()}
+                    <Text style={{ color: '#007bff', fontWeight: 'bold', fontSize: 12 }} numberOfLines={1} allowFontScaling={false}>
+                      Mã: {item.maTai || "---"}
                     </Text>
                   </View>
-                ) : null}
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#e83e8c' }} numberOfLines={1} allowFontScaling={false}>
+                    {item.luaDe || "0"}
+                  </Text>
+                </View>
 
-                {/* Hàng 4: Số ngày đã đẻ & Số tuần tuổi heo con */}
-                {item.ngayDe && item.ngayDe !== "---" ? (
-                  <View style={{ backgroundColor: '#f8f9fa', borderRadius: 6, padding: 8, marginTop: 5, marginBottom: 5, borderWidth: 0.5, borderColor: '#dee2e6' }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 }}>
-                      <Text style={{ fontSize: 12.5, color: '#495057', fontWeight: '500' }}>Số ngày đã đẻ:</Text>
-                      <Text style={{ fontSize: 13, color: '#111111', fontWeight: 'bold' }}>
-                        {(() => {
-                          const dDe = parseToDateObject(item.ngayDe);
-                          if (!dDe) return "---";
-                          const dNay = new Date(); 
-                          dNay.setHours(0, 0, 0, 0);
-                          const khoangCachNgay = Math.floor((dNay.getTime() - dDe.getTime()) / 86400000);
-                          if (khoangCachNgay === 0) return "Hôm nay";
-                          return khoangCachNgay > 0 ? `${khoangCachNgay} ngày` : "---";
-                        })()}
-                      </Text>
-                    </View>
-                    
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                      <Text style={{ fontSize: 12.5, color: '#495057', fontWeight: '500' }}>Tuổi heo con ngoài ô:</Text>
-                      <Text style={{ fontSize: 13, color: '#111111', fontWeight: 'bold' }}>
-                        {(() => {
-                          const dDe = parseToDateObject(item.ngayDe);
-                          if (!dDe) return "---";
-                          const dNay = new Date(); 
-                          dNay.setHours(0, 0, 0, 0);
-                          const khoangCachNgay = Math.floor((dNay.getTime() - dDe.getTime()) / 86400000);
-                          const soTuan = Math.floor(khoangCachNgay / 7);
-                          if (khoangCachNgay === 0) return "Sơ sinh mới đẻ";
-                          return soTuan > 0 ? `${soTuan} tuần tuổi` : "Dưới 1 tuần tuổi";
-                        })()}
-                      </Text>
-                    </View>
+                {/* CHU KỲ NUÔI CON TỐI GIẢN */}
+                <View style={{ backgroundColor: '#f8f9fa', borderRadius: 8, padding: 6, marginBottom: 8, borderWidth: 0.5, borderColor: '#dee2e6' }}>
+                  <Text style={{ fontSize: 10.5, color: '#495057', fontWeight: 'bold' }} numberOfLines={1} allowFontScaling={false}>
+                    Ngày đẻ: {item.ngayDe ? item.ngayDe.toString().substring(0, 10) : "---"}
+                  </Text>
+                  <Text style={{ fontSize: 11, color: '#111111', fontWeight: '800', marginTop: 4 }} numberOfLines={1} allowFontScaling={false}>
+                    Đã đẻ: {soNgayDaDeNuoiCon === 0 ? "Hôm nay" : `${soNgayDaDeNuoiCon} ngày`}
+                  </Text>
+                  <Text style={{ fontSize: 10, color: '#6c757d', fontWeight: '600', marginTop: 3, fontStyle: 'italic' }} numberOfLines={1} allowFontScaling={false}>
+                    {soNgayDaDeNuoiCon === 0 ? "Sơ sinh mới đẻ" : `${soTuanTuoiCon} tuần tuổi`}
+                  </Text>
+                </View>
+
+                {/* SẢN LƯỢNG SƠ SINH GỘP PHẲNG */}
+                <View style={{ gap: 3, paddingVertical: 2 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 11, color: '#666666' }} allowFontScaling={false}>Tổng sơ sinh:</Text>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#111111' }} allowFontScaling={false}>{item.soHeoCon || "0"} con</Text>
                   </View>
-                ) : null}
-
-                {/* Hàng 5: Tổng số con đẻ ra */}
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5, borderBottomWidth: 0.5, borderBottomColor: '#f1f2f6' }}>
-                  <Text style={{ fontSize: 13, color: '#555555' }}>Tổng số con đẻ ra</Text>
-                  <Text style={{ fontSize: 13, color: '#111111', fontWeight: 'bold' }}>{item.soHeoCon || "0"} con</Text>
+                  
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 11, color: '#dc3545' }} allowFontScaling={false}>Hao hụt:</Text>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#dc3545' }} allowFontScaling={false}>
+                      {Number(item.khoThai || 0) + Number(item.coiCoc || 0) + Number(item.chetNgop || 0)} con
+                    </Text>
+                  </View>
+                  
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 3, backgroundColor: '#e8f5e9', paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4 }}>
+                    <Text style={{ fontSize: 11, color: '#1b5e20', fontWeight: 'bold' }} allowFontScaling={false}>Chọn nuôi:</Text>
+                    <Text style={{ fontSize: 11.5, fontWeight: '900', color: '#28a745' }} allowFontScaling={false}>{item.chonNuoi || "0"} con</Text>
+                  </View>
                 </View>
 
-                {/* Hàng 6: Khối hiển thị chi tiết số con */}
-                <View style={{ backgroundColor: '#f8f9fa', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 8, marginTop: 4, borderWidth: 0.5, borderColor: '#dee2e6' }}>
-                  <Text style={{ fontSize: 12, color: '#666666', lineHeight: 18 }}>
-                    Khô thai: <Text style={{fontWeight:'600', color:'#111111'}}>{item.khoThai || 0}</Text> | Còi cọc: <Text style={{fontWeight:'600', color:'#111111'}}>{item.coiCoc || 0}</Text> | Chết ngộp: <Text style={{fontWeight:'600', color:'#111111'}}>{item.chetNgop || 0}</Text>
-                  </Text>
-                  <Text style={{ fontSize: 12, color: '#111111', fontWeight: 'bold', marginTop: 4, borderTopWidth: 0.5, borderTopColor: '#e9ecef', paddingTop: 4 }}>
-                    Chọn Nuôi Thực Tế: <Text style={{color:'#28a745'}}>{item.chonNuoi || 0} con</Text>
-                  </Text>
-                </View>
-
-                {/* Hàng 7: Khối hiển thị Ghi chú đẻ */}
+                {/* DÒNG GHI CHÚ NÉN MỊN */}
                 {item.ghiChuDe && item.ghiChuDe.toString().trim() !== "" && item.ghiChuDe.toString().trim() !== "---" ? (
-                  <View style={{ marginTop: 8, paddingTop: 6, borderTopWidth: 0.5, borderTopColor: '#f1f2f6' }}>
-                    <Text style={{ fontSize: 12, color: '#6c757d', fontStyle: 'italic', lineHeight: 16 }}>
-                      Ghi chú: <Text style={{ color: '#e65100', fontWeight: '500', fontStyle: 'normal' }}>{item.ghiChuDe}</Text>
-                    </Text>
-                  </View>
+                  <Text style={{ fontSize: 9.5, color: '#fd7e14', fontStyle: 'italic', marginTop: 5, lineHeight: 12 }} numberOfLines={1} allowFontScaling={false}>
+                    Ghi chú: {item.ghiChuDe}
+                  </Text>
                 ) : null}
-
-                {/* Khối bọc nút bấm điều hướng gác cổng mạng ngầm */}
-                {(() => {
-                  const maTaiChuan = item.maTai ? item.maTai.toString().toUpperCase().trim() : "";
-                  const lichSuNaiHienTai = Array.isArray(danhSachLichSu)
-                    ? danhSachLichSu.filter(i => i && i.maTai && i.maTai.toString().toUpperCase().trim() === maTaiChuan && (i.suKien === "Cai Sữa" || i.suKien === "Đẻ") && i.actionType !== "delete")
-                    : [];
-
-                  lichSuNaiHienTai.sort((a, b) => {
-                    const timeA = parseToDateObject(a.ngay) ? parseToDateObject(a.ngay).getTime() : 0;
-                    const timeB = parseToDateObject(b.ngay) ? parseToDateObject(b.ngay).getTime() : 0;
-                    if (timeB !== timeA) return timeB - timeA;
-                    return (b.id ? b.id.toString() : "").localeCompare(a.id ? a.id.toString() : "");
-                  });
-
-                  const dongMoiNhatTrenRam = lichSuNaiHienTai.length > 0 ? lichSuNaiHienTai[0] : null;
-                  const hanhDongMoiNhat = dongMoiNhatTrenRam ? dongMoiNhatTrenRam.suKien.toString().trim().normalize("NFC") : "";
-                  const trangThaiMangMoiNhat = dongMoiNhatTrenRam ? dongMoiNhatTrenRam.syncStatus : "";
-
-                  if (hanhDongMoiNhat === "Cai Sữa" && trangThaiMangMoiNhat === "waiting") {
-                    return (
-                      <View style={{ backgroundColor: '#d4edda', paddingVertical: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginTop: 12, borderWidth: 1, borderColor: '#c3e6cb' }}>
-                        <Text style={{ color: '#155724', fontWeight: 'bold', fontSize: 13, letterSpacing: 0.5 }}>✅ Đang Lưu</Text>
-                      </View>
-                    );
-                  }
-
-                  return (
-                    <TouchableOpacity 
-                      activeOpacity={0.6}
-                      onPress={() => handleMoModalCaiSuaNhanh(item)}
-                      style={{ backgroundColor: '#e65100', paddingVertical: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginTop: 12, shadowColor: '#e65100', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2 }}
-                    >
-                      <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 13, letterSpacing: 0.5 }}>Cai Sữa Nhanh</Text>
-                    </TouchableOpacity>
-                  );
-                })()}
-
               </View>
+
+              {/* NÚT BẤM CAI SỮA CHÂN ĐẾ */}
+              {(() => {
+                const maTaiChuan = item.maTai ? item.maTai.toString().toUpperCase().trim() : "";
+                const lichSuNaiHienTai = Array.isArray(danhSachLichSu) ? danhSachLichSu.filter(i => i && i.maTai && i.maTai.toString().toUpperCase().trim() === maTaiChuan && (i.suKien === "Cai Sữa" || i.suKien === "Đẻ") && i.actionType !== "delete") : [];
+                lichSuNaiHienTai.sort((a, b) => (parseToDateObject(b.ngay)?.getTime() || 0) - (parseToDateObject(a.ngay)?.getTime() || 0));
+                const dongMoiNhatTrenRam = lichSuNaiHienTai.length > 0 ? lichSuNaiHienTai[0] : null;
+
+                if (dongMoiNhatTrenRam && dongMoiNhatTrenRam.suKien === "Cai Sữa" && dongMoiNhatTrenRam.syncStatus === "waiting") {
+                  return (
+                    <View style={{ backgroundColor: '#d4edda', paddingVertical: 7, borderRadius: 6, alignItems: 'center', justifyContent: 'center', marginTop: 10, borderWidth: 0.5, borderColor: '#c3e6cb' }}>
+                      <Text style={{ color: '#155724', fontWeight: 'bold', fontSize: 11.5 }} allowFontScaling={false}>Đang Lưu</Text>
+                    </View>
+                  );
+                }
+
+                return (
+                  <TouchableOpacity 
+                    activeOpacity={0.6}
+                    onPress={() => handleMoModalCaiSuaNhanh(item)}
+                    style={{ backgroundColor: '#e65100', paddingVertical: 7, borderRadius: 6, alignItems: 'center', justifyContent: 'center', marginTop: 10 }}
+                  >
+                    <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 11.5 }} allowFontScaling={false}>Cai Sữa Nhanh</Text>
+                  </TouchableOpacity>
+                );
+              })()}
+
             </View>
           );
         }}

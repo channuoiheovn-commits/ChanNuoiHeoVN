@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TextInput, FlatList, TouchableOpacity, ScrollView, Alert, Platform } from 'react-native';
+import { View, Text, TextInput, FlatList, TouchableOpacity, ScrollView, Alert, Platform, Modal } from 'react-native';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 
 const DataEntryTab = ({
@@ -36,35 +36,45 @@ const DataEntryTab = ({
   tinhNgayDuKienDe,
   setDongBoStatus,
   guiYeuCauMang,
-  handleXoaNhatKyChuDong
+  handleXoaNhatKyChuDong,
+  filterSuKienTab1, setFilterSuKienTab1,
+  filterNgayTab1, setFilterNgayTab1,
+  isFilterDatePickerVisible, setFilterDatePickerVisible
 }) => {
   if (currentTab !== 'nhap_lieu') return null;
 
   const [sortMode, setSortMode] = React.useState('thu_tu_nhap'); // Mặc định ban đầu: 'thu_tu_nhap' hoặc 'ngay_thang'
-
+const [toaDoONhap, setToaDoONhap] = React.useState({ x: 0, y: 0, width: 0, height: 0 });
+const refONhapInput = React.useRef(null);
 
   return (
     <View style={{ flex: 1, paddingBottom: 80, width: '100%' }}>
-      <View style={{ paddingHorizontal: 15, marginTop: 12, marginBottom: 5 }}>
-        <TextInput 
-          style={[styles.inputStandard, { marginBottom: 0, borderRadius: 20, paddingHorizontal: 15, height: 42, backgroundColor: '#f2f2f2', borderWidth: 0, color: '#111111', fontSize: 14 }]} 
-          placeholder="🔍 Nhập Mã Tai để xem lịch sử" 
-          placeholderTextColor="#888888" 
-          value={searchTxtTab1} 
-          onChangeText={setSearchTxtTab1} 
-          autoCapitalize="characters" 
-        />
-      </View>
+      
+      
      <FlatList 
-        data={(() => {
+ keyboardDismissMode="on-drag" // 🌟 VẠN NĂNG: Vuốt nhẹ màn hình là ẩn bàn phím ngay, cực mượt
+        keyboardShouldPersistTaps="handled" // 🌟 Giúp bấm các nút Sửa/Xóa nhạy bén kể cả khi bàn phím đang mở
+        
           // Lọc sạch các dòng rác và dòng sự kiện heo thịt để thu về Nhật ký heo nái sạch
-          let nhatKyFiltered = danhSachLichSu
-            .filter(i => i && i.actionType !== "delete")
-            .filter(i => i && i.suKien !== "Nhập Đàn" && i.suKien !== "Hao Hụt" && i.suKien !== "Bán");
+          data={(() => {
+  let nhatKyFiltered = danhSachLichSu
+    .filter(i => i && i.actionType !== "delete")
+    .filter(i => i && i.suKien !== "Nhập Đàn" && i.suKien !== "Hao Hụt" && i.suKien !== "Bán");
 
-          if (searchTxtTab1) {
-            nhatKyFiltered = nhatKyFiltered.filter(i => i && i.maTai && i.maTai.toLowerCase().includes(searchTxtTab1.toLowerCase()));
-          }
+  if (searchTxtTab1) {
+    nhatKyFiltered = nhatKyFiltered.filter(i => i && i.maTai && i.maTai.toLowerCase().includes(searchTxtTab1.toLowerCase()));
+  }
+
+  // 🌟 BẢN VÁ 1: LỌC THEO SỰ KIỆN (NẾU KHÁCH CHỌN KHÁC 'ALL')
+  if (filterSuKienTab1 && filterSuKienTab1 !== 'ALL') {
+    nhatKyFiltered = nhatKyFiltered.filter(i => i && i.suKien === filterSuKienTab1);
+  }
+
+  // 🌟 BẢN VÁ 2: LỌC THEO KHỚP NGÀY THÁNG CHỌN RIÊNG
+  if (filterNgayTab1) {
+    nhatKyFiltered = nhatKyFiltered.filter(i => i && i.ngay && i.ngay.toString().includes(filterNgayTab1));
+  }
+
 
           // 🧠 THUẬT TOÁN ĐIỀU PHỐI ĐẢO TRỤC THỜI GIAN THEO BIẾN SORTMODE NGOÀI RAM DI ĐỘNG (BẢN CHUẨN ĐẾT VẠN NĂNG)
           nhatKyFiltered.sort((a, b) => {
@@ -110,7 +120,7 @@ const DataEntryTab = ({
         contentContainerStyle={{ paddingBottom: 80 }} 
 
         ListHeaderComponent={
-          !searchTxtTab1 ? (
+    
             <View style={{ backgroundColor: '#ffffff', paddingBottom: 5 }}>
               <View style={[styles.formFixedContainer, { backgroundColor: '#fffaf5', borderWidth: 1.2, borderColor: '#ffd3b6', borderRadius: 10, padding: 12, shadowColor: "#e65100", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 2, elevation: 1 }]}>
                 
@@ -160,35 +170,81 @@ const DataEntryTab = ({
                     </View>
                   )}
                 </View>
-                <View style={[styles.rowInput, { marginBottom: 10 }]}>
+               <View style={[styles.rowInput, { marginBottom: 10 }]}>
                   <TouchableOpacity style={[styles.dateButton, { borderColor: '#ffd3b6', backgroundColor: '#ffffff', height: 42, justifyContent: 'center', paddingHorizontal: 10, zIndex: 10000 }]} onPress={() => setDatePickerVisibility(true)}>
                     <Text style={[styles.dateButtonText, { fontSize: 14 }]}>📅 {ngayHienThi}</Text>
                   </TouchableOpacity>
 
                   {!laSuKienBanHeo ? (
-                    <View style={{ flex: 0.5, position: 'relative' }}>
-                      <TextInput style={[styles.inputMaTai, { color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6', height: 42, fontSize: 14, paddingVertical: 0, width: '100%' }]} placeholder="Mã Tai" placeholderTextColor="#777777" value={maTai} autoCapitalize="characters" onChangeText={(txt) => { setMaTai(txt); const txtChuan = txt.trim().toUpperCase(); if (txtChuan.length > 0 && Array.isArray(danhSachMaTai)) { const mangLoc = danhSachMaTai.filter(heo => heo && heo.maTai && heo.maTai.toString().toUpperCase().includes(txtChuan) && (!heo.trangThaiCotH || heo.trangThaiCotH.toString().trim().normalize("NFC") !== "Thải")).slice(0, 5); setGoiYMaTaiLoc(mangLoc); } else { setGoiYMaTaiLoc([]); } }} />
-                      {goiYMaTaiLoc.length > 0 && <TouchableOpacity style={{ position: 'absolute', top: -1000, left: -1000, right: -1000, bottom: -1000, backgroundColor: 'transparent', zIndex: 99998 }} activeOpacity={1} onPress={() => setGoiYMaTaiLoc([])} />}
-                      {goiYMaTaiLoc.length > 0 && (
-                        <View style={{ position: 'absolute', top: 45, left: 0, right: 0, backgroundColor: '#ffffff', borderRadius: 8, borderWidth: 1, borderColor: '#ffd3b6', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 9999, zIndex: 999999, maxHeight: 220, overflow: 'hidden' }}>
-                          <ScrollView nestedScrollEnabled={true} keyboardShouldPersistTaps="always" showsVerticalScrollIndicator={false}>
+                    <View style={{ flex: 0.5, position: 'relative', zIndex: 9999 }}>
+                      {/* 1. Ô NHẬP MÃ TAI GỐC ĐỨNG IM VỮNG CHẮC */}
+                      <TextInput 
+                        style={[styles.inputMaTai, { color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6', height: 42, fontSize: 14, paddingVertical: 0, width: '100%' }]} 
+                        placeholder="Mã Tai" 
+                        placeholderTextColor="#777777" 
+                        value={maTai} 
+                        autoCapitalize="characters" 
+                        onChangeText={(txt) => { 
+                          setMaTai(txt); 
+                          const txtChuan = txt.trim().toUpperCase(); 
+                          if (txtChuan.length > 0 && Array.isArray(danhSachMaTai)) { 
+                            const mangLoc = danhSachMaTai.filter(heo => heo && heo.maTai && heo.maTai.toString().toUpperCase().includes(txtChuan) && (!heo.trangThaiCotH || heo.trangThaiCotH.toString().trim().normalize("NFC") !== "Thải")).slice(0, 15); 
+                            setGoiYMaTaiLoc(mangLoc); 
+                          } else { 
+                            setGoiYMaTaiLoc([]); 
+                          } 
+                        }} 
+                      />
+
+                      {/* 2. KHAY GỢI Ý: Ghim chuẩn lề dưới ô nhập 45px, ép nổi cao nhất để vuốt cuộn mượt mà */}
+                      {Array.isArray(goiYMaTaiLoc) && goiYMaTaiLoc.length > 0 && (
+                        <View style={{ 
+                          position: 'absolute', 
+                          top: 45, 
+                          left: 0, 
+                          right: 0, 
+                          backgroundColor: '#ffffff', 
+                          borderRadius: 8, 
+                          borderWidth: 1.5, 
+                          borderColor: '#ffd3b6', 
+                          shadowColor: '#000', 
+                          shadowOffset: { width: 0, height: 4 }, 
+                          shadowOpacity: 0.18, 
+                          shadowRadius: 4, 
+                          elevation: 9999, 
+                          zIndex: 999999, 
+                          maxHeight: 180, 
+                          overflow: 'hidden' 
+                        }}>
+                          <ScrollView keyboardShouldPersistTaps="always" showsVerticalScrollIndicator={true} nestedScrollEnabled={true}>
                             {goiYMaTaiLoc.map((heo, index) => (
-                              <TouchableOpacity key={index} activeOpacity={0.4} style={{ paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: index === goiYMaTaiLoc.length - 1 ? 0.5 : 0, borderBottomColor: '#ffe5d4', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#ffffff' }} onPress={() => { setMaTai(heo.maTai.toString().toUpperCase()); setGoiYMaTaiLoc([]); }}>
-                                <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#e65100' }}>🏷️ {heo.maTai}</Text>
-                                <Text style={{ fontSize: 11, color: '#666666', fontStyle: 'italic' }}>{heo.giong || "---"}</Text>
+                              <TouchableOpacity 
+                                key={`suggest_nai_clean_${index}`} 
+                                activeOpacity={0.6} 
+                                style={{ paddingVertical: 11, paddingHorizontal: 12, borderBottomWidth: index < goiYMaTaiLoc.length - 1 ? 0.5 : 0, borderBottomColor: '#ffe5d4', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#ffffff' }} 
+                                onPress={() => { setMaTai(heo.maTai.toString().toUpperCase()); setGoiYMaTaiLoc([]); }}
+                              >
+                                <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#e65100' }}>🐖 {heo.maTai}</Text>
+                                <Text style={{ fontSize: 11, color: '#666666', fontStyle: 'italic' }}>{heo.giong || "Nái Nhà"}</Text>
                               </TouchableOpacity>
                             ))}
                           </ScrollView>
                         </View>
                       )}
 
+                      {/* NÚT BẤM PHỤ TRỢ: Chạm ra ngoài để đóng nhanh khay */}
+                      {Array.isArray(goiYMaTaiLoc) && goiYMaTaiLoc.length > 0 && (
+                        <TouchableOpacity style={{ position: 'absolute', top: -1000, left: -1000, right: -1000, bottom: -1000, backgroundColor: 'transparent', zIndex: 9998 }} activeOpacity={1} onPress={() => setGoiYMaTaiLoc([])} />
+                      )}
+
+                      {/* 3. NÚT THÊM NHANH HOẶC BÁO TRÙNG THẢI LOẠI */}
                       {(() => {
                         const maTaiChuan = maTai.trim().toUpperCase();
                         if (maTaiChuan.length === 0 || laSuKienBanHeo || goiYMaTaiLoc.length > 0) return null;
                         const heoTimDuoc = Array.isArray(danhSachMaTai) && danhSachMaTai.find(heo => heo && heo.maTai && heo.maTai.toString().toUpperCase().trim() === maTaiChuan);
                         const trangThaiHeo = heoTimDuoc && heoTimDuoc.trangThaiCotH ? heoTimDuoc.trangThaiCotH.toString().trim().normalize("NFC") : "";
                         if (heoTimDuoc && trangThaiHeo === "Thải") {
-                          return <View style={{ backgroundColor: '#fff3cd', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, marginTop: 6, borderWidth: 0.5, borderColor: '#ffeeba', alignItems: 'center' }}><Text style={{ color: '#856404', fontWeight: '600', fontSize: 11 }}>⚠️ Mã tai này trùng with heo đã thải!</Text></View>;
+                          return <View style={{ backgroundColor: '#fff3cd', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, marginTop: 6, borderWidth: 0.5, borderColor: '#ffeeba', alignItems: 'center' }}><Text style={{ color: '#856404', fontWeight: '600', fontSize: 11 }}>⚠️ Mã tai này trùng với heo đã thải!</Text></View>;
                         }
                         if (!heoTimDuoc) {
                           return <TouchableOpacity activeOpacity={0.7} style={{ backgroundColor: '#fff0e6', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20, marginTop: 6, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#ffd3b6', flexDirection: 'row', gap: 4 }} onPress={() => setIsQuickAddModalVisible(true)}><Text style={{ fontSize: 13 }}>➕</Text><Text style={{ color: '#e65100', fontWeight: 'bold', fontSize: 12 }}>Mã tai mới! Bấm để thêm vào sổ gốc</Text></TouchableOpacity>;
@@ -247,6 +303,118 @@ const DataEntryTab = ({
                 
                 <TextInput style={[styles.inputStandard, { color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6', marginBottom: 10, height: 42, fontSize: 14, paddingVertical: 0 }]} placeholder="Nhập Ghi chú (nếu có)" placeholderTextColor="#888888" value={ghiChu} onChangeText={setGhiChu} />
                 <TouchableOpacity onPress={handleSaveNew} activeOpacity={0.5} style={{ backgroundColor: '#e65100', paddingVertical: 9, borderRadius: 6, alignItems: 'center', marginTop: 4 }}><Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 14 }}>Thêm Mới Nhật Ký</Text></TouchableOpacity>
+
+   <View style={{ marginTop: 16, borderTopWidth: 1, borderTopColor: '#ffe5d4', paddingTop: 14 }}>
+ 
+  <Text style={{ fontSize: 12.5, color: '#666666', fontWeight: 'bold', marginBottom: 6, marginLeft: 2 }}>
+    🔍 TRA CỨU LỊCH SỬ NÁI TRONG SỔ:
+  </Text>
+  <TextInput 
+    style={[styles.inputStandard, { marginBottom: 0, borderRadius: 20, paddingHorizontal: 15, height: 42, backgroundColor: '#f2f2f2', borderWidth: 0, color: '#111111', fontSize: 14 }]} 
+    placeholder="Nhập Mã Tai để xem lịch sử riêng..." 
+    placeholderTextColor="#888888" 
+    value={searchTxtTab1} 
+    onChangeText={setSearchTxtTab1} 
+    autoCapitalize="characters" 
+  />
+</View>
+
+                <View style={{ paddingHorizontal: 15, marginTop: 8, marginBottom: 5 }}>
+ <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingRight: 10 }}>
+  
+  {/* 🌟 VỊ TRÍ ĐỘT PHÁ: NẾU CÓ CHỌN NGÀY, ÉP NÚT XOÁ LỌC NHẢY VỌT LÊN ĐẦU HÀNG LẬP TỨC */}
+  {!!filterNgayTab1 && (
+    <TouchableOpacity 
+      onPress={() => { setFilterSuKienTab1('ALL'); setFilterNgayTab1(''); }}
+      style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 15, backgroundColor: '#fff0f0', borderWidth: 1, borderColor: '#fbc48c', flexDirection: 'row', alignItems: 'center', gap: 3 }}
+    >
+      <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#dc3545' }}>✕ Xoá Lọc Ngày</Text>
+    </TouchableOpacity>
+  )}
+
+  {/* 2. NÚT CHỌN LỌC NGÀY CHÍNH */}
+  <TouchableOpacity 
+    onPress={() => setFilterDatePickerVisible(true)}
+    style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 15, backgroundColor: filterNgayTab1 ? '#28a745' : '#f2f2f2', flexDirection: 'row', alignItems: 'center', gap: 3 }}
+  >
+    <Text style={{ fontSize: 12, fontWeight: 'bold', color: filterNgayTab1 ? '#ffffff' : '#666666' }}>
+      {filterNgayTab1 ? `📅 ${filterNgayTab1}` : "📅 Chọn Lọc Ngày"}
+    </Text>
+  </TouchableOpacity>
+
+  {/* 3. NÚT TẤT CẢ */}
+  {(() => {
+    const laNutAllDangBat = !filterSuKienTab1 || filterSuKienTab1 === 'ALL';
+    const soCaAll = Array.isArray(danhSachLichSu) 
+      ? danhSachLichSu.filter(i => i && i.actionType !== "delete" && i.suKien !== "Nhập Đàn" && i.suKien !== "Hao Hụt" && i.suKien !== "Bán").length
+      : 0;
+
+    return (
+      <TouchableOpacity 
+        activeOpacity={0.7}
+        onPress={() => setFilterSuKienTab1('ALL')}
+        style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 15, backgroundColor: laNutAllDangBat ? '#e65100' : '#f2f2f2' }}
+      >
+        <Text style={{ fontSize: 12, fontWeight: 'bold', color: laNutAllDangBat ? '#ffffff' : '#666666' }}>
+          Tất cả ({soCaAll})
+        </Text>
+      </TouchableOpacity>
+    );
+  })()}
+
+  {/* 4. CÁC NÚT SỰ KIỆN PHỐI/LỐC/ĐẺ TỰ ĐỘNG */}
+  {Array.isArray(danhSachSuKien) && danhSachSuKien.map((skTen, skIdx) => {
+    const skTenChuan = (skTen || "").toString().trim();
+    const laNutNàyDangBat = filterSuKienTab1 === skTenChuan && filterSuKienTab1 !== 'ALL';
+
+    const soCaDocDuoc = Array.isArray(danhSachLichSu) 
+      ? danhSachLichSu.filter(i => i && i.actionType !== "delete" && (i.suKien || "").toString().trim() === skTenChuan).length
+      : 0;
+
+    return (
+      <TouchableOpacity 
+        key={`filter_sk_btn_optimized_${skIdx}`}
+        activeOpacity={0.7}
+        onPress={() => setFilterSuKienTab1(skTenChuan)}
+        style={{ 
+          paddingHorizontal: 12, 
+          paddingVertical: 6, 
+          borderRadius: 15, 
+          backgroundColor: laNutNàyDangBat ? '#e65100' : '#f2f2f2' 
+        }}
+      >
+        <Text style={{ fontSize: 12, fontWeight: 'bold', color: laNutNàyDangBat ? '#ffffff' : '#666666' }}>
+          {skTenChuan} ({soCaDocDuoc})
+        </Text>
+      </TouchableOpacity>
+    );
+  })}
+
+  {/* 5. NÚT XOÁ LỌC SỰ KIỆN PHỤ TRỢ (Chỉ hiện ở cuối nếu khách lọc sự kiện độc lập mà không lọc ngày) */}
+  {(!filterNgayTab1 && filterSuKienTab1 && filterSuKienTab1 !== 'ALL') && (
+    <TouchableOpacity 
+      onPress={() => { setFilterSuKienTab1('ALL'); setFilterNgayTab1(''); }}
+      style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 15, backgroundColor: '#fff0f0', borderWidth: 0.5, borderColor: '#fbc48c' }}
+    >
+      <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#dc3545' }}>✕ Xoá Lọc SK</Text>
+    </TouchableOpacity>
+  )}
+</ScrollView>
+
+  {/* POP-UP CHỌN NGÀY RIÊNG CHO BỘ LỌC TAB 1 */}
+   <DateTimePickerModal 
+    isVisible={typeof isFilterDatePickerVisible !== 'undefined' ? isFilterDatePickerVisible : false} 
+    mode="date" 
+    display="inline" // 🌟 ÉP PHẲNG BẢNG LỊCH CHỐNG CUỘN XOAY TRÒN
+    locale="vi" 
+    onConfirm={(d) => { setFilterNgayTab1(formatVNDate(d)); setFilterDatePickerVisible(false); }} 
+    onCancel={() => setFilterDatePickerVisible(false)} 
+    confirmTextConfirm="Xác nhận" 
+    cancelText="Hủy" 
+  />
+</View>
+
+             
               </View>
               <View style={{ flexDirection: 'row', gap: 6, marginTop: 12, marginBottom: 4, width: '100%', paddingHorizontal: 4 }}>
                 <TouchableOpacity 
@@ -289,7 +457,7 @@ const DataEntryTab = ({
               </View>
 
             </View>
-          ) : null
+         
         }
         
         renderItem={({ item }) => 

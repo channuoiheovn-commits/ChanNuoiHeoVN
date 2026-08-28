@@ -275,7 +275,7 @@ const PigMeatTab = ({ currentTab, styles, formatVNDate, dataHeoThit, danhSachLic
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                           <View style={{ backgroundColor: mNen, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 5 }}><Text style={{ fontSize: 11, fontWeight: '900', color: mChu }}>{txtHienBadge}</Text></View>
-                          <Text style={{ fontSize: 13, fontWeight: '800', color: '#1a1f23' }}>{nhanTuan}</Text>
+                          <Text style={{ fontSize: 13, fontWeight: '800', color: '#1a1f23' }}>Thời Điểm : {nhanTuan}</Text>
                         </View>
                         <Text style={{ fontSize: 11.5, color: '#6c757d', fontWeight: '500' }}>📅 {(() => {
                           if (!item.ngay) return "---";
