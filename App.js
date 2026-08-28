@@ -2755,7 +2755,7 @@ if (global && Array.isArray(global.danhSachCapNhatTrangThai)) {
             </Text>
 
             <Text style={{ fontSize: 10, color: '#adb5bd', marginTop: 5, fontWeight: '500' }}>
-              © 2026 PigVN • Phiên bản 4.1
+              © 2026 PigVN • Phiên bản 4.2
             </Text>
           </View>
 
