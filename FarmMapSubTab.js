@@ -500,8 +500,8 @@ const [soDongNhatKyCam, setSoDongNhatKyCam] = useState(30);
     return tongXacNhan < 0 ? 0 : tongXacNhan; // Chặn sai số âm phòng hờ rớt mạng
   }, [danhSachChuongThit]);
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1, backgroundColor: '#ffffff' }}>
-      <ScrollView style={{ flex: 1, marginTop: 8 }} contentContainerStyle={{ paddingBottom: 60 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+   <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, backgroundColor: '#ffffff' }}>     
+    <ScrollView style={{ flex: 1, marginTop: 8 }} contentContainerStyle={{ paddingBottom: 60 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={{ flex: 1, paddingHorizontal: 2 }}>
           
                    {/* ========================================== */}
@@ -655,7 +655,9 @@ const [soDongNhatKyCam, setSoDongNhatKyCam] = useState(30);
                     {/* ========================================== */}
           {/* SƠ ĐỒ CHUỒNG DẠNG THẺ HAI TẦNG COMPACT CARD */}
           {/* ========================================== */}
-          <Text style={{ fontSize: 12.5, fontWeight: '900', color: '#1a1f23', marginBottom: 10, paddingLeft: 2 }}>SƠ ĐỒ KHU THỊT + KHU CAI SỮA</Text>
+<Text style={{ fontSize: 12.5, fontWeight: '900', color: '#1a1f23', marginBottom: 10, paddingLeft: 2 }}>
+  {`SƠ ĐỒ KHU THỊT + KHU CAI SỮA (Tổng ${tongHeoKhuChuongThit + tongHeoKhuCaiSua} con)`}
+</Text>
           {danhSachPhanKhuHienThi.map((khuVuc, kIdx) => (
             <View key={`khu_row_container_${khuVuc.tenKhu}_${kIdx}`} style={{ marginBottom: 14, backgroundColor: '#fdfdfd', borderWidth: 1, borderColor: '#e9ecef', borderRadius: 12, padding: 12 }}>
               <Text style={{ fontSize: 12.5, fontWeight: '950', color: khuVuc.tenKhu.includes("Cai") ? '#e65100' : '#0056b3', marginBottom: 12, backgroundColor: khuVuc.tenKhu.includes("Cai") ? '#fff3cd' : '#e7f1ff', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 5, alignSelf: 'flex-start' }}>

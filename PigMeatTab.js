@@ -142,7 +142,7 @@ const PigMeatTab = ({ currentTab, styles, formatVNDate, dataHeoThit, danhSachLic
                 </Text>
               </View>
               <Text style={{ fontSize: 11, color: '#6c757d', fontStyle: 'italic', marginTop: 4, fontWeight: '500' }}>
-                ( Bấm Cập Nhật Số Liệu để ra số liệu mới nhất )
+                ( Bấm Cập Nhật Heo Thịt để ra số liệu mới nhất )
               </Text>
             </View>
 

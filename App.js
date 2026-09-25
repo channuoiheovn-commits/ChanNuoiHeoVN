@@ -2903,7 +2903,7 @@ if (global && Array.isArray(global.danhSachCapNhatTrangThai)) {
             </Text>
 
             <Text style={{ fontSize: 10, color: '#adb5bd', marginTop: 5, fontWeight: '500' }}>
-              © 2026 PigVN • Phiên bản 5.0
+              © 2026 PigVN • Phiên bản Heo Nái - Heo Thịt 5.0
             </Text>
           </View>
 
@@ -3406,11 +3406,11 @@ setGoiYMaTaiLoc={setGoiYMaTaiLoc}
               <Text style={{ fontSize: 12, fontWeight: currentTab === 'heo_thit' ? '800' : '600', color: currentTab === 'heo_thit' ? '#e65100' : '#495057' }}>🏠 Heo Thịt</Text>
               
               {/* Khối huy hiệu bốc trực tiếp số tổng sống sau khi đã được trạm useEffect xử lý bù trừ */}
-              <View style={{ backgroundColor: currentTab === 'heo_thit' ? '#e65100' : '#28a745', paddingHorizontal: 4, paddingVertical: 0.5, borderRadius: 4 }}>
+              {/* <View style={{ backgroundColor: currentTab === 'heo_thit' ? '#e65100' : '#28a745', paddingHorizontal: 4, paddingVertical: 0.5, borderRadius: 4 }}>
                 <Text style={{ fontSize: 8.5, fontWeight: '900', color: '#ffffff' }}>
                   {dataHeoThit && dataHeoThit.tongHeoThitSauBuTruRealTime !== undefined ? String(dataHeoThit.tongHeoThitSauBuTruRealTime) : (dataHeoThit?.tongHeoThit || "0")}
                 </Text>
-              </View>
+              </View> */}
 
             </View>
 
