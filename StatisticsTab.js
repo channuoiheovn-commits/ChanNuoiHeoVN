@@ -262,10 +262,10 @@ const [tieuDeLuaChon, setTieuDeLuaChon] = React.useState('');
                     const tongNaiTinhPhanTram = Math.max(1, (thongKeCoCauLuaNai.hauBi || 0) + (thongKeCoCauLuaNai.lua_1_3 || 0) + (thongKeCoCauLuaNai.lua_4_7 || 0) + (thongKeCoCauLuaNai.lua_tren_7 || 0));
 
                     const cấuHìnhCột = [
-                      { key: 'HB', tieuDe: 'Heo Hậu Bị', moTa: 'Chưa phối giống lứa nào', soCon: thongKeCoCauLuaNai.hauBi, mauChuChu: '#495057', mauNền: '#f8f9fa', mauVách: '#6c757d', mauThanh: '#ced4da' },
-                      { key: '1_3', tieuDe: 'Lứa Trẻ Sung Mãn', moTa: 'Lứa đẻ từ 1 đến lứa 3', soCon: thongKeCoCauLuaNai.lua_1_3, mauChuChu: '#28a745', mauNền: '#f4fbf7', mauVách: '#28a745', mauThanh: '#a3cfbb' },
-                      { key: '4_7', tieuDe: 'Lứa Giữa Ổn Định', moTa: 'Lứa đẻ từ 4 đến lứa 7', soCon: thongKeCoCauLuaNai.lua_4_7, mauChuChu: '#007bff', mauNền: '#f0f7ff', mauVách: '#007bff', mauThanh: '#b8daff' },
-                      { key: 'TR_7', tieuDe: 'Lứa Cao Loại Thải', moTa: 'Heo già trên 7 lứa đẻ', soCon: thongKeCoCauLuaNai.lua_tren_7, mauChuChu: '#dc3545', mauNền: '#fff5f5', mauVách: '#dc3545', mauThanh: '#f5c6cb' }
+                      { key: 'HB', tieuDe: 'Lứa Heo Hậu Bị', moTa: 'Chưa phối giống lứa nào', soCon: thongKeCoCauLuaNai.hauBi, mauChuChu: '#495057', mauNền: '#f8f9fa', mauVách: '#6c757d', mauThanh: '#ced4da' },
+                      { key: '1_3', tieuDe: 'Lứa Heo Sung Mãn', moTa: 'Lứa đẻ từ 1 đến lứa 3', soCon: thongKeCoCauLuaNai.lua_1_3, mauChuChu: '#28a745', mauNền: '#f4fbf7', mauVách: '#28a745', mauThanh: '#a3cfbb' },
+                      { key: '4_7', tieuDe: 'Lứa Heo Ổn Định', moTa: 'Lứa đẻ từ 4 đến lứa 7', soCon: thongKeCoCauLuaNai.lua_4_7, mauChuChu: '#007bff', mauNền: '#f0f7ff', mauVách: '#007bff', mauThanh: '#b8daff' },
+                      { key: 'TR_7', tieuDe: 'Lứa Xem Xét Thải', moTa: 'Heo già trên 7 lứa đẻ', soCon: thongKeCoCauLuaNai.lua_tren_7, mauChuChu: '#dc3545', mauNền: '#fff5f5', mauVách: '#dc3545', mauThanh: '#f5c6cb' }
                     ];
 
                     return cấuHìnhCột.map((itemCnf) => {

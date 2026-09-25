@@ -94,9 +94,10 @@ const AddPigMeatModal = ({
             {/* 📊 PHẦN 1: THIẾT KẾ PHÂN HỘP GIAI ĐOẠN RÕ RÀNG TRONG POP-UP THÊM MỚI */}
             <View style={{ backgroundColor: '#f8f9fa', borderWidth: 1, borderColor: '#e9ecef', borderRadius: 12, padding: 8, gap: 12, marginBottom: 10 }}>
               {(() => {
-                const mangLuaTuanThitAdd = [
-                  { id: "4", nhan: "Cai Sữa", khoaRAM: "caiSua" },
-                  { id: "5", nhan: "Tuần 5", khoaRAM: "5 Tuần" },
+               const mangLuaTuanThitAdd = [
+  { id: "3", nhan: "Tuần 3", khoaRAM: "3 Tuần" },
+  { id: "4", nhan: "Tuần 4", khoaRAM: "4 Tuần" },
+  { id: "5", nhan: "Tuần 5", khoaRAM: "5 Tuần" },
                   { id: "6", nhan: "Tuần 6", khoaRAM: "6 Tuần" },
                   { id: "7", nhan: "Tuần 7", khoaRAM: "7 Tuần" },
                   { id: "8", nhan: "Tuần 8", khoaRAM: "8 Tuần" },
@@ -176,11 +177,9 @@ const AddPigMeatModal = ({
                         alignItems: 'center', justifyContent: 'center'
                       }}
                     >
-                      <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 11.5, fontWeight: '800', color: laOThuocCheck ? mauChuChuongCap : '#212529' }}>
-                        {node.nhan}
+                      <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 11.5, fontWeight: '800', color: laOThuocCheck ? mauChuChuongCap : '#212529' }}> {node.nhan}
                       </Text>
-                      <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 10, fontWeight: 'bold', color: laOThuocCheck ? mauChuChuongCap : cConTinh, marginTop: 2 }}>
-                        {soConHienTai} Con
+                      <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 10, fontWeight: 'bold', color: laOThuocCheck ? mauChuChuongCap : cConTinh, marginTop: 2 }}>{soConHienTai} Con
                       </Text>
                     </TouchableOpacity>
                   );
@@ -189,18 +188,17 @@ const AddPigMeatModal = ({
                 return (
                   <View style={{ gap: 10, width: '100%' }}>
                     <View style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 8, borderWidth: 1, borderColor: '#dee2e6' }}>
-                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#e65100', marginBottom: 6, paddingLeft: 2 }}>
-                        Giai đoạn 2. Heo Cai Sữa (4 tuần)
-                      </Text>
-                      <View style={{ flexDirection: 'row', gap: 5 }}>
-                        {veNutOChonAdd("4", false)}
-                        <View style={{ flex: 1 }} /><View style={{ flex: 1 }} />
-                      </View>
-                    </View>
+  <Text style={{ fontSize: 11, fontWeight: '800', color: '#e65100', marginBottom: 6, paddingLeft: 2 }}> Giai đoạn 2. Heo Cai Sữa
+  </Text>
+  <View style={{ flexDirection: 'row', gap: 5 }}>
+    {veNutOChonAdd("3", false)}
+    {veNutOChonAdd("4", false)}
+    <View style={{ flex: 1 }} />
+  </View>
+</View>
 
                     <View style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 8, borderWidth: 1, borderColor: '#dee2e6' }}>
-                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#e65100', marginBottom: 6, paddingLeft: 2 }}>
-                        Giai đoạn 3. Đàn 10 - 30kg (Tuần 5-9)
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#e65100', marginBottom: 6, paddingLeft: 2 }}> Giai đoạn 3. Đàn 10 - 30kg (Tuần 5-9)
                       </Text>
                       <View style={{ flexDirection: 'row', gap: 5, marginBottom: 5 }}>
                         {["5", "6", "7"].map(id => veNutOChonAdd(id, false))}
@@ -212,8 +210,7 @@ const AddPigMeatModal = ({
                     </View>
 
                     <View style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 8, borderWidth: 1, borderColor: '#dee2e6' }}>
-                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#e65100', marginBottom: 6, paddingLeft: 2 }}>
-                        Giai đoạn 4. Đàn 30 - 60kg (Tuần 10-15)
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#e65100', marginBottom: 6, paddingLeft: 2 }}> Giai đoạn 4. Đàn 30 - 60kg (Tuần 10-15)
                       </Text>
                       <View style={{ flexDirection: 'row', gap: 5, marginBottom: 5 }}>
                         {["10", "11", "12"].map(id => veNutOChonAdd(id, false))}
@@ -224,8 +221,7 @@ const AddPigMeatModal = ({
                     </View>
 
                     <View style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 8, borderWidth: 1, borderColor: '#dee2e6' }}>
-                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#e65100', marginBottom: 6, paddingLeft: 2 }}>
-                        Giai đoạn 5. Đàn 60 - 100kg (Tuần 16-20)
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#e65100', marginBottom: 6, paddingLeft: 2 }}>Giai đoạn 5. Đàn 60 - 100kg (Tuần 16-20)
                       </Text>
                       <View style={{ flexDirection: 'row', gap: 5, marginBottom: 5 }}>
                         {["16", "17", "18"].map(id => veNutOChonAdd(id, false))}
@@ -237,8 +233,7 @@ const AddPigMeatModal = ({
                     </View>
                 {/* 🔴 GIAI DOAN 6: TU 100KG - 130KG BOXED */}
                 <View style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 8, borderWidth: 1, borderColor: '#f5c6cb' }}>
-                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#c82333', marginBottom: 6, paddingLeft: 2 }}>
-                    Giai đoạn 6. Từ 100kg - 130kg (Tuần 21-25)
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#c82333', marginBottom: 6, paddingLeft: 2 }}> Giai đoạn 6. Từ 100kg - 130kg (Tuần 21-25)
                   </Text>
                   <View style={{ flexDirection: 'row', gap: 5, marginBottom: 5 }}>
                     {["21", "22", "23"].map(id => veNutOChonAdd(id, true))}
@@ -251,8 +246,7 @@ const AddPigMeatModal = ({
 
                 {/* 🔴 GIAI DOAN 7: GIAI DOAN 130KG - XUAT CHUONG */}
                 <View style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 8, borderWidth: 1, borderColor: '#f5c6cb' }}>
-                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#c82333', marginBottom: 6, paddingLeft: 2 }}>
-                    Giai đoạn 7. 130kg - Xuất Chuồng (Tuần 26-30)
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#c82333', marginBottom: 6, paddingLeft: 2 }}> Giai đoạn 7. 130kg - Xuất Chuồng (Tuần 26-30)
                   </Text>
                   <View style={{ flexDirection: 'row', gap: 5, marginBottom: 5 }}>
                     {["26", "27", "28"].map(id => veNutOChonAdd(id, true))}

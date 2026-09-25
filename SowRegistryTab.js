@@ -4,10 +4,45 @@ import { View, Text, TextInput, FlatList, TouchableOpacity, ScrollView, Alert, K
 const SowRegistryTab = ({
   currentTab, styles, parseToDateObject, formatStringtoVN, formatVNDate, WEB_APP_URL, userEmail,
   searchTxtTab2, setSearchTxtTab2, nhomNaiTab2, setNhomNaiTab2, danhSachLichSu, danhSachMaTai, setDanhSachMaTai, danhSachLuaHeo,
-  mtMaTai, setMtMaTai, mtGiong, setMtGiong, mtLua, setMtLua,
+  mtMaTai, setMtMaTai, mtGiong, setMtGiong, mtLua, setMtLua,idsMoiTaoGanDay,
   setIsQuickAddModalVisible, setSelectedHeoDetail, setIsDetailModalVisible, setLoadingLichSuDe, setMangLichSuDeCuaTai, handleSaveMaTai, handleMtEditClick, setDongBoStatus, guiYeuCauMang, goiYMaTaiLoc, setGoiYMaTaiLoc, handleXemChiTietHeo
 }) => {
   if (currentTab !== 'ma_tai') return null;
+
+  // 🔎 Gom sự kiện mới nhất của TỪNG con nái đúng 1 lần duy nhất (thay vì quét lại danhSachLichSu mỗi khi cần biết 1 con)
+  const banDoSuKienMoiNhat = {};
+  if (Array.isArray(danhSachLichSu)) {
+    const banDoTamThoi = {};
+    danhSachLichSu.forEach(l => {
+      if (!l || !l.maTai || l.actionType === "delete") return;
+      const ma = l.maTai.toString().toUpperCase().trim();
+      const t = parseToDateObject(l.ngay)?.getTime() || 0;
+      const hienTai = banDoTamThoi[ma];
+      if (!hienTai || t > hienTai.t || (t === hienTai.t && (l.id || "").toString() > (hienTai.id || "").toString())) {
+        banDoTamThoi[ma] = { t, id: l.id, suKien: l.suKien };
+      }
+    });
+    for (var maKey in banDoTamThoi) {
+      banDoSuKienMoiNhat[maKey] = banDoTamThoi[maKey].suKien ? banDoTamThoi[maKey].suKien.toString().trim().normalize("NFC") : null;
+    }
+  }
+
+  // ⚠️ Nái "cần theo dõi": đang thật sự Phối hoặc Đẻ, NHƯNG sự kiện mới nhất (tra bảng, không quét lại) lại là "Theo Dõi"
+  const laNaiCanTheoDoi = (heo) => {
+    if (!heo || !heo.maTai) return false;
+    const tt = heo.trangThaiDienThoai ? heo.trangThaiDienThoai.toString().trim().normalize("NFC") : "";
+    if (tt !== "Phối" && tt !== "Đẻ") return false;
+    const skMoiNhat = banDoSuKienMoiNhat[heo.maTai.toString().toUpperCase().trim()];
+    return !!skMoiNhat && skMoiNhat.toUpperCase() === "THEO DÕI";
+  };
+
+  // 🚨 Đếm số nái cần theo dõi ở từng nhóm — hiện dòng nhỏ ở cuối mỗi tab
+  const soNaiPhoiCanTheoDoi = (global.danhSachCapNhatTrangThai || []).filter(heo => 
+    heo && heo.trangThaiDienThoai && heo.trangThaiDienThoai.toString().trim().normalize("NFC") === "Phối" && laNaiCanTheoDoi(heo)
+  ).length;
+  const soNaiDeCanTheoDoi = (global.danhSachCapNhatTrangThai || []).filter(heo => 
+    heo && heo.trangThaiDienThoai && heo.trangThaiDienThoai.toString().trim().normalize("NFC") === "Đẻ" && laNaiCanTheoDoi(heo)
+  ).length;
 
   return (
     <View style={{ flex: 1, paddingBottom: 80, width: '100%' }}>
@@ -50,8 +85,26 @@ const SowRegistryTab = ({
               let trongSoB = layTrongSoUuTien(b.trangThaiDienThoai);
               if (trongSoA !== trongSoB) return trongSoA - trongSoB;
             } else if (nhomNaiTab2 === 'De') {
+              // 🚨 Ghim nái "cần theo dõi" (đang nuôi con nhưng vừa bị đánh dấu Theo Dõi) lên đầu danh sách
+              const uuTienA = laNaiCanTheoDoi(a) ? 0 : 1;
+              const uuTienB = laNaiCanTheoDoi(b) ? 0 : 1;
+              if (uuTienA !== uuTienB) return uuTienA - uuTienB;
+
               const layMocThoiGianDeAnToan = (m) => (!m || !m.ngayDeDongThoiGianThuc) ? 0 : (parseToDateObject(m.ngayDeDongThoiGianThuc)?.getTime() || 0);
               let mocA = layMocThoiGianDeAnToan(a); let mocB = layMocThoiGianDeAnToan(b);
+              if (mocA === 0 && mocB !== 0) return 1; if (mocA !== 0 && mocB === 0) return -1;
+              if (mocA !== mocB) return mocA - mocB;
+            } else if (nhomNaiTab2 === 'Phoi') {
+              // 🚨 Ghim nái "cần theo dõi" (đang bầu nhưng vừa bị đánh dấu Theo Dõi) lên đầu danh sách
+              const uuTienA = laNaiCanTheoDoi(a) ? 0 : 1;
+              const uuTienB = laNaiCanTheoDoi(b) ? 0 : 1;
+              if (uuTienA !== uuTienB) return uuTienA - uuTienB;
+
+              const layMocThoiGianDuSinhAnToan = (m) => {
+                if (!m || !m.ngayDuKienDeMoi || m.ngayDuKienDeMoi.toString().trim() === "" || m.ngayDuKienDeMoi.toString().trim() === "---") return 0;
+                return parseToDateObject(m.ngayDuKienDeMoi.toString().trim())?.getTime() || 0;
+              };
+              let mocA = layMocThoiGianDuSinhAnToan(a); let mocB = layMocThoiGianDuSinhAnToan(b);
               if (mocA === 0 && mocB !== 0) return 1; if (mocA !== 0 && mocB === 0) return -1;
               if (mocA !== mocB) return mocA - mocB;
             } else {
@@ -193,13 +246,11 @@ const SowRegistryTab = ({
                   </TouchableOpacity>
                 </View>
 
-                {Array.isArray(danhSachMaTai) && danhSachMaTai.some(i => i && i.vuaNhapMoi === "chua_reload") && (
-                  <View style={{ paddingHorizontal: 15, marginTop: 5, marginBottom: 5 }}>
+{Array.isArray(danhSachMaTai) && danhSachMaTai.some(i => i && idsMoiTaoGanDay && idsMoiTaoGanDay[i.id]) && (                  <View style={{ paddingHorizontal: 15, marginTop: 5, marginBottom: 5 }}>
                     <Text style={{ fontSize: 12, color: '#e65100', fontWeight: 'bold', marginBottom: 4 }}>
                       🎉 Thêm mã số tai vào sổ thành công!
                     </Text>
-                    {danhSachMaTai.filter(i => i && i.vuaNhapMoi === "chua_reload").map((naiVuaThem, idx) => (
-                      <View key={`vuanhap_${naiVuaThem.id || idx}`} style={[{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fffdf6', borderColor: '#fbc48c', opacity: naiVuaThem.syncStatus === "waiting" ? 0.45 : 1 }, styles.historyCard, { marginHorizontal: 0, marginTop: 4, padding: 10 }]}>
+{danhSachMaTai.filter(i => i && idsMoiTaoGanDay && idsMoiTaoGanDay[i.id]).map((naiVuaThem, idx) => (                      <View key={`vuanhap_${naiVuaThem.id || idx}`} style={[{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fffdf6', borderColor: '#fbc48c', opacity: naiVuaThem.syncStatus === "waiting" ? 0.45 : 1 }, styles.historyCard, { marginHorizontal: 0, marginTop: 4, padding: 10 }]}>
                         <View style={{ flex: 1 }}>
                           {naiVuaThem.syncStatus === "waiting" && <Text style={{ fontSize: 10, color: '#e65100', fontStyle: 'italic', marginBottom: 4 }}>Đang xử lý dữ liệu...</Text>}
                           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
@@ -322,8 +373,7 @@ const SowRegistryTab = ({
                         {item.syncStatus === "waiting" ? (
                           <Text style={{ fontSize: 11, color: '#e65100', fontWeight: '600', fontStyle: 'italic' }}>Đang tạo...</Text>
                         ) : (
-                          item.vuaNhapMoi ? <Text style={{ fontSize: 11, color: '#28a745', fontWeight: '600' }}>Đã vào sổ</Text> : null
-                        )}
+(idsMoiTaoGanDay && idsMoiTaoGanDay[item.id]) ? <Text style={{ fontSize: 11, color: '#28a745', fontWeight: '600' }}>Đã vào sổ</Text> : null                        )}
                       </View>
                     </View>
                     
@@ -332,6 +382,13 @@ const SowRegistryTab = ({
                       Giống: <Text style={{ fontWeight: '600' }}>{item.giong || "---"}</Text> | Lứa: <Text style={{ fontWeight: 'bold', color: '#e83e8c' }}>{item.luaHienThiThongMinh || item.lua || "---"}</Text>
                     </Text>
                     
+                    {/* ⚠️ NHẮC NHỞ: nái này đang mang thai/nuôi con nhưng vừa được đánh dấu Theo Dõi trong nhật ký gần nhất */}
+                    {laNaiCanTheoDoi(item) && (
+                      <View style={{ backgroundColor: '#fff3cd', borderWidth: 1, borderColor: '#ffe69c', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, marginBottom: 5, alignSelf: 'flex-start' }}>
+                        <Text style={{ fontSize: 11, color: '#856404', fontWeight: '700' }}>⚠️ Đang đánh dấu Theo Dõi — cần kiểm tra</Text>
+                      </View>
+                    )}
+
                     {/* Hàng 3: Trạng thái sinh sản thực tế */}
                     <Text style={{ fontSize: 13, color: '#111111', fontWeight: '500', marginBottom: 4 }}>
                       Trạng Thái: <Text style={{ 
@@ -565,6 +622,20 @@ const SowRegistryTab = ({
           </View>
         }
       />
+       {nhomNaiTab2 === 'Phoi' && soNaiPhoiCanTheoDoi > 0 && (
+        <View style={{ paddingVertical: 8, paddingHorizontal: 15, backgroundColor: '#fff3cd', borderTopWidth: 1, borderTopColor: '#ffe69c' }}>
+          <Text style={{ fontSize: 12, color: '#856404', fontWeight: '700', textAlign: 'center' }}>
+            ⚠️ Có {soNaiPhoiCanTheoDoi} nái cần theo dõi
+          </Text>
+        </View>
+      )}
+      {nhomNaiTab2 === 'De' && soNaiDeCanTheoDoi > 0 && (
+        <View style={{ paddingVertical: 8, paddingHorizontal: 15, backgroundColor: '#fff3cd', borderTopWidth: 1, borderTopColor: '#ffe69c' }}>
+          <Text style={{ fontSize: 12, color: '#856404', fontWeight: '700', textAlign: 'center' }}>
+            ⚠️ Có {soNaiDeCanTheoDoi} nái đang nuôi con cần theo dõi
+          </Text>
+        </View>
+      )}
     </View>
   );
 };

@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, Text, View, TextInput, Button, Alert, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, Modal, ActivityIndicator, ScrollView, SafeAreaView,
   Appearance,
   // 🎯 BẢN VÁ TỐI CAO: Khai báo thêm 2 linh kiện gốc này để kích nổ tính năng hạ bàn phím toàn App
   TouchableWithoutFeedback,
   Keyboard,
+  Animated,
+
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
@@ -15,7 +17,7 @@ import { auth } from './FirebaseConfig';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 // 🛰️ ĐẤU NỐI THÔNG MẠCH FIRESTORE EXPO (DÁN ĐỈNH FILE APP.JS)
 import { db } from './FirebaseConfig'; // Trỏ đúng đường dẫn đến file firebase.js của bạn
-import { doc, setDoc, collection, query, where, onSnapshot, getDoc } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, collection, query, where, onSnapshot, getDoc } from 'firebase/firestore';
 import { 
   formatVNDate, 
   parseToDateObject, 
@@ -54,7 +56,13 @@ const {
     const [vuaBamLoginTay, setVuaBamLoginTay] = useState(false);
 
  const [danhSachCauHinhVacXin, setDanhSachCauHinhVacXin] = useState([]);
+ // 🎯 ĐÃ GỘP GỐC: bỏ state cauHinhVacXinLoc trùng lặp (nguyên nhân lịch vacxin mới tạo
+ // không hiện ở FarmMapSubTab vì biến này chỉ được nạp 1 lần duy nhất lúc đăng nhập rồi bị đơ).
+ // Toàn bộ các nơi cần "cauHinhVacXinLoc" giờ dùng thẳng danhSachCauHinhVacXin (luôn tươi mới).
+
  const [danhSachSoTay, setDanhSachSoTay] = useState([]);
+ const [danhSachChuongThit, setDanhSachChuongThit] = useState([]); // 🎯 THẦN CHÚ KHỞI TẠO: Nuôi sống khay chứa ô chuồng toàn trại
+ // 🎯 ĐÃ DỜI LÊN SỚM HƠN: để layDanhSachNhiemVuHomNay (nhánh HEO_THIT) tham chiếu được ngay, tránh lỗi TDZ
   
     const [kieuXemThoiGianTask, setKieuXemThoiGianTask] = useState("HOM_NAY");
           // 🧠 BỘ NHỚ ĐỆM TỐI CAO: Giữ cứng khay việc thú y, chặn đứng hành vi tính toán lặp lại gây lag bàn phím
@@ -270,15 +278,67 @@ const {
             });
           }
         }
+        // 🐷 NHÁNH MỚI: NHÓM VẮC-XIN HEO THỊT THƯƠNG PHẨM (theo ngày tuổi thực tế của từng ô chuồng)
+        const khoNhanChuongThit = {};
+        if (oHanhDongTho.includes("HEO_THIT")) {
+          if (Array.isArray(danhSachChuongThit) && danhSachChuongThit.length > 0) {
+            danhSachChuongThit.forEach(bayHeo => {
+              if (!bayHeo || !bayHeo.tenChuong) return;
+              const soConThucTe = Number(bayHeo.soCon) || 0;
+              if (soConThucTe <= 0) return; // Bỏ qua dòng trừ hao/log vật tư (soCon <= 0), chỉ tính bầy đang nuôi thực tế
+
+              const ngayVaoObj = parseToDateObject(bayHeo.ngayNhapChuong);
+              if (!ngayVaoObj) return;
+
+              const tuoiMocLucVaoNgay = (Number(bayHeo.tuanTuoi) || 0) * 7;
+              const soNgayTuNgayVao = Math.round((timeMocHomNay - ngayVaoObj.getTime()) / 86400000);
+              const ngayTuoiHomNay = tuoiMocLucVaoNgay + soNgayTuNgayVao;
+
+              let laKhopNgayHeoThit = false;
+              if (cheDoXemHienTai === "HOM_NAY") {
+                if (ngayTuoiHomNay === mocNgayCauHinh) laKhopNgayHeoThit = true;
+              } else {
+                if (ngayTuoiHomNay < mocNgayCauHinh && ngayTuoiHomNay + 5 >= mocNgayCauHinh) laKhopNgayHeoThit = true;
+              }
+
+              if (laKhopNgayHeoThit) {
+                const khoaChuongChuan = `${(bayHeo.tenKhu || "").toString().trim().toUpperCase()}_${bayHeo.tenChuong.toString().trim().toUpperCase()}`;
+
+                // Chốt chặn loại trừ trùng lặp: nếu ô chuồng này đã có log tiêm mũi này rồi thì không nhắc lại
+                const laDaTiemHeoThit = danhSachChuongThit.some(logItem => {
+                  if (!logItem || !logItem.tenChuong) return false;
+                  if (Number(logItem.soCon) !== 0) return false; // Chỉ tính các dòng log vật tư (soCon = 0)
+                  const khoaLogChuan = `${(logItem.tenKhu || "").toString().trim().toUpperCase()}_${logItem.tenChuong.toString().trim().toUpperCase()}`;
+                  if (khoaLogChuan !== khoaChuongChuan) return false;
+
+                  const ghiChuLogChuan = (logItem.ghiChu || "").toString().toUpperCase();
+                  if (!ghiChuLogChuan.includes("VACCINE")) return false;
+                  if (!ghiChuLogChuan.includes(tenNhiemVuChuan.toUpperCase())) return false;
+
+                  const ngayLogObj = parseToDateObject(logItem.ngayNhapChuong);
+                  if (!ngayLogObj) return false;
+
+                  return ngayLogObj.getTime() >= ngayVaoObj.getTime();
+                });
+
+                if (!laDaTiemHeoThit && !danhSachMaTaiCanXuLy.includes(khoaChuongChuan)) {
+                  danhSachMaTaiCanXuLy.push(khoaChuongChuan);
+                  khoNhanChuongThit[khoaChuongChuan] = `${bayHeo.tenKhu || "Khu"} - Chuồng ${bayHeo.tenChuong}`;
+                }
+              }
+            });
+          }
+        }
 
         if (danhSachMaTaiCanXuLy.length > 0) {
+          const laNhomHeoThit = oHanhDongTho.includes("HEO_THIT");
           danhSachMaTaiCanXuLy.forEach(taiLe => {
             if (!ketQuaGomNhom.some(k => k.id === `task_${taiLe}_${muiLich.id}`)) {
               ketQuaGomNhom.push({
                 id: `task_${taiLe}_${muiLich.id || Math.random()}`, 
-                danhMucDan: "DAN NAI", 
+                danhMucDan: laNhomHeoThit ? "DAN THIT" : "DAN NAI", 
                 nhomViec: "THAO_TAC", 
-                maTai: taiLe, 
+                maTai: laNhomHeoThit ? (khoNhanChuongThit[taiLe] || taiLe) : taiLe, 
                 tieuDeViec: cheDoXemHienTai === "HOM_NAY" ? muiLich.tenNhiemVu + " (" + mocNgayCauHinh + " ngay)" : muiLich.tenNhiemVu + " (Du kien tuong lai)", 
                 ghiChuMui: muiLich.ghiChu || "Theo chu ky dich te",
               });
@@ -291,7 +351,7 @@ const {
    global.mangLuuViecRamStandard = ketQuaGomNhom;
     setDanhSachViecCanLamThuy(ketQuaGomNhom); // 🎯 KÍCH HOẠT PHÁT SÓNG LỊCH TIÊM CHẠY NGẦM
     return ketQuaGomNhom;
-  }, [danhSachLichSu, danhSachCauHinhVacXin, kieuXemThoiGianTask, global.danhSachCapNhatTrangThai]);
+  }, [danhSachLichSu, danhSachCauHinhVacXin, kieuXemThoiGianTask, global.danhSachCapNhatTrangThai, danhSachChuongThit]);
 
 
 
@@ -300,7 +360,7 @@ const {
   // 🌐 CẤU HÌNH MẢNG CỔNG LINK WEB APP PHÂN TẢI CHỐNG NGHẼN SERVER TRẠI
   // 🎯 BẢN VÁ XOAY VÒNG ĐỘNG TỐI CAO: CHÈN ĐỦ 4 LINK VÀ TỰ ĐỔI LINK LIÊN TỤC TRÊN MỖI LỆNH FETCH
    const MANG_LINKS_WEB_APP = [
-    'https://script.google.com/macros/s/AKfycbyHQR04w_g-VDUjnbBv8OTRuuWCuX_uB48lNcSYJh2S0ZXaNTaMNnu0I3qcdLHp2OEroQ/exec' // Mail chính - Link 1
+    'https://script.google.com/macros/s/AKfycbx8r2AtFPSh230ybRpYLQlJ7qua1zoxMkm-GGRP41DG6XIU90NtilR3lTlzfGc8DdFczg/exec' // Mail chính - Link 1
      ];
 const WEB_APP_URL = useMemo(() => {
     const chiSoNgauNhien = Math.floor(Math.random() * MANG_LINKS_WEB_APP.length);
@@ -323,7 +383,7 @@ const WEB_APP_URL = useMemo(() => {
   const [typedPassword, setTypedPassword] = useState('');
   const [isAuthLoading, setIsAuthLoading] = useState(false); 
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-  const unsubscribeRefs = React.useRef({ lichSu: null, maTai: null });
+  const unsubscribeRefs = React.useRef({ lichSu: null, maTai: null, chuongThit: null, cauHinhVacXin: null, soTay: null });
 
     // ========================================================
   // 🚀 BẢN VÁ TỐI CAO: CỜ TRẠNG THÁI THEO DÕI ĐỒNG BỘ NGẦM ĐỂ HIỂN THỊ ICON TẢI NHẸ
@@ -363,7 +423,23 @@ const [txtAlertNoiDung, setTxtAlertNoiDung] = useState({ tieuDe: '', maTai: '', 
   const [currentTab, setCurrentTab] = useState('nhap_lieu'); 
   const [dongBoStatus, setDongBoStatus] = useState('🟢 Hệ thống sẵn sàng');
   const [isInitialLoading, setIsInitialLoading] = useState(false);
+  const [idsMoiTaoGanDay, setIdsMoiTaoGanDay] = useState({}); // { [id]: true } — chỉ hiện nhãn "Đã vào sổ" trong phiên đang chạy, không lưu Firestore
     const [cooldownCapNhat, setCooldownCapNhat] = useState(0);
+    const gocXoayNutNho = useRef(new Animated.Value(0)).current;
+const [trangThaiNutNho, setTrangThaiNutNho] = useState('idle'); // idle | spinning | success
+
+const xuLyBamNutNho = () => {
+  if (trangThaiNutNho !== 'idle') return; // chặn bấm liên tục khi đang xoay
+  setTrangThaiNutNho('spinning');
+  gocXoayNutNho.setValue(0);
+  Animated.timing(gocXoayNutNho, { toValue: 1, duration: 1000, useNativeDriver: true }).start(() => {
+    // 🔧 CHỖ NÀY: sau này muốn nút này làm gì thật thì gọi lệnh ở đây, trước khi đổi sang dấu tích
+    setTrangThaiNutNho('success');
+    setTimeout(() => setTrangThaiNutNho('idle'), 1200); // giữ dấu tích 1.2s rồi quay về trạng thái chờ
+  });
+};
+
+const gocXoayNoiSuy = gocXoayNutNho.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
 
 
     // --- STATE MODAL BIẾN ĐỘNG HEO THỊT THEO LÔ TUẦN TUỔI TAB 5 ---
@@ -453,17 +529,23 @@ const [loaiMocInput, setLoaiMocInput] = useState("SAU_PHOI");
             } else {
               setDataHeoThit(null);
             }
-            if (Array.isArray(result.tab6)) {
-              setDanhSachCauHinhVacXin(result.tab6);
-            } else {
-              setDanhSachCauHinhVacXin([]);
-            }
-            if (Array.isArray(result.tab7)) {
-              setDanhSachSoTay(result.tab7);
-            } else {
-              setDanhSachSoTay([]);
-            }
+             // 🎯 Chuồng thịt (tab8) giờ lấy trực tiếp từ Firestore qua listener Chuong_Thit, không lấy từ Google Sheet nữa
+            // 🎯 Cấu hình vaccine (tab6) và Sổ tay (tab7) giờ lấy trực tiếp từ Firestore, không lấy từ Google Sheet nữa
           }
+
+          // 📦 Nạp cache riêng của Cấu hình vaccine và Sổ tay. Chỉ dùng khi kênh Firestore chưa kịp đổ dữ liệu (ví dụ mở app lúc mất mạng)
+          try {
+            const cacheCauHinh = await AsyncStorage.getItem(`cache_cauhinhvacxin_${emailChuan}`);
+            if (cacheCauHinh) {
+              const mangCauHinhCu = JSON.parse(cacheCauHinh);
+              if (Array.isArray(mangCauHinhCu)) setDanhSachCauHinhVacXin(prev => (Array.isArray(prev) && prev.length > 0) ? prev : mangCauHinhCu);
+            }
+            const cacheSoTay = await AsyncStorage.getItem(`cache_sotay_${emailChuan}`);
+            if (cacheSoTay) {
+              const mangSoTayCu = JSON.parse(cacheSoTay);
+              if (Array.isArray(mangSoTayCu)) setDanhSachSoTay(prev => (Array.isArray(prev) && prev.length > 0) ? prev : mangSoTayCu);
+            }
+          } catch (e) {}
 
           // 🎯 ÉP KÍCH HOẠT LỆNH MẠNG THỜI GIAN THỰC (NHƯ BẤM TAY VÀO NÚT CẬP NHẬT)
           if (typeof handleRefreshData === 'function') {
@@ -557,7 +639,7 @@ const laSuKienBanHeo = false; // Triệt tiêu cờ bán heo ở Tab 1
   const [mangLichSuDeCuaTai, setMangLichSuDeCuaTai] = useState([]);
   const [isThaiListVisible, setIsThaiListVisible] = useState(false);
   const [nhomNaiTab2, setNhomNaiTab2] = useState('Phoi'); // Các nhóm: 'BAU', 'CHUA_PHOI', 'NUOI_CON', 'THAI'
-
+const [nhomChiTietModal, setNhomChiTietModal] = useState('Phoi'); // Chỉ dùng riêng cho popup chi tiết, không đụng đến tab danh sách
 
 
   // STATE MODAL SỬA TAB 2
@@ -776,6 +858,7 @@ else {
 
 const [dataHeoThit, setDataHeoThit] = useState(null);
 
+
   // 🧠 BỘ NÃO ĐỒNG BỘ TRUNG TÂM: Quét chuẩn đơn biến danhSachLichSu, tính số tổng lợn thịt Real-time tức thì ngoài RAM
   // 🎯 BẢN VÁ TỐI CAO V10: KHÓA PHẲNG BỘ NÃO, BẢO VỆ CHÂN ĐẾ SỐ LƯỢNG RAM THUẦN TÚY
    // 🎯 BẢN VÁ TỐI CAO V12: ĐÓNG VÁCH BẢO VỆ CHÂN ĐẾ SỐ LƯỢNG RAM THUẦN TÚY, TUYỆT DIỆT NHẢY SỐ LÙI
@@ -874,12 +957,10 @@ const [dataHeoThit, setDataHeoThit] = useState(null);
       } else {
         setDataHeoThit(null);
       }
-      if (result.tab6 && Array.isArray(result.tab6)) {
-        setDanhSachCauHinhVacXin(result.tab6);
-      }
-      if (result.tab7 && Array.isArray(result.tab7)) {
-        setDanhSachSoTay(result.tab7);
-      }
+      // 🎯 Cấu hình vaccine (tab6) và Sổ tay (tab7) giờ lấy trực tiếp từ Firestore qua listener, không lấy từ Google Sheet nữa
+
+      // 🎯 ĐỒNG BỘ: Bốc trọn mảng danh sách ô chuồng online từ cổng 8 đổ thẳng ra màn hình
+      // 🎯 Chuồng thịt (tab8) giờ lấy trực tiếp từ Firestore qua listener Chuong_Thit, không lấy từ Google Sheet nữa
 
       // Mở khóa màn hình chính lán trại
       setIsLoggedIn(true);
@@ -910,6 +991,9 @@ const batDauLangNgheFirestore = (emailChuan) => {
   // Hủy listener cũ nếu có (tránh chồng lắng nghe khi gọi lại)
   if (unsubscribeRefs.current.lichSu) unsubscribeRefs.current.lichSu();
   if (unsubscribeRefs.current.maTai) unsubscribeRefs.current.maTai();
+  if (unsubscribeRefs.current.chuongThit) unsubscribeRefs.current.chuongThit();
+  if (unsubscribeRefs.current.cauHinhVacXin) unsubscribeRefs.current.cauHinhVacXin();
+  if (unsubscribeRefs.current.soTay) unsubscribeRefs.current.soTay();
 
   const emailChuanQuet = emailChuan.toString().toLowerCase().trim();
   console.log("🛰️ [FIRESTORE] Kích nổ cổng lắng nghe thời gian thực cho:", emailChuanQuet);
@@ -959,6 +1043,48 @@ const batDauLangNgheFirestore = (emailChuan) => {
       setDanhSachMaTai([]);
     }
   }, (err) => console.log("❌ Lỗi nghẽn cổng kết nối Danh_Sach_Ma_Tai:", err));
+
+  // 3. KÊNH LẮNG NGHE SỔ CÁI CHUỒNG THỊT (Chuong_Thit): mỗi dòng sổ cái là 1 document, đổ thẳng ra màn hình tức thì
+  const qChuongThit = query(collection(db, "Chuong_Thit"), where("userEmail", "==", emailChuanQuet));
+  let dauVanTayChuongThit = null; // Nhớ nội dung lần trước để bỏ qua các lượt báo trùng
+  unsubscribeRefs.current.chuongThit = onSnapshot(qChuongThit, (snapshot) => {
+    const ds = snapshot.docs.map(d => {
+      const { thoiGianNhap, ...duLieuSach } = d.data(); // Bỏ trường timestamp (màn hình không dùng đến)
+      return { ...duLieuSach, id: d.id };
+    });
+    // Mỗi lần ghi, Firestore báo 2 lượt: lúc ghi tạm trên máy và lúc server chốt giờ. Nội dung giống nhau thì không cập nhật lại màn hình
+    const dauVanTayMoi = JSON.stringify(ds);
+    if (dauVanTayMoi === dauVanTayChuongThit) return;
+    dauVanTayChuongThit = dauVanTayMoi;
+    console.log(`✅ [FIRESTORE] Đã cập nhật ngầm thành công ${ds.length} dòng sổ cái Chuồng Thịt!`);
+    setDanhSachChuongThit(ds); // Luôn thay thế nguyên mảng (kể cả rỗng) để dòng bị xóa biến mất ngay
+  }, (err) => console.log("❌ Lỗi nghẽn cổng kết nối Chuong_Thit:", err));
+
+  // 4. KÊNH LẮNG NGHE CẤU HÌNH QUY TRÌNH VACCINE (Cau_Hinh_Vac_Xin)
+  let dauVanTayCauHinh = null;
+  const qCauHinh = query(collection(db, "Cau_Hinh_Vac_Xin"), where("userEmail", "==", emailChuanQuet));
+  unsubscribeRefs.current.cauHinhVacXin = onSnapshot(qCauHinh, (snapshot) => {
+    const ds = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
+    const dauVanTayMoi = JSON.stringify(ds);
+    if (dauVanTayMoi === dauVanTayCauHinh) return; // Nội dung không đổi thì không vẽ lại màn hình
+    dauVanTayCauHinh = dauVanTayMoi;
+    console.log(`✅ [FIRESTORE] Đã cập nhật ngầm thành công ${ds.length} dòng Cấu hình Vaccine!`);
+    setDanhSachCauHinhVacXin(ds);
+    AsyncStorage.setItem(`cache_cauhinhvacxin_${emailChuanQuet}`, dauVanTayMoi).catch(() => {}); // Lưu để mở app lúc mất mạng vẫn có dữ liệu
+  }, (err) => console.log("❌ Lỗi nghẽn cổng kết nối Cau_Hinh_Vac_Xin:", err));
+
+  // 5. KÊNH LẮNG NGHE SỔ TAY CÁ NHÂN (So_Tay_Ca_Nhan)
+  let dauVanTaySoTay = null;
+  const qSoTay = query(collection(db, "So_Tay_Ca_Nhan"), where("userEmail", "==", emailChuanQuet));
+  unsubscribeRefs.current.soTay = onSnapshot(qSoTay, (snapshot) => {
+    const ds = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
+    const dauVanTayMoi = JSON.stringify(ds);
+    if (dauVanTayMoi === dauVanTaySoTay) return;
+    dauVanTaySoTay = dauVanTayMoi;
+    console.log(`✅ [FIRESTORE] Đã cập nhật ngầm thành công ${ds.length} ghi chú Sổ tay!`);
+    setDanhSachSoTay(ds);
+    AsyncStorage.setItem(`cache_sotay_${emailChuanQuet}`, dauVanTayMoi).catch(() => {});
+  }, (err) => console.log("❌ Lỗi nghẽn cổng kết nối So_Tay_Ca_Nhan:", err));
 };
 
 
@@ -968,6 +1094,9 @@ const batDauLangNgheFirestore = (emailChuan) => {
    const handleLogOut = async () => {
     if (unsubscribeRefs.current.lichSu) unsubscribeRefs.current.lichSu();
 if (unsubscribeRefs.current.maTai) unsubscribeRefs.current.maTai();
+    if (unsubscribeRefs.current.chuongThit) unsubscribeRefs.current.chuongThit();
+    if (unsubscribeRefs.current.cauHinhVacXin) unsubscribeRefs.current.cauHinhVacXin();
+    if (unsubscribeRefs.current.soTay) unsubscribeRefs.current.soTay();
     try {
       // Xóa sạch bộ nhớ tạm thời trên ổ cứng điện thoại
       await AsyncStorage.clear();
@@ -976,6 +1105,9 @@ if (unsubscribeRefs.current.maTai) unsubscribeRefs.current.maTai();
       setIsLoggedIn(false);
       setDanhSachLichSu([]);
       setDanhSachMaTai([]);
+      setDanhSachChuongThit([]);
+      setDanhSachCauHinhVacXin([]);
+      setDanhSachSoTay([]);
       setDanhSachDangDe([]);
       setDataHeoThit(null);
       setDataThongKe(null); // SỬA: Dọn sạch nốt cả dữ liệu thống kê Tab 3 cho an toàn
@@ -1025,14 +1157,14 @@ const handleXemChiTietHeo = (item) => {
     // (Đã chuyển đổi sang trangThaiDienThoai để dẹp bỏ hoàn toàn cột H trên Cloud Sheet)
     const ttH = duLieuGopDayDu.trangThaiDienThoai ? duLieuGopDayDu.trangThaiDienThoai.toString().trim().normalize("NFC") : "";
     if (ttH === "Phối") {
-      setNhomNaiTab2('Phoi');
-    } else if (ttH === "Đẻ" || ttH === "Cai Sữa") {
-      setNhomNaiTab2('De');
-    } else if (ttH === "Thải") {
-      setNhomNaiTab2('Thai');
-    } else {
-      setNhomNaiTab2('Cho Phoi');
-    }
+  setNhomChiTietModal('Phoi');
+} else if (ttH === "Đẻ" || ttH === "Cai Sữa") {
+  setNhomChiTietModal('De');
+} else if (ttH === "Thải") {
+  setNhomChiTietModal('Thai');
+} else {
+  setNhomChiTietModal('Cho Phoi');
+}
 
 
 
@@ -1097,16 +1229,9 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
       } else {
         setDataHeoThit(null);
       }
-      if (result.tab6 && Array.isArray(result.tab6)) {
-        setDanhSachCauHinhVacXin(result.tab6);
-      } else {
-        setDanhSachCauHinhVacXin([]);
-      }
-      if (result.tab7 && Array.isArray(result.tab7)) {
-        setDanhSachSoTay(result.tab7);
-      } else {
-        setDanhSachSoTay([]);
-      }
+      // 🎯 Cấu hình vaccine (tab6) và Sổ tay (tab7) giờ lấy trực tiếp từ Firestore qua listener, không lấy từ Google Sheet nữa
+       // 🎯 ĐỒNG BỘ: Bốc trọn mảng danh sách ô chuồng online từ cổng 8 đổ thẳng ra màn hình
+      // 🎯 Chuồng thịt (tab8) giờ lấy trực tiếp từ Firestore qua listener Chuong_Thit, không lấy từ Google Sheet nữa
 
      // ✅ CHÈN THÊM TOÀN BỘ ĐOẠN CODE NÀY VÀO ĐÂY:
 
@@ -1334,71 +1459,46 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
   // ========================================================
  const xuLyMangCauHinhVacXin = (loaiHanhDongMang, dataBody) => {
     const emailChuan = userEmail ? userEmail.toLowerCase().trim() : "";
-    
+    const laSoTay = loaiHanhDongMang.includes("sotay");
+    const laXoa = loaiHanhDongMang === "delete_sotay" || loaiHanhDongMang === "delete_cauhinh";
+    const laGhi = loaiHanhDongMang === "insert_sotay" || loaiHanhDongMang === "update_sotay" ||
+                  loaiHanhDongMang === "insert_cauhinh" || loaiHanhDongMang === "update_cauhinh";
+    if (!laXoa && !laGhi) { console.log("⚠️ Lệnh không nhận diện được:", loaiHanhDongMang); return; }
+
     // 1. Cập nhật trạng thái thông báo linh hoạt tùy thuộc vào hành động sổ tay hay vắc-xin
-    if (loaiHanhDongMang.includes("sotay")) {
-      setDongBoStatus("⏳ Đang đồng bộ sổ tay cá nhân...");
+    setDongBoStatus(laSoTay ? "⏳ Đang đồng bộ sổ tay cá nhân..." : "⏳ Đang đồng bộ quy trình dịch tễ...");
+
+    // 2. Ghi / xóa thẳng trên Firestore. Màn hình tự cập nhật nhờ kênh lắng nghe trong batDauLangNgheFirestore,
+    //    Cloud Function (robot) sẽ đồng bộ ngược về Google Sheet.
+    const thamChieuDoc = doc(db, laSoTay ? "So_Tay_Ca_Nhan" : "Cau_Hinh_Vac_Xin", String(dataBody.id));
+    let tacVuGhi;
+    if (laXoa) {
+      tacVuGhi = deleteDoc(thamChieuDoc);
+    } else if (laSoTay) {
+      tacVuGhi = setDoc(thamChieuDoc, {
+        id: String(dataBody.id),
+        userEmail: emailChuan,
+        ngayTao: String(dataBody.ngayTao || ""),
+        tieuDe: String(dataBody.tieuDe || ""),
+        noiDung: String(dataBody.noiDung || ""),
+        danhMuc: String(dataBody.danhMuc || "Chung"),
+        trangThai: String(dataBody.trangThai || "Mới")
+      }, { merge: true });
     } else {
-      setDongBoStatus("⏳ Đang đồng bộ quy trình dịch tễ...");
-    }
-    
-    // Thiết lập link gửi gốc chung cho mọi hành động
-    let linkGui = `${WEB_APP_URL}?action=${loaiHanhDongMang}&id=${dataBody.id}&userEmail=${emailChuan}`;
-    
-    // 2. Phân nhánh tạo chuỗi tham số URL (Query Parameters) truyền lên Google Apps Script
-    if (loaiHanhDongMang === "insert_sotay" || loaiHanhDongMang === "update_sotay") {
-      // Ép tham số chuẩn khớp với các cột trên sheet So_Tay_Ca_Nhan mà chúng ta đã cấu hình ở Apps Script
-      linkGui += `&ngayTao=${encodeURIComponent(dataBody.ngayTao || "")}&tieuDe=${encodeURIComponent(dataBody.tieuDe || "")}&noiDung=${encodeURIComponent(dataBody.noiDung || "")}&danhMuc=${encodeURIComponent(dataBody.danhMuc || "Chung")}&trangThai=${encodeURIComponent(dataBody.trangThai || "Mới")}`;
-    } else if (loaiHanhDongMang !== "delete_cauhinh" && loaiHanhDongMang !== "delete_sotay") {
-      // Giữ nguyên chuỗi tham số của luồng cấu hình vắc-xin cũ
-      linkGui += `&loaiHanhDong=${encodeURIComponent(dataBody.loaiHanhDong)}&soNgay=${Number(dataBody.soNgay)}&tenNhiemVu=${encodeURIComponent(dataBody.tenNhiemVu)}&ghiChu=${encodeURIComponent(dataBody.ghiChu || "")}&ngayTiemTruoc=${encodeURIComponent(dataBody.ngayTiemTruoc || "")}`;
+      tacVuGhi = setDoc(thamChieuDoc, {
+        id: String(dataBody.id),
+        userEmail: emailChuan,
+        loaiHanhDong: String(dataBody.loaiHanhDong || ""),
+        soNgay: String(Number(dataBody.soNgay) || 0), // Lưu dạng chuỗi cho khớp dữ liệu cũ đã chuyển lên
+        tenNhiemVu: String(dataBody.tenNhiemVu || ""),
+        ghiChu: String(dataBody.ghiChu || ""),
+        ngayTiemTruoc: String(dataBody.ngayTiemTruoc || "")
+      }, { merge: true });
     }
 
-    fetch(linkGui, { method: 'GET', redirect: 'follow' })
-      .then(res => res.text())
-      .then(textData => {
-        let laThanhCong = false;
-        try {
-          const json = JSON.parse(textData);
-          if (json && json.status === 'success') laThanhCong = true;
-        } catch (e) {
-          if (textData.toLowerCase().includes("success")) laThanhCong = true;
-        }
-
-        if (laThanhCong) {
-          setDongBoStatus("✅ Đã đồng bộ!");
-          
-          const khoaDemTongHop = `cache_tonghop_pigvn_${emailChuan}`;
-          AsyncStorage.getItem(khoaDemTongHop).then(dataDemTho => {
-            if (dataDemTho !== null) {
-              const result = JSON.parse(dataDemTho);
-              
-              // 3. Phân luồng cập nhật bộ nhớ cache đệm cục bộ (Tránh cắn đè dữ liệu của nhau)
-             if (loaiHanhDongMang.includes("sotay")) {
-  if (loaiHanhDongMang === "delete_sotay") {
-    // Xóa khỏi Cache tab7
-    result.tab7 = (result.tab7 || []).filter(i => i && i.id !== dataBody.id);
-    // Cập nhật màn hình điện thoại lập tức
-    setDanhSachSoTay(prev => prev.filter(i => i.id !== dataBody.id));
-  } else {
-    // Thêm vào Cache tab7
-    const mangMoiST = (result.tab7 || []).filter(i => i && i.id !== dataBody.id);
-    result.tab7 = [...mangMoiST, dataBody];
-    // Cập nhật màn hình điện thoại lập tức
-    setDanhSachSoTay(prev => [...prev.filter(i => i.id !== dataBody.id), dataBody]);
-  }
-}
-              
-              AsyncStorage.setItem(khoaDemTongHop, JSON.stringify(result));
-            }
-          });
-        } else {
-          setDongBoStatus("⚠️ Lỗi Server, hãy thử lại!");
-        }
-      })
-      .catch(() => {
-        setDongBoStatus("⚠️ Mất mạng. Hãy thử lại!");
-      });
+    tacVuGhi
+      .then(() => { setDongBoStatus("✅ Đã đồng bộ!"); })
+      .catch(() => { setDongBoStatus("⚠️ Không lưu được, hãy kiểm tra mạng và thử lại!"); });
   };
 
 
@@ -1607,15 +1707,12 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
         };
       });
     } 
-    else if (suKien === "Cai Sữa" || suKien === "Cai sữa") {
+       else if (suKien === "Cai Sữa" || suKien === "Cai sữa") {
       // 1. Tìm lại bầy sơ sinh gốc của con nái này trong nhật ký RAM để biết lúc đẻ ra/chọn nuôi bao nhiêu con
       const maTaiChuan = maTai.trim().toUpperCase();
-     const caDeGanNhat = [...danhSachLichSu]
-  .filter(i => i && i.maTai && i.maTai.toUpperCase().trim() === maTaiChuan && i.suKien === "Đẻ" && i.actionType !== "delete")
-  .sort((a, b) => {
-    // Ép buộc sắp xếp theo thời gian nhập thực tế (id hoặc thoiGianNhap), dòng nào nhập sau cùng sẽ lên đầu
-    return (b.id || "").toString().localeCompare((a.id || "").toString());
-  })[0];
+      const caDeGanNhat = [...danhSachLichSu]
+        .filter(i => i && i.maTai && i.maTai.toUpperCase().trim() === maTaiChuan && i.suKien === "Đẻ" && i.actionType !== "delete")
+        .sort((a, b) => (b.id || "").toString().localeCompare((a.id || "").toString()))[0];
 
       // Tính số lượng lúc đẻ ra để trừ sạch khỏi chuồng Theo Mẹ
       let soConGocLucDe = 0;
@@ -1623,23 +1720,36 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
         soConGocLucDe = laySoAnToan(caDeGanNhat.chonNuoi) > 0 ? laySoAnToan(caDeGanNhat.chonNuoi) : laySoAnToan(caDeGanNhat.soHeo);
       }
 
-      // Số lượng heo cai sữa thực tế khách vừa nhập để chuyển sang ô 4 tuần
+      // Số lượng heo cai sữa thực tế khách vừa gõ trên màn hình nhập liệu
       const soConCaiSuaMoiNhap = laySoAnToan(soHeo);
 
       setDataHeoThit(prev => {
         if (!prev) return prev;
-        let targetKeyCaiSua = prev["4 Tuần ( Cai Sữa )"] !== undefined ? "4 Tuần ( Cai Sữa )" : "caiSua";
-        const soConTheoMeCu = Number(prev.theoMe || prev["Theo Mẹ"]) || 0;
-        const soConCaiSuaCu = Number(prev[targetKeyCaiSua]) || 0;
+        const nextState = { ...prev };
         
-        return {
-          ...prev,
-          theoMe: Math.max(0, soConTheoMeCu - soConGocLucDe).toString(), // Trừ sạch số lượng gốc lúc đẻ của bầy đó
-          [targetKeyCaiSua]: (soConCaiSuaCu + soConCaiSuaMoiNhap).toString() // Chỉ cộng số lượng cai sữa thực tế vào ô 4 tuần
-        };
+        // 🧠 TỰ ĐỘNG ĐẾM SỐ NGÀY NUÔI CON ĐỂ PHÂN KHU CHUỒNG THỜI GIAN THỰC
+        let dDe = parseToDateObject(caDeGanNhat ? caDeGanNhat.ngay : "");
+        let dNay = new Date(); dNay.setHours(0, 0, 0, 0);
+        let soNgayNuoiConThucTe = dDe ? Math.floor((dNay.getTime() - dDe.getTime()) / 86400000) : 28;
+
+        // Nếu thời gian nuôi con dưới 25 ngày -> Dồn vào ô 3 Tuần, trên 25 ngày -> Dồn vào ô 4 Tuần
+        let targetKeyCaiSua = (soNgayNuoiConThucTe < 25) ? "3 Tuần" : "4 Tuần";
+
+        const soConTheoMeCu = Number(nextState.theoMe || nextState["Theo Mẹ"]) || 0;
+        const soConChuongMoiCu = Number(nextState[targetKeyCaiSua]) || 0;
+        
+        nextState.theoMe = Math.max(0, soConTheoMeCu - soConGocLucDe).toString(); // Khấu trừ dứt điểm khỏi Theo Mẹ
+        nextState[targetKeyCaiSua] = (soConChuongMoiCu + soConCaiSuaMoiNhap).toString(); // Dồn quân số vào ô lẻ
+        
+        // 🎯 ÉP TÍNH GỘP: Tính lại số tổng giai đoạn Cai Sữa (3 Tuần + 4 Tuần)
+        const nT3 = Number(nextState["3 Tuần"]) || 0;
+        const nT4 = Number(nextState["4 Tuần"]) || 0;
+        nextState.caiSua = (nT3 + nT4).toString();
+
+        return nextState;
       });
     }
-    // ========================================================
+
   })
       .catch((error) => {
         console.error("❌ Lỗi nghẽn luồng Fire lán trại:", error);
@@ -1760,21 +1870,32 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
         } 
         
         // 🌟 TRƯỜNG HỢP 2: KHÁCH SỬA SỐ LIỆU DÒNG "CAI SỮA"
-        else if (editSuKien === "Cai Sữa" || editSuKien === "Cai sữa") {
-          const soCaiSuaCu = laySoAnToan(dongLichSuCu.soHeo);
-          const soCaiSuaMoi = laySoAnToan(dongCapNhatMoi.soHeo);
-          const chenhLechCaiSua = soCaiSuaMoi - soCaiSuaCu;
+       else if (editSuKien === "Cai Sữa" || editSuKien === "Cai sữa") {
+              const soCaiSuaCu = laySoAnToan(dongLichSuCu.soHeo);
+              const soCaiSuaMoi = laySoAnToan(dongCapNhatMoi.soHeo);
+              const chenhLechCaiSua = soCaiSuaMoi - soCaiSuaCu;
 
-          setDataHeoThit(prev => {
-            if (!prev) return prev;
-            let targetKeyCaiSua = prev["4 Tuần ( Cai Sữa )"] !== undefined ? "4 Tuần ( Cai Sữa )" : "caiSua";
-            const soConCaiSuaCu = Number(prev[targetKeyCaiSua]) || 0;
-            return { ...prev, [targetKeyCaiSua]: Math.max(0, soConCaiSuaCu + chenhLechCaiSua).toString() };
-          });
+              setDataHeoThit(prev => {
+                if (!prev) return prev;
+                const nextState = { ...prev };
+                
+                // Mặc định bồi hiệu số chênh lệch vào ô t4 (ô 4 Tuần chuẩn) không dấu
+                let targetKey = nextState.t4 !== undefined ? "t4" : "caiSua";
+                let soConCuHop = Number(nextState[targetKey]) || 0;
+                nextState[targetKey] = Math.max(0, soConCuHop + chenhLechCaiSua).toString();
+
+                // 🎯 ÉP ĐỒNG BỘ: Tính toán gộp lại số tổng giai đoạn Cai sữa (t3 + t4) ngay lập tức ngoài RAM
+                const nT3 = Number(nextState.t3) || 0;
+                const nT4 = Number(nextState.t4) || 0;
+                nextState.caiSua = (nT3 + nT4).toString();
+
+                return nextState;
+              });
+            }
+          }
+        } catch (errEditSync) { 
+          console.log("Lỗi đồng bộ sửa chéo lán trại:", errEditSync); 
         }
-      }
-    } catch (errEditSync) { console.log("Lỗi đồng bộ sửa:", errEditSync); }
-    // ========================================================
 
         
         // Găm cứng dữ liệu sạch vào bộ nhớ đệm Cache ổ cứng của thiết bị điện thoại
@@ -1813,9 +1934,10 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
 
     // 🌟 BƯỚC 2: Hoàn tác và tính toán lại quân số Heo Thịt ngoài RAM thiết bị ngay lập trưng
     if (checkSuKien.includes("nhập") || checkSuKien.includes("nhap") || checkSuKien.includes("hao") || checkSuKien.includes("bán") || checkSuKien.includes("ban")) {
-      let targetKey = `${weekStr} Tuần`;
-      if (weekStr === "3") targetKey = "theoMe";
-      else if (weekStr === "4") targetKey = dataHeoThit && dataHeoThit["4 Tuần ( Cai Sữa )"] !== undefined ? "4 Tuần ( Cai Sữa )" : "caiSua";
+     let targetKey = `${weekStr} Tuần`;
+if (weekStr === "theoMe") targetKey = "theoMe";
+else if (weekStr === "3") targetKey = "3 Tuần"; // 🎯 Khấu trừ / cộng trả lại số lượng chính xác cho chuồng 3 tuần
+else if (weekStr === "4" || weekStr === "caiSua") targetKey = "4 Tuần";
 
       setDataHeoThit(prev => {
         if (!prev || !prev[targetKey]) return prev;
@@ -1843,6 +1965,9 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
         const nT27 = Number(nextState["27 Tuần"]) || 0; const nT28 = Number(nextState["28 Tuần"]) || 0;
         const nT29 = Number(nextState["29 Tuần"]) || 0; const nT30 = Number(nextState["30 Tuần"]) || 0;
 
+          const nT3 = Number(nextState["3 Tuần"]) || 0;
+    const nT4 = Number(nextState["4 Tuần"]) || 0;
+    nextState.caiSua = (nT3 + nT4).toString();
         nextState.giaiDoan3 = (nT5 + nT6 + nT7 + nT8 + nT9).toString();
         nextState.giaiDoan4 = (nT10 + nT11 + nT12 + nT13 + nT14 + nT15).toString();
         nextState.giaiDoan5 = (nT16 + nT17 + nT18 + nT19 + nT20).toString();
@@ -2074,15 +2199,28 @@ else if (checkSuKien === "đẻ" || checkSuKien === "de" || checkSuKien === "cai
 
     setDataHeoThit(prev => {
       if (!prev) return prev;
-      let targetKeyCaiSua = prev["4 Tuần ( Cai Sữa )"] !== undefined ? "4 Tuần ( Cai Sữa )" : "caiSua";
-      const soConTheoMeCu = Number(prev.theoMe || prev["Theo Mẹ"]) || 0;
-      const soConCaiSuaCu = Number(prev[targetKeyCaiSua]) || 0;
+      const nextState = { ...prev };
       
-      return {
-        ...prev,
-        theoMe: Math.max(0, soConTheoMeCu - soConGocLucDe).toString(), // Trừ sạch bầy con theo mẹ gốc
-        [targetKeyCaiSua]: (soConCaiSuaCu + soConCaiSuaNhanh).toString() // Đưa số cai sữa thực tế vào ô 4 tuần
-      };
+      // 🧠 TỰ ĐỘNG ĐẾM NGÀY ĐỂ PHÂN LOẠI LÔ: Nuôi dưới 25 ngày vào 3 Tuần, trên 25 ngày vào 4 Tuần
+      let dDe = parseToDateObject(caDeGanNhat ? caDeGanNhat.ngay : "");
+      let dNay = new Date(); dNay.setHours(0, 0, 0, 0);
+      let soNgayNuoiConThucTe = dDe ? Math.floor((dNay.getTime() - dDe.getTime()) / 86400000) : 28;
+
+      // Ép trục gọi ô gán số chuẩn database mới của Google Sheet
+      let targetKeyDongBo = (soNgayNuoiConThucTe < 25) ? "3 Tuần" : "4 Tuần";
+
+      const soConTheoMeCu = Number(nextState.theoMe || nextState["Theo Mẹ"]) || 0;
+      const soConChuongMoiCu = Number(nextState[targetKeyDongBo]) || 0; 
+
+      nextState.theoMe = Math.max(0, soConTheoMeCu - soConGocLucDe).toString();
+      nextState[targetKeyDongBo] = (soConChuongMoiCu + soConCaiSuaNhanh).toString();
+
+      // 🎯 ÉP TÍNH TỔNG: Tính gộp lại số tổng giai đoạn Cai sữa tức thì ngoài RAM lán trại (3 Tuần + 4 Tuần)
+      const nT3 = Number(nextState["3 Tuần"]) || 0;
+      const nT4 = Number(nextState["4 Tuần"]) || 0;
+      nextState.caiSua = (nT3 + nT4).toString();
+
+      return nextState;
     });
     // ========================================================
 
@@ -2134,12 +2272,14 @@ else if (checkSuKien === "đẻ" || checkSuKien === "de" || checkSuKien === "cai
     const soConTacDong = laySoAnToan(heoThitSoLuong);
     
     // 🧭 ĐỊNH VỊ TỌA ĐỘ CHÍNH XÁC Ô CHÂN RAM TRÊN ĐIỆN THOẠI
-    let khoaThucTeRAM = `${oTuanChonChuan} Tuần`;
-    if (oTuanChonChuan === "theoMe" || oTuanChonChuan === "Theo Mẹ" || oTuanChonChuan === "3") {
-      khoaThucTeRAM = "theoMe";
-    } else if (oTuanChonChuan === "4 Tuần ( Cai Sữa )" || oTuanChonChuan === "caiSua" || oTuanChonChuan === "4") {
-      khoaThucTeRAM = dataHeoThit && dataHeoThit["4 Tuần ( Cai Sữa )"] !== undefined ? "4 Tuần ( Cai Sữa )" : "caiSua";
-    }
+   let khoaThucTeRAM = `${oTuanChonChuan} Tuần`;
+if (oTuanChonChuan === "theoMe" || oTuanChonChuan === "Theo Mẹ") {
+  khoaThucTeRAM = "theoMe";
+} else if (oTuanChonChuan === "3") {
+  khoaThucTeRAM = "3 Tuần"; // 🎯 Đã gá tọa độ gập số lập tức cho ô 3 tuần
+} else if (oTuanChonChuan === "4 Tuần ( Cai Sữa )" || oTuanChonChuan === "caiSua" || oTuanChonChuan === "4") {
+  khoaThucTeRAM = "4 Tuần"; // Ép phẳng về chuỗi "4 Tuần" khớp database mới
+}
 
     // Đồng bộ chuẩn số phẳng sang Drive Google Sheets
     let soTuanGuiServer = oTuanChonChuan;
@@ -2198,6 +2338,9 @@ else if (checkSuKien === "đẻ" || checkSuKien === "de" || checkSuKien === "cai
       const nT29 = Number(ketQuaMoi["29 Tuần"]) || 0; const nT30 = Number(ketQuaMoi["30 Tuần"]) || 0;
 
       // ✅ ĐÃ FIX TRIỆT ĐỂ: Thay toàn bộ chữ nextState thành ketQuaMoi
+       const nT3 = Number(ketQuaMoi["3 Tuần"]) || 0;
+      const nT4 = Number(ketQuaMoi["4 Tuần"]) || 0;
+      ketQuaMoi.caiSua = (nT3 + nT4).toString();
       ketQuaMoi.giaiDoan3 = (nT5 + nT6 + nT7 + nT8 + nT9).toString();
       ketQuaMoi.giaiDoan4 = (nT10 + nT11 + nT12 + nT13 + nT14 + nT15).toString();
       ketQuaMoi.giaiDoan5 = (nT16 + nT17 + nT18 + nT19 + nT20).toString();
@@ -2291,18 +2434,16 @@ else if (checkSuKien === "đẻ" || checkSuKien === "de" || checkSuKien === "cai
     const newWeekStr = suaHeoThitTuanChon.toString().trim();
 
     // 🧭 ĐỊNH VỊ TỌA ĐỘ Ô TUẦN CŨ
-    let oldTargetKey = `${oldWeekStr} Tuần`;
-    if (oldWeekStr === "theoMe" || oldWeekStr === "3") oldTargetKey = "theoMe";
-    else if (oldWeekStr === "4" || oldWeekStr === "caiSua") {
-      oldTargetKey = dataHeoThit && dataHeoThit["4 Tuần ( Cai Sữa )"] !== undefined ? "4 Tuần ( Cai Sữa )" : "caiSua";
-    }
+   let oldTargetKey = `${oldWeekStr} Tuần`;
+if (oldWeekStr === "theoMe") oldTargetKey = "theoMe";
+else if (oldWeekStr === "3") oldTargetKey = "3 Tuần"; // 🎯 Định vị chuẩn ô cũ 3 tuần
+else if (oldWeekStr === "4" || oldWeekStr === "caiSua") oldTargetKey = "4 Tuần";
 
-    // 🧭 ĐỊNH VỊ TỌA ĐỘ Ô TUẦN MỚI
-    let newTargetKey = `${newWeekStr} Tuần`;
-    if (newWeekStr === "theoMe" || newWeekStr === "3") newTargetKey = "theoMe";
-    else if (newWeekStr === "4" || newWeekStr === "caiSua") {
-      newTargetKey = dataHeoThit && dataHeoThit["4 Tuần ( Cai Sữa )"] !== undefined ? "4 Tuần ( Cai Sữa )" : "caiSua";
-    }
+let newTargetKey = `${newWeekStr} Tuần`;
+if (newWeekStr === "theoMe") newTargetKey = "theoMe";
+else if (newWeekStr === "3") newTargetKey = "3 Tuần"; // 🎯 Định vị chuẩn ô mới sửa 3 tuần
+else if (newWeekStr === "4" || newWeekStr === "caiSua") newTargetKey = "4 Tuần";
+
 
     // Đóng sập Pop-up sửa lập tức trong 0.01 giây
     setIsSuaHeoThitModalVisible(false);
@@ -2363,6 +2504,9 @@ else if (checkSuKien === "đẻ" || checkSuKien === "de" || checkSuKien === "cai
       const nT27 = Number(nextState["27 Tuần"]) || 0; const nT28 = Number(nextState["28 Tuần"]) || 0;
       const nT29 = Number(nextState["29 Tuần"]) || 0; const nT30 = Number(nextState["30 Tuần"]) || 0;
 
+      const nT3 = Number(nextState["3 Tuần"]) || 0;
+      const nT4 = Number(nextState["4 Tuần"]) || 0;
+      nextState.caiSua = (nT3 + nT4).toString();
       nextState.giaiDoan3 = (nT5 + nT6 + nT7 + nT8 + nT9).toString();
       nextState.giaiDoan4 = (nT10 + nT11 + nT12 + nT13 + nT14 + nT15).toString();
       nextState.giaiDoan5 = (nT16 + nT17 + nT18 + nT19 + nT20).toString();
@@ -2414,6 +2558,7 @@ else if (checkSuKien === "đẻ" || checkSuKien === "de" || checkSuKien === "cai
     
     // ⚙️ 1. Ép chính xác mã khóa ID theo cấu trúc MTSK_ kết hợp mã số ngẫu nhiên chống trùng khóa kịch sàn
     const idDocBanQuickAdd = "MTSK_" + new Date().getTime(); 
+    setIdsMoiTaoGanDay(prev => ({ ...prev, [idDocBanQuickAdd]: true }));
     let giongHeoChuanGhi = quickGiong && quickGiong.trim() !== "" ? quickGiong.trim() : "Nái Nhà";
 
     // ⏱️ 2. Tạo chuỗi thời gian thực ngày/tháng/năm giờ:phút:giây để Robot 2 đẩy tự động vào cột C bên Sheets
@@ -2457,7 +2602,8 @@ if (global && Array.isArray(global.danhSachCapNhatTrangThai)) {
 
     // 🛰️ 3. Gọi trực tiếp thư viện ghi đè tài liệu Cloud Firestore NoSQL
     const { doc, setDoc } = require('firebase/firestore');
-    
+        const { vuaNhapMoi: _boQuaCoTam1, ...dongMoiMaTaiGhiLenMay } = dongMoiMaTai;
+
     setDoc(doc(db, "Danh_Sach_Ma_Tai", idDocBanQuickAdd), dongMoiMaTai)
       .then(async () => {
         setDongBoStatus('✅ Đã tạo mã tai thành công!'); 
@@ -2524,6 +2670,7 @@ if (global && Array.isArray(global.danhSachCapNhatTrangThai)) {
     }
     const giongHeoChuanTab2 = mtGiong && mtGiong.trim() !== "" ? mtGiong.trim() : "Nái Nhà";
     const idDocBanChinh = "MTSK_" + new Date().getTime();
+    setIdsMoiTaoGanDay(prev => ({ ...prev, [idDocBanChinh]: true }));
     let luaHeoGhiDoc = "Hậu Bị";
 if (mtLua && mtLua.toString().trim() !== "" && mtLua !== "OPEN_MENU_MT_LUA") {
   luaHeoGhiDoc = mtLua.toString().trim();
@@ -2536,7 +2683,7 @@ if (mtLua && mtLua.toString().trim() !== "" && mtLua !== "OPEN_MENU_MT_LUA") {
       id: idDocBanChinh, 
       userEmail: userEmail ? userEmail.toLowerCase().trim() : "",
       thoiGianNhap: chuoiGioNhap, // 🎯 Bơm mốc thời gian khách tạo nái
-      nhom: mtLua ? mtLua.toString().trim() : "Hậu Bị", // Gá nhãn cột C cũ trên sheet
+      nhom: luaHeoGhiDoc,
       maTai: maTaiGoc, 
       giong: giongHeoChuanTab2, 
       luaGoc: luaHeoGhiDoc, 
@@ -2572,7 +2719,8 @@ if (global && Array.isArray(global.danhSachCapNhatTrangThai)) {
 
     // 🛰️ PHÓNG THẲNG LÊN TẬP TIN CLOUD FIRESTORE BỎ QUA GUIYEUCAUMANG
     const { doc, setDoc } = require('firebase/firestore');
-    setDoc(doc(db, "Danh_Sach_Ma_Tai", idDocBanChinh), dongMoi)
+    const { vuaNhapMoi: _boQuaCoTam2, ...dongMoiGhiLenMay } = dongMoi;
+    setDoc(doc(db, "Danh_Sach_Ma_Tai", idDocBanChinh), dongMoiGhiLenMay)
       .then(async () => {
         setDongBoStatus('✅ Thêm Mã tai heo mới thành công');
         
@@ -2798,23 +2946,7 @@ if (global && Array.isArray(global.danhSachCapNhatTrangThai)) {
            {/* LỀ PHẢI BANNER: NÚT CHUÔNG ĐỌC THÔNG BÁO TỪ FIRESTORE CHUNG + NÚT ĐĂNG XUẤT */}
 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
   
-  {/* NÚT QUẢ CHUÔNG BẬT ĐÈN ĐỎ CẢNH BÁO KHI ANH ĐỔI TIN TRÊN FIREBASE */}
-  <TouchableOpacity 
-    activeOpacity={0.6}
-    onPress={() => setIsPopupThongBaoVisible(true)}
-    style={{
-      backgroundColor: '#f0f3f4', paddingHorizontal: 8, paddingVertical: 5, borderRadius: 15,
-      flexDirection: 'row', alignItems: 'center', gap: 3, borderWidth: 0.5, borderColor: '#bdc3c7'
-    }}
-  >
-    <Text style={{ fontSize: 12 }}>🔔</Text>
-    {/* Nếu anh gõ thuộc tính trangThai: "Mới" trên Firebase Console, chuông của tất cả user sẽ sáng số 1 đỏ rực */}
-    <View style={{ backgroundColor: (tinNhanHeThongFirebase && tinNhanHeThongFirebase.trangThai === "Mới") ? '#dc3545' : '#7f8c8d', paddingHorizontal: 4, paddingVertical: 0.5, borderRadius: 10 }}>
-      <Text style={{ color: '#ffffff', fontSize: 8.5, fontWeight: '900' }}>
-        {(tinNhanHeThongFirebase && tinNhanHeThongFirebase.trangThai === "Mới") ? "1" : "0"}
-      </Text>
-    </View>
-  </TouchableOpacity>
+ 
 
   {/* NÚT ĐĂNG XUẤT NGUYÊN BẢN CỦA APP */}
   <TouchableOpacity 
@@ -2823,61 +2955,57 @@ if (global && Array.isArray(global.danhSachCapNhatTrangThai)) {
   >
     <Text style={{ color: '#e65100', fontSize: 10.5, fontWeight: 'bold' }}>Đăng xuất 🚪</Text>
   </TouchableOpacity>
+  
 </View>
 
           </View>
 
-         {/* TẦNG 2: THANH TRẠNG THÁI TRUNG TÂM - HIỂN THỊ ĐỘC QUYỀN MẠNG REAL-TIME FIRESTORE */}
-<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-  
-  {/* LỀ TRÁI: Báo hiệu mạng đám mây Firestore luôn sẵn sàng 0 giây */}
-  <Text style={{ fontSize: 9, fontWeight: '700', color: '#28a745', fontStyle: 'italic', textAlign: 'left', flex: 1, paddingRight: 8 }}>
-    PigVN v4.2 • Sẵn Sàng Nhập Liệu
-  </Text>
+<View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
 
-  {/* LỀ PHẢI: Trạng thái kéo dữ liệu nền từ Google Sheets */}
-  <Text style={{ fontSize: 8.5, fontWeight: '600', color: dongBoStatus.includes('⏳') ? '#d35400' : '#7f8c8d', fontStyle: 'italic', textAlign: 'right' }}>
-    {dongBoStatus.includes('⏳') ? "⏳ Đang tải" : "✅ Thành Công"}
+  {/* LỀ TRÁI: Cụm nút chuông + nút cập nhật nhỏ */}
+  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+    
+    <TouchableOpacity 
+      activeOpacity={0.6}
+      onPress={() => setIsPopupThongBaoVisible(true)}
+      style={{
+        backgroundColor: '#f0f3f4', paddingHorizontal: 8, paddingVertical: 5, borderRadius: 15,
+        flexDirection: 'row', alignItems: 'center', gap: 3, borderWidth: 0.5, borderColor: '#bdc3c7'
+      }}
+    >
+      <Text style={{ fontSize: 12 }}>🔔</Text>
+      <View style={{ backgroundColor: (tinNhanHeThongFirebase && tinNhanHeThongFirebase.trangThai === "Mới") ? '#dc3545' : '#7f8c8d', paddingHorizontal: 4, paddingVertical: 0.5, borderRadius: 10 }}>
+        <Text style={{ color: '#ffffff', fontSize: 8.5, fontWeight: '900' }}>
+          {(tinNhanHeThongFirebase && tinNhanHeThongFirebase.trangThai === "Mới") ? "1" : "0"}
+        </Text>
+      </View>
+    </TouchableOpacity>
+
+    <TouchableOpacity
+      activeOpacity={0.6}
+      onPress={xuLyBamNutNho}
+      disabled={trangThaiNutNho !== 'idle'}
+      style={{
+        width: 28, height: 28, borderRadius: 14,
+        backgroundColor: '#f0f3f4', borderWidth: 0.5, borderColor: '#bdc3c7',
+        alignItems: 'center', justifyContent: 'center'
+      }}
+    >
+      <Animated.Text style={{ fontSize: 13, transform: [{ rotate: gocXoayNoiSuy }] }}>
+        {trangThaiNutNho === 'success' ? '✅' : '🔄'}
+      </Animated.Text>
+    </TouchableOpacity>
+
+  </View>
+
+  {/* LỀ PHẢI: Chữ phiên bản */}
+  <Text style={{ fontSize: 9, fontWeight: '700', color: '#28a745', fontStyle: 'italic' }}>
+    Quản Lý Heo Nái - Heo Thịt PigVN 5.0
   </Text>
 
 </View>
-
         </View>
 
-        {/* Hàng 2: Trạng thái nạp ngầm + nút Tải Lại phẳng */}
-          <View 
-          style={{ 
-            flexDirection: 'row', 
-            justifyContent: 'flex-end', 
-            alignItems: 'center', 
-            marginTop: 6,
-            paddingHorizontal: 2,
-            display: currentTab === 'heo_thit' ? 'flex' : 'none'
-          }}
-        >
-          <TouchableOpacity 
-            activeOpacity={0.7}
-            style={{ 
-              backgroundColor: cooldownCapNhat > 0 ? '#95a5a6' : '#28a745', 
-              paddingHorizontal: 14, 
-              paddingVertical: 6, 
-              borderRadius: 14, 
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }} 
-            onPress={() => {
-              if (typeof handleRefreshData === 'function') {
-                handleRefreshData(userEmail);
-              }
-            }} 
-            disabled={isInitialLoading || cooldownCapNhat > 0} 
-          >
-            <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: 'bold' }}>
-              {cooldownCapNhat > 0 ? `⏳ Chờ ${cooldownCapNhat} giây` : "🔄 Cập Nhật Heo Thịt"}
-            </Text>
-          </TouchableOpacity>
-        </View>
 
       </View>
 
@@ -2951,7 +3079,8 @@ filterSuKienTab1={filterSuKienTab1} setFilterSuKienTab1={setFilterSuKienTab1}
   formatVNDate={formatVNDate}
   WEB_APP_URL={WEB_APP_URL}
   userEmail={userEmail}
-  
+    idsMoiTaoGanDay={idsMoiTaoGanDay}
+
   searchTxtTab2={searchTxtTab2}
   setSearchTxtTab2={setSearchTxtTab2}
   nhomNaiTab2={nhomNaiTab2}
@@ -3031,6 +3160,47 @@ setGoiYMaTaiLoc={setGoiYMaTaiLoc}
   historyData={danhSachLichSu}
   dataLichSu={danhSachLichSu}
   openGiaiDoan={openGiaiDoan} setOpenGiaiDoan={setOpenGiaiDoan}
+    cauHinhVacXinLoc={danhSachCauHinhVacXin} 
+
+
+  danhSachChuongThit={danhSachChuongThit}
+  setDanhSachChuongThit={() => {}} // Chuồng thịt do listener Firestore tự cập nhật; bỏ qua mọi lệnh cập nhật thủ công để không bị nhân đôi dòng
+  nutCapNhat={(
+  <View>
+    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 4 }}>
+      <Text style={{ fontSize: 8.5, fontWeight: '600', color: dongBoStatus.includes('⏳') ? '#d35400' : '#7f8c8d', fontStyle: 'italic' }}>
+        {dongBoStatus.includes('⏳') ? "⏳ Đang tải" : "✅ Thành Công"}
+      </Text>
+    </View>
+    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginBottom: 4 }}>
+      <TouchableOpacity
+        activeOpacity={0.7}
+        style={{
+          backgroundColor: cooldownCapNhat > 0 ? '#95a5a6' : '#28a745',
+          paddingHorizontal: 14,
+          paddingVertical: 6,
+          borderRadius: 14,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        onPress={() => {
+          if (typeof handleRefreshData === 'function') {
+            handleRefreshData(userEmail);
+          }
+        }}
+        disabled={isInitialLoading || cooldownCapNhat > 0}
+      >
+        <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: 'bold' }}>
+          {cooldownCapNhat > 0 ? `⏳ Chờ ${cooldownCapNhat} giây` : "🔄 Cập Nhật Heo Thịt"}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+)}
+  WEB_APP_URL={WEB_APP_URL}
+  userEmail={userEmail}
+  setDongBoStatus={setDongBoStatus}
   
   handleMoModalHeoThit={handleMoModalHeoThit}
   handleMoSuaHeoThit={handleMoSuaHeoThit}
@@ -3044,21 +3214,23 @@ setGoiYMaTaiLoc={setGoiYMaTaiLoc}
   styles={styles}
   formatVNDate={formatVNDate}
   parseToDateObject={parseToDateObject}
+  cauHinhVacXinLoc={danhSachCauHinhVacXin} 
   
   subTab={subTab} setSubTab={setSubTab}
   kieuXemThoiGianTask={kieuXemThoiGianTask} setKieuXemThoiGianTask={setKieuXemThoiGianTask}
   
   danhSachLichSu={danhSachLichSu}
-  danhSachCauHinhVacXin={danhSachCauHinhVacXin} setDanhSachCauHinhVacXin={setDanhSachCauHinhVacXin}
+  danhSachCauHinhVacXin={danhSachCauHinhVacXin} setDanhSachCauHinhVacXin={() => {}} /* Cấu hình vaccine do kênh Firestore tự cập nhật; bỏ qua cập nhật thủ công để không bị nhân đôi dòng */
   danhSachDangDe={danhSachDangDe}
   danhSachSoTay={danhSachSoTay}
+  danhSachChuongThit={danhSachChuongThit}
   userEmail={userEmail}
   
-  hienBatLocChiTietTab3={hienBatLocChiTietTab3} setHienBatLocChiTietTab3={setHienBatLocChiTietTab3}
+    hienBatLocChiTietTab3={hienBatLocChiTietTab3} setHienBatLocChiTietTab3={setHienBatLocChiTietTab3}
   hienSapDeChiTietTab3={hienSapDeChiTietTab3} setHienSapDeChiTietTab3={setHienSapDeChiTietTab3}
   hienCaiSuaChiTietTab3={hienCaiSuaChiTietTab3} setHienCaiSuaChiTietTab3={setHienCaiSuaChiTietTab3}
   hienQuyTrinhChiTietTab3={hienQuyTrinhChiTietTab3} setHienQuyTrinhChiTietTab3={setHienQuyTrinhChiTietTab3}
-  
+
   loaiMocInput={loaiMocInput} setLoaiMocInput={setLoaiMocInput}
   inputDays={inputDays} setInputDays={setInputDays}
   inputName={inputName} setInputName={setInputName}
@@ -3077,7 +3249,7 @@ setGoiYMaTaiLoc={setGoiYMaTaiLoc}
   styles={styles}
   parseToDateObject={parseToDateObject}
   selectedHeoDetail={selectedHeoDetail}
-  nhomNaiTab2={nhomNaiTab2}
+  nhomNaiTab2={nhomChiTietModal}
   danhSachLichSu={danhSachLichSu}
   danhSachDangDe={danhSachDangDe}
 />

@@ -49,10 +49,25 @@ const SowDetailModal = ({
   })();
 
   const trangThaiXacThucNai = (duLieuNaiMoiNhatRealTime?.trangThaiDienThoai || duLieuNaiMoiNhatRealTime?.trangThaiCotH || duLieuNaiMoiNhatRealTime?.trangThai || "CHOR_PHOI").toString().trim().toUpperCase().normalize("NFC");
-  const laNaiMangBau = trangThaiXacThucNai === "PHỐI" || trangThaiXacThucNai.includes("PHOI");
-  const laNaiNuoiCon = trangThaiXacThucNai === "ĐẺ" || trangThaiXacThucNai.includes("DE") || trangThaiXacThucNai.includes("ĐE");
-  const laNaiDaThai = trangThaiXacThucNai === "THẢI" || trangThaiXacThucNai.includes("THAI");
-  const laNaiTheoDoi = !laNaiMangBau && !laNaiNuoiCon && !laNaiDaThai;
+  const laNaiMangBau = trangThaiXacThucNai === "PHỐI";
+const laNaiNuoiCon = trangThaiXacThucNai === "ĐẺ";
+const laNaiDaThai = trangThaiXacThucNai === "THẢI";
+const laNaiTheoDoi = !laNaiMangBau && !laNaiNuoiCon && !laNaiDaThai;
+
+// 🔎 NẾU ĐANG "THEO DÕI": lục lịch sử của con nái này để tìm sự kiện gần nhất có ý nghĩa (Sảy Thai, Lốc, Cai Sữa...)
+const suKienGanNhatKhiTheoDoi = (() => {
+  if (!laNaiTheoDoi) return null;
+  const mangLichSu = Array.isArray(danhSachLichSu) ? danhSachLichSu : [];
+  const lichSuCuaNai = mangLichSu.filter(l => 
+    l && l.maTai && l.maTai.toString().toUpperCase().trim() === maTaiModal &&
+    l.suKien && l.suKien.toString().trim().toUpperCase() !== "THEO DÕI"
+  );
+  if (lichSuCuaNai.length === 0) return null;
+  // Dòng mới nhất lên đầu, giống cách các danh sách khác trong app đang sắp xếp
+  lichSuCuaNai.sort((a, b) => (b.id || "").toString().localeCompare((a.id || "").toString()));
+  return lichSuCuaNai[0];
+})();
+
 
   return (
     <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={() => { setKhayMenuPhu('HO_SO'); onClose(); }}>
@@ -86,16 +101,23 @@ const SowDetailModal = ({
                     <Text style={{ fontSize: 13, color: '#e83e8c', fontWeight: 'bold' }}>{duLieuNaiMoiNhatRealTime?.lua || duLieuNaiMoiNhatRealTime?.luaHienThiThongMinh || "Hậu bị"}</Text>
                   </View>
                   
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 }}>
-                    <Text style={{ fontSize: 13, color: '#6c757d', fontWeight: '500' }}>Trạng Thái Hiện Tại</Text>
-                    <Text style={{ 
-                      fontSize: 13, 
-                      fontWeight: 'bold',
-                      color: laNaiMangBau ? '#007bff' : (laNaiNuoiCon ? '#28a745' : (laNaiDaThai ? '#dc3545' : '#e65100'))
-                    }}>
-                      {laNaiMangBau ? "Đang Bầu" : (laNaiNuoiCon ? "Đang Đẻ" : (laNaiDaThai ? "Đã Thải Loại ❌" : "Theo Dõi 📋"))}
-                    </Text>
-                  </View>
+                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 }}>
+  <Text style={{ fontSize: 13, color: '#6c757d', fontWeight: '500' }}>Trạng Thái Hiện Tại</Text>
+  <View style={{ alignItems: 'flex-end' }}>
+    <Text style={{ 
+      fontSize: 13, 
+      fontWeight: 'bold',
+      color: laNaiMangBau ? '#007bff' : (laNaiNuoiCon ? '#28a745' : (laNaiDaThai ? '#dc3545' : '#e65100'))
+    }}>
+      {laNaiMangBau ? "Đang Bầu" : (laNaiNuoiCon ? "Đang Đẻ" : (laNaiDaThai ? "Đã Thải Loại ❌" : "Theo Dõi 📋"))}
+    </Text>
+    {suKienGanNhatKhiTheoDoi && (
+      <Text style={{ fontSize: 10.5, color: '#8a6d3b', marginTop: 2, fontStyle: 'italic' }}>
+        Gần nhất: {suKienGanNhatKhiTheoDoi.suKien} ({suKienGanNhatKhiTheoDoi.ngay || suKienGanNhatKhiTheoDoi.thoiGianNhap || "?"})
+      </Text>
+    )}
+  </View>
+</View>
                 </View>
 
                 {/* KHỐI 2: CHI TIẾT THEO DÕI ĐỘNG CHO NHÓM MANG THAI */}

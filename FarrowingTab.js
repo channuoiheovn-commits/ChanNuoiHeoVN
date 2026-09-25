@@ -26,12 +26,13 @@ const FarrowingTab = ({
         />
       </View>
       
-      <FlatList
+ <FlatList
         numColumns={2}
         columnWrapperStyle={{ justifyContent: 'space-between', paddingHorizontal: 15, gap: 8 }}
         data={(() => {
           const danhSachGoc = Array.isArray(global.danhSachCapNhatTrangThai) ? global.danhSachCapNhatTrangThai : [];
 
+          // 1. Lọc trọn vẹn những con nái thực tế ĐANG ĐẺ nuôi con ngoài chuồng
           const mangNuoiConThucTe = danhSachGoc.length > 0 
             ? danhSachGoc.filter(heo => {
                 const maTaiInHoa = heo.maTai ? heo.maTai.toString().toUpperCase().trim() : "";
@@ -52,34 +53,50 @@ const FarrowingTab = ({
               })
             : (Array.isArray(danhSachMaTai) ? danhSachMaTai.filter(h => h && h.trangThaiCotH === "Đẻ") : []);
 
+          // 2. Map thông tin sơ sinh - ĐÃ VÁ: Đảo trục thời gian bốc lứa mới nhất
           const mangDangDeChoList = mangNuoiConThucTe.map((nai, index) => {
             const maTaiInHoa = nai.maTai ? nai.maTai.toString().toUpperCase().trim() : "";
-            const mangLichSuDe = Array.isArray(danhSachLichSu) ? danhSachLichSu.filter(i => i && i.maTai && i.maTai.toString().toUpperCase().trim() === maTaiInHoa && i.suKien === "Đẻ" && i.actionType !== "delete") : [];
-  mangLichSuDe.sort((a, b) => (parseToDateObject(a.ngay)?.getTime() || 0) - (parseToDateObject(b.ngay)?.getTime() || 0));
-            const skDeGanNhat = mangLichSuDe.length > 0 ? mangLichSuDe[0] : null;
+            
+            // Lọc nhật ký đẻ của riêng con nái này
+            const mangLichSuDe = Array.isArray(danhSachLichSu) 
+              ? danhSachLichSu.filter(i => i && i.maTai && i.maTai.toString().toUpperCase().trim() === maTaiInHoa && i.suKien === "Đẻ" && i.actionType !== "delete") 
+              : [];
+            
+            // 🧠 SỬA CHÍ MẠNG: Sắp xếp giảm dần (Mới nhất lên đầu) dựa trên ID (Thời gian nhập timestamp) 
+            // Hoặc dựa trên toán tử so sánh Date để ca vừa gõ hôm nay vọt phốc lên vị trí Index 0
+            mangLichSuDe.sort((a, b) => {
+              const timeA = parseToDateObject(a.ngay) ? parseToDateObject(a.ngay).getTime() : 0;
+              const timeB = parseToDateObject(b.ngay) ? parseToDateObject(b.ngay).getTime() : 0;
+              if (timeB !== timeA) return timeB - timeA; // Mới xếp trước, Cũ xếp sau
+              return (b.id || "").toString().localeCompare((a.id || "").toString());
+            });
+
+            // Giờ bốc phần tử số 0 chắc chắn sẽ ăn trọn lứa mới nhất vừa gõ!
+            const skDeMoiNhat = mangLichSuDe.length > 0 ? mangLichSuDe[0] : null;
 
             return {
               id: "RAM_DE_" + (nai.id || index),
               maTai: nai.maTai,
               giong: nai.giong || "---",
-              luaDe: nai.lua || "---",
+              luaDe: skDeMoiNhat ? (skDeMoiNhat.lua || nai.lua || "---") : (nai.lua || "---"),
               trangThaiHienTai: nai.trangThaiDienThoai,
-              ngayDe: nai.ngayDeDongThoiGianThuc || (skDeGanNhat ? skDeGanNhat.ngay : "---"),
-              soHeoCon: skDeGanNhat ? String(skDeGanNhat.soHeo) : (nai.soHeoCon || "0"),
-              khoThai: skDeGanNhat ? String(skDeGanNhat.khoThai) : (nai.khoThai || "0"),
-              coiCoc: skDeGanNhat ? String(skDeGanNhat.coiCoc) : (nai.coiCoc || "0"),
-              chetNgop: skDeGanNhat ? String(skDeGanNhat.chetNgop) : (nai.chetNgop || "0"),
-              chonNuoi: skDeGanNhat ? String(skDeGanNhat.chonNuoi) : (nai.chonNuoi || "0"),
-              ghiChuDe: skDeGanNhat ? skDeGanNhat.ghiChu : (nai.ghiChuDe || "")
+              ngayDe: nai.ngayDeDongThoiGianThuc || (skDeMoiNhat ? skDeMoiNhat.ngay : "---"),
+              soHeoCon: skDeMoiNhat ? String(skDeMoiNhat.soHeo) : (nai.soHeoCon || "0"),
+              khoThai: skDeMoiNhat ? String(skDeMoiNhat.khoThai) : (nai.khoThai || "0"),
+              coiCoc: skDeMoiNhat ? String(skDeMoiNhat.coiCoc) : (nai.coiCoc || "0"),
+              chetNgop: skDeMoiNhat ? String(skDeMoiNhat.chetNgop) : (nai.chetNgop || "0"),
+              chonNuoi: skDeMoiNhat ? String(skDeMoiNhat.chonNuoi) : (nai.chonNuoi || "0"),
+              ghiChuDe: skDeMoiNhat ? skDeMoiNhat.ghiChu : (nai.ghiChuDe || "")
             };
           });
 
-         mangDangDeChoList.sort((a, b) => {
+          // 3. Sắp xếp hiển thị ngoài màn hình danh sách: Cũ lên trước để công nhân thấy lịch cai sữa sớm
+          mangDangDeChoList.sort((a, b) => {
             const timeA = parseToDateObject(a.ngayDe) ? parseToDateObject(a.ngayDe).getTime() : 0;
             const timeB = parseToDateObject(b.ngayDe) ? parseToDateObject(b.ngayDe).getTime() : 0;
             if (timeA === 0) return 1;
             if (timeB === 0) return -1;
-            return timeA - timeB; // Sắp xếp xuôi dòng thời gian: Cũ lên trước, Mới xuống sau
+            return timeA - timeB; 
           });
 
           return mangDangDeChoList.filter(i => {

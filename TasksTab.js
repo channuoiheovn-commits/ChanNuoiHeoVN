@@ -29,7 +29,10 @@ const TasksTab = ({
   danhSachCauHinhVacXin, setDanhSachCauHinhVacXin,
   danhSachSoTay,
   danhSachDangDe,
+  danhSachChuongThit,
   userEmail,
+  cauHinhVacXinLoc,
+
   
   // Trạng thái hiển thị đóng mở các khối cảnh báo tĩnh
   hienBatLocChiTietTab3, setHienBatLocChiTietTab3,
@@ -56,6 +59,7 @@ const [hienLichTrongModal, setHienLichTrongModal] = useState(false);
   // Bộ nhớ tại chỗ quản lý riêng ô nhập ngày tiêm mũi trước cho cấu hình Định Kỳ
   const [ngayTiemTruocLocal, setNgayTiemTruocLocal] = useState("");
   const [isLichDatePickerVisible, setIsLichDatePickerVisible] = useState(false);
+  const [editingSoTayId, setEditingSoTayId] = useState(null); 
 
   const moBangChonLich = () => { setIsLichDatePickerVisible(true); };
   const dongBangChonLich = () => { setIsLichDatePickerVisible(false); };
@@ -83,14 +87,14 @@ const [hienLichTrongModal, setHienLichTrongModal] = useState(false);
   const bamMoSubTabLichVacxin = () => { setSubTab("setup_schedule"); };
   const bamMoSubTabNhatKyTiem = () => { setSubTab("inject_history"); };
 
-  const bamDongMoKhoiBatLoc = () => { setHienBatLocChiTietTab3(!hienBatLocChiTietTab3); };
+    const bamDongMoKhoiBatLoc = () => { setHienBatLocChiTietTab3(!hienBatLocChiTietTab3); };
   const bamDongMoKhoiSapDe = () => { setHienSapDeChiTietTab3(!hienSapDeChiTietTab3); };
   const bamDongMoKhoiCaiSua = () => { setHienCaiSuaChiTietTab3(!hienCaiSuaChiTietTab3); };
   const bamDongMoKhoiVacxin = () => { setHienQuyTrinhChiTietTab3(!hienQuyTrinhChiTietTab3); };
-  // Khối giao diện động bóc tách hiển thị cô lập theo loại mốc khi sửa
+// Khối giao diện động bóc tách hiển thị cô lập theo loại mốc khi sửa
    const renderKhoiNhapLieuCoLapTheoNhom = () => {
     switch (loaiMocInput) {
-      case "DINH_KY":
+             case "DINH_KY":
         return (
           <View style={{ backgroundColor: '#fff8f0', padding: 10, borderRadius: 6, borderWidth: 0.5, borderColor: '#ffe0b2', marginBottom: 10 }}>
             <Text style={{ fontSize: 11, fontWeight: '700', color: '#e65100', marginBottom: 8 }}>📢 CẤU HÌNH LỊCH ĐỊNH KỲ TỔNG ĐÀN:</Text>
@@ -150,7 +154,14 @@ const [hienLichTrongModal, setHienLichTrongModal] = useState(false);
             <TextInput style={{ height: 40, borderWidth: 1, borderColor: '#dee2e6', borderRadius: 6, backgroundColor: '#ffffff', paddingHorizontal: 10, color: '#111111' }} value={inputDays} onChangeText={(txt) => setInputDays(txt.replace(/[^0-9]/g, ''))} keyboardType="number-pad" placeholderTextColor="#888888" />
           </View>
         );
-
+case "HEO_THIT":
+        return (
+          <View style={{ backgroundColor: '#f3e5f5', padding: 10, borderRadius: 6, borderWidth: 0.5, borderColor: '#d1c4e9', marginBottom: 10 }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: '#6f42c1', marginBottom: 8 }}>ĐẶT LỊCH CHÍCH HEO THỊT:</Text>
+            <Text style={{ fontSize: 11, fontWeight: '600', color: '#666666', marginBottom: 4 }}>Nhắc lịch tiêm vào ngày tuổi thứ bao nhiêu của heo ( ngày ):</Text>
+            <TextInput style={{ height: 40, borderWidth: 1, borderColor: '#dee2e6', borderRadius: 6, backgroundColor: '#ffffff', paddingHorizontal: 10, color: '#111111' }} value={inputDays} onChangeText={(txt) => setInputDays(txt.replace(/[^0-9]/g, ''))} placeholder="Ví dụ: 35 ngày tuổi (tương đương 5 tuần tuổi)..." keyboardType="number-pad" placeholderTextColor="#888888" />
+          </View>
+        );
       case "SAU_NGAY_DE":
         return (
           <View style={{ backgroundColor: '#e8f5e9', padding: 10, borderRadius: 6, borderWidth: 0.5, borderColor: '#b1dfbb', marginBottom: 10 }}>
@@ -177,7 +188,8 @@ const [hienLichTrongModal, setHienLichTrongModal] = useState(false);
     if (currentTab !== 'tasks') return { danhSachHeoLocCanhBao: [], mangVacXinSauCung: [] };
 
     const mangLichSuGocTho = danhSachLichSu || [];
-    const mangVacXinCấuHình = danhSachCauHinhVacXin || [];
+// 🎯 ĐÃ VÁ THÔNG MẠCH: Got sach chu tieng Viet co dau, dong bo dung mảng cauHinhVacXinLoc vua import ở trên
+const mangVacXinCauHinh = cauHinhVacXinLoc || danhSachCauHinhVacXin || [];
     const mangRamGocViec = global.danhSachCapNhatTrangThai || [];
     
     const ngayHomNayObj = new Date();
@@ -249,7 +261,7 @@ const [hienLichTrongModal, setHienLichTrongModal] = useState(false);
 
         const skMoiNhatCuaHeo = khoSuKienMoiNhatCuaNai[maTaiHeo];
 
-        mangVacXinCấuHình.forEach(vx => {
+        mangVacXinCauHinh.forEach(vx => {
           if (!vx || !vx.soNgay) return;
           
           const tenMuiChichChuan = vx.tenNhiemVu || vx.tenVacXin || "---";
@@ -353,6 +365,72 @@ const [hienLichTrongModal, setHienLichTrongModal] = useState(false);
       });
     }
 
+    // 🐷 LUỒNG 4: NHÓM VẮC-XIN HEO THỊT THƯƠNG PHẨM (Quét theo ngày tuổi thực tế từng ô chuồng)
+    if (Array.isArray(danhSachChuongThit) && danhSachChuongThit.length > 0) {
+      danhSachChuongThit.forEach(bayHeo => {
+        if (!bayHeo || !bayHeo.tenChuong) return;
+        const soConThucTe = Number(bayHeo.soCon) || 0;
+        if (soConThucTe <= 0) return; // Bỏ qua dòng trừ hao/log vật tư, chỉ tính bầy đang nuôi thực tế
+
+        const ngayVaoObj = parseToDateObject(bayHeo.ngayNhapChuong);
+        if (!ngayVaoObj) return;
+
+        const tuoiMocLucVaoNgay = (Number(bayHeo.tuanTuoi) || 0) * 7;
+        const soNgayTuNgayVao = Math.round((timeMocHomNay - ngayVaoObj.getTime()) / 86400000);
+        const ngayTuoiHeoHomNay = tuoiMocLucVaoNgay + soNgayTuNgayVao;
+        const khoaChuongChuan = `${bayHeo.tenKhu || "Khu"} - Chuồng ${bayHeo.tenChuong}`;
+
+        mangVacXinCauHinh.forEach(vx => {
+          if (!vx || !vx.soNgay) return;
+          const oHanhDongVxTho = (vx.loaiHanhDong || vx.loaiMoc || "").toString().trim().toUpperCase();
+          if (!oHanhDongVxTho.includes("HEO_THIT")) return; // Chỉ nhận đúng nhóm quy trình heo thịt
+
+          const tenMuiChichChuan = vx.tenNhiemVu || vx.tenVacXin || "---";
+          const mocNgayCauHinh = parseInt(vx.soNgay, 10);
+
+          let laKhopNgayHeoThit = false;
+          let ngayConLaiMatTien = mocNgayCauHinh - ngayTuoiHeoHomNay;
+          if (cheDoXemHienTai === "HOM_NAY") {
+            if (ngayTuoiHeoHomNay === mocNgayCauHinh) laKhopNgayHeoThit = true;
+          } else {
+            if (ngayTuoiHeoHomNay < mocNgayCauHinh && ngayTuoiHeoHomNay + 3 >= mocNgayCauHinh) laKhopNgayHeoThit = true;
+          }
+
+          if (!laKhopNgayHeoThit) return;
+
+          // Chốt chặn loại trừ trùng lặp: nếu ô chuồng này đã có log tiêm mũi này rồi thì ẩn lịch nhắc đi
+          const laDaTiemHeoThit = danhSachChuongThit.some(logItem => {
+            if (!logItem || !logItem.tenChuong) return false;
+            if (Number(logItem.soCon) !== 0) return false;
+            const khoaLogChuan = `${logItem.tenKhu || "Khu"} - Chuồng ${logItem.tenChuong}`;
+            if (khoaLogChuan !== khoaChuongChuan) return false;
+
+            const ghiChuLogChuan = (logItem.ghiChu || "").toString().toUpperCase();
+            if (!ghiChuLogChuan.includes("VACCINE")) return false;
+            if (!ghiChuLogChuan.includes(tenMuiChichChuan.toUpperCase())) return false;
+
+            const ngayLogObj = parseToDateObject(logItem.ngayNhapChuong);
+            if (!ngayLogObj) return false;
+
+            return ngayLogObj.getTime() >= ngayVaoObj.getTime();
+          });
+
+          if (laDaTiemHeoThit) return;
+
+          const nhanHienThiChuoiTextHt = cheDoXemHienTai === "HOM_NAY" ? `${tenMuiChichChuan} (${mocNgayCauHinh} ngày)` : `${tenMuiChichChuan} (Còn ${ngayConLaiMatTien} ngày)`;
+          danhSachViecTrongNgayChuan.push({
+            id: `${vx.id || Math.random().toString()}_${khoaChuongChuan}`,
+            cauhinhId: tenMuiChichChuan,
+            tenNhiemVu: nhanHienThiChuoiTextHt,
+            maTai: khoaChuongChuan,
+            loai: oHanhDongVxTho,
+            nhanMoc: nhanHienThiChuoiTextHt.includes("Còn") ? `Còn ${ngayConLaiMatTien} ngày` : "[HEO THỊT]",
+            soNgayGocThucTe: ngayTuoiHeoHomNay
+          });
+        });
+      });
+    }
+
     const khoNhomVacXin = {};
     danhSachViecTrongNgayChuan.forEach(task => {
       const kKey = task.cauhinhId.toString().trim();
@@ -374,7 +452,7 @@ const [hienLichTrongModal, setHienLichTrongModal] = useState(false);
       danhSachHeoLocCanhBao: danhSachHeoLoc,
       mangVacXinSauCung: Object.values(khoNhomVacXin)
     };
-  }, [currentTab, danhSachLichSu, danhSachCauHinhVacXin, global.danhSachCapNhatTrangThai, kieuXemThoiGianTask]);
+  }, [currentTab, danhSachLichSu, danhSachCauHinhVacXin, global.danhSachCapNhatTrangThai, kieuXemThoiGianTask, danhSachChuongThit]);
 
   if (currentTab !== 'tasks') return null;
   return (
@@ -523,8 +601,8 @@ const [hienLichTrongModal, setHienLichTrongModal] = useState(false);
     {/* NÚT BẤM ĐIỀU KHIỂN ĐÓNG MỞ KHỐI SẢN KHOA */}
     <TouchableOpacity 
       activeOpacity={0.7} 
-      onPress={bamDongMoKhoiSapDe} 
-      style={{ backgroundColor: '#fffaf5', paddingVertical: 12, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: hienSapDeChiTietTab3 ? 0.5 : 0, borderBottomColor: '#ffd3b6' }}
+      onPress={bamDongMoKhoiVacxin} 
+      style={{ backgroundColor: '#fffaf5', paddingVertical: 12, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: hienQuyTrinhChiTietTab3 ? 0.5 : 0, borderBottomColor: '#ffd3b6' }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
         <View style={{ backgroundColor: '#0056b3', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}><Text style={{ fontSize: 8.5, fontWeight: 'bold', color: '#ffffff' }}>🤰</Text></View>
@@ -534,12 +612,12 @@ const [hienLichTrongModal, setHienLichTrongModal] = useState(false);
       </View>
       <View style={{ backgroundColor: '#ffffff', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, borderWidth: 0.8, borderColor: '#ffd3b6', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
         <Text style={{ fontSize: 11, fontWeight: '900', color: '#0056b3' }}>{mangVacXinSauCung.filter(c => c.loaiMocGoc !== "VACXIN_DINH_KY").length} Loại Mũi</Text>
-        <Text style={{ fontSize: 9, color: '#0056b3', fontWeight: 'bold' }}>{hienSapDeChiTietTab3 ? "▲ Thu gọn" : "▼ Xem"}</Text>
+        <Text style={{ fontSize: 9, color: '#0056b3', fontWeight: 'bold' }}>{hienQuyTrinhChiTietTab3 ? "▲ Thu gọn" : "▼ Xem"}</Text>
       </View>
     </TouchableOpacity>
 
    {/* CHI TIẾT CÁC MŨI SẢN KHOA */}
-{hienSapDeChiTietTab3 && (
+{hienQuyTrinhChiTietTab3 && (
   <View style={{ padding: 10, backgroundColor: '#fdfdfd' }}>
     {mangVacXinSauCung.filter(c => c.loaiMocGoc !== "VACXIN_DINH_KY").map((campaign, campaignIdx) => (
       <View key={`camp_sk_${campaignIdx}`} style={{ borderWidth: 1, borderColor: '#ffd3b6', borderRadius: 8, backgroundColor: '#ffffff', marginBottom: 10, padding: 10 }}>
@@ -636,16 +714,12 @@ const [hienLichTrongModal, setHienLichTrongModal] = useState(false);
             <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#e65100', marginBottom: 12 }}>⚙️ THÊM MỚI QUY TRÌNH DỊCH TỄ</Text>
             
             <Text style={{ fontSize: 11.5, fontWeight: '700', color: '#555555', marginBottom: 6 }}>Bước 1: Chọn nhóm quản lý vắc-xin:</Text>
-            <View style={{ flexDirection: 'row', gap: 6, marginBottom: 14 }}>
-              <TouchableOpacity onPress={() => setLoaiMocInput("SAU_PHOI")} style={{ flex: 1, paddingVertical: 8, borderRadius: 8, backgroundColor: loaiMocInput === "SAU_PHOI" ? '#007bff' : '#f2f2f2', alignItems: 'center', borderWidth: 0.5, borderColor: '#dee2e6' }}>
-                <Text style={{ color: loaiMocInput === "SAU_PHOI" ? '#ffffff' : '#555555', fontSize: 11, fontWeight: 'bold' }}>Sau Phối</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setLoaiMocInput("SAU_NGAY_DE")} style={{ flex: 1, paddingVertical: 8, borderRadius: 8, backgroundColor: loaiMocInput === "SAU_NGAY_DE" ? '#28a745' : '#f2f2f2', alignItems: 'center', borderWidth: 0.5, borderColor: '#dee2e6' }}>
-                <Text style={{ color: loaiMocInput === "SAU_NGAY_DE" ? '#ffffff' : '#555555', fontSize: 11, fontWeight: 'bold' }}>Sau Ngày Đẻ</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setLoaiMocInput("DINH_KY")} style={{ flex: 1, paddingVertical: 8, borderRadius: 8, backgroundColor: loaiMocInput === "DINH_KY" ? '#e65100' : '#f2f2f2', alignItems: 'center', borderWidth: 0.5, borderColor: '#dee2e6' }}>
-                <Text style={{ color: loaiMocInput === "DINH_KY" ? '#ffffff' : '#555555', fontSize: 11, fontWeight: 'bold' }}>Định Kỳ Tổng Đàn</Text>
-              </TouchableOpacity>
+             {/* 🎯 BẢN VÁ TRỤC CẤU HÌNH: Mở rộng hàng ngang lên 4 nút bấm, khai sinh phân hệ quản lý cho Heo Thịt thương phẩm */}
+            <View style={{ flexDirection: 'row', gap: 4, marginBottom: 14, flexWrap: 'wrap' }}>
+              <TouchableOpacity onPress={() => setLoaiMocInput("SAU_PHOI")} style={{ flex: 1, minWidth: '48%', paddingVertical: 8, borderRadius: 6, backgroundColor: loaiMocInput === "SAU_PHOI" ? '#007bff' : '#f2f2f2', alignItems: 'center', borderWidth: 0.5, borderColor: '#dee2e6' }}><Text style={{ color: loaiMocInput === "SAU_PHOI" ? '#ffffff' : '#555555', fontSize: 11, fontWeight: 'bold' }}>Sau Phối (Nái)</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => setLoaiMocInput("SAU_NGAY_DE")} style={{ flex: 1, minWidth: '48%', paddingVertical: 8, borderRadius: 6, backgroundColor: loaiMocInput === "SAU_NGAY_DE" ? '#28a745' : '#f2f2f2', alignItems: 'center', borderWidth: 0.5, borderColor: '#dee2e6' }}><Text style={{ color: loaiMocInput === "SAU_NGAY_DE" ? '#ffffff' : '#555555', fontSize: 11, fontWeight: 'bold' }}>Sau Đẻ (Nái)</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => setLoaiMocInput("HEO_THIT")} style={{ flex: 1, minWidth: '48%', paddingVertical: 8, borderRadius: 6, backgroundColor: loaiMocInput === "HEO_THIT" ? '#6f42c1' : '#f2f2f2', alignItems: 'center', borderWidth: 0.5, borderColor: '#dee2e6' }}><Text style={{ color: loaiMocInput === "HEO_THIT" ? '#ffffff' : '#555555', fontSize: 11, fontWeight: 'bold' }}>🐷 Heo Thịt</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => setLoaiMocInput("DINH_KY")} style={{ flex: 1, minWidth: '48%', paddingVertical: 8, borderRadius: 6, backgroundColor: loaiMocInput === "DINH_KY" ? '#e65100' : '#f2f2f2', alignItems: 'center', borderWidth: 0.5, borderColor: '#dee2e6' }}><Text style={{ color: loaiMocInput === "DINH_KY" ? '#ffffff' : '#555555', fontSize: 11, fontWeight: 'bold' }}>Định Kỳ Tổng</Text></TouchableOpacity>
             </View>
             <Text style={{ fontSize: 11.5, fontWeight: '700', color: '#555555', marginBottom: 6 }}>Bước 2: Nhập thông tin chi tiết:</Text>
             
@@ -658,65 +732,34 @@ const [hienLichTrongModal, setHienLichTrongModal] = useState(false);
               placeholderTextColor="#888888" 
             />
 
-            {loaiMocInput === "DINH_KY" ? (
+                       {/* 🎯 BẢN VÁ PHÂN PHÂN LAYOUT: Tách độc lập 3 khay nhập liệu tránh đè giao diện Sau Phối lên Heo Thịt */}
+            {loaiMocInput === "DINH_KY" && (
               <View style={{ backgroundColor: '#fff8f0', padding: 10, borderRadius: 6, borderWidth: 0.5, borderColor: '#ffe0b2', marginBottom: 10 }}>
                 <Text style={{ fontSize: 11, fontWeight: '700', color: '#e65100', marginBottom: 8 }}>📢 CẤU HÌNH NHẮC LỊCH ĐỊNH KỲ TỔNG ĐÀN:</Text>
-                
                 <Text style={{ fontSize: 11, fontWeight: '600', color: '#666666', marginBottom: 4 }}>Ngày tiêm cũ của trại (Bấm chọn):</Text>
-                <TouchableOpacity 
-  activeOpacity={0.7}
-  onPress={() => {
-    const { Keyboard } = require('react-native');
-    Keyboard.dismiss(); // Thu bàn phím ảo chống đơ UI
-    setIsLichDatePickerVisible(!isLichDatePickerVisible); // Kích hoạt biến độc lập lớp ngoài
-  }}
-  style={{ height: 42, borderWidth: 1, borderColor: '#ffd3b6', borderRadius: 6, backgroundColor: '#ffffff', paddingHorizontal: 12, marginBottom: 10, justifyContent: 'center' }}
->
-  <Text style={{ color: ngayTiemTruocLocal ? '#111111' : '#888888', fontSize: 13 }}>
-    {ngayTiemTruocLocal ? `📅 Ngày tiêm cũ: ${ngayTiemTruocLocal}` : "Mở bảng chọn ngày tiêm mũi cũ..."}
-  </Text>
-</TouchableOpacity>
-
-
-                
-{/* ✅ ĐÃ SỬA: Khay lịch hiển thị độc lập cho Form Thêm Mới, không bị cắn nhau với Pop-up sửa */}
-{isLichDatePickerVisible && (
-  <View style={{ borderWidth: 1, borderColor: '#ffd3b6', borderRadius: 8, backgroundColor: '#ffffff', padding: 4, marginBottom: 10, overflow: 'hidden' }}>
-    <DateTimePickerModal
-      isVisible={isLichDatePickerVisible} // Đọc từ biến độc lập lớp ngoài
-      mode="date"
-      display="inline" 
-      onConfirm={(date) => {
-        setIsLichDatePickerVisible(false); // Ẩn ngay khay lịch để không bị kẹt cảm ứng vuốt
-        if (date) {
-          const dd = String(date.getDate()).padStart(2, '0');
-          const mm = String(date.getMonth() + 1).padStart(2, '0');
-          const yyyy = date.getFullYear();
-          
-          setTimeout(() => {
-            setNgayTiemTruocLocal(`${dd}/${mm}/${yyyy}`);
-          }, 80);
-        }
-      }}
-      onCancel={() => setIsLichDatePickerVisible(false)}
-      locale="vi"
-      confirmTextConfirm="Xác nhận"
-      cancelText="Hủy"
-    />
-  </View>
-)}
-
-
+                <TouchableOpacity activeOpacity={0.7} onPress={() => { const { Keyboard } = require('react-native'); Keyboard.dismiss(); setIsLichDatePickerVisible(!isLichDatePickerVisible); }} style={{ height: 42, borderWidth: 1, borderColor: '#ffd3b6', borderRadius: 6, backgroundColor: '#ffffff', paddingHorizontal: 12, marginBottom: 10, justifyContent: 'center' }}><Text style={{ color: ngayTiemTruocLocal ? '#111111' : '#888888', fontSize: 13 }}>{ngayTiemTruocLocal ? `📅 Ngày tiêm cũ: ${ngayTiemTruocLocal}` : "Mở bảng chọn ngày tiêm mũi cũ..."}</Text></TouchableOpacity>
+                {isLichDatePickerVisible && ( <View style={{ borderWidth: 1, borderColor: '#ffd3b6', borderRadius: 8, backgroundColor: '#ffffff', padding: 4, marginBottom: 10, overflow: 'hidden' }}><DateTimePickerModal isVisible={isLichDatePickerVisible} mode="date" display="inline" onConfirm={(date) => { setIsLichDatePickerVisible(false); if (date) { const dd = String(date.getDate()).padStart(2, '0'); const mm = String(date.getMonth() + 1).padStart(2, '0'); const yyyy = date.getFullYear(); setTimeout(() => { setNgayTiemTruocLocal(`${dd}/${mm}/${yyyy}`); }, 80); } }} onCancel={() => setIsLichDatePickerVisible(false)} locale="vi" confirmTextConfirm="Xác nhận" cancelText="Hủy" /></View> )}
                 <Text style={{ fontSize: 11, fontWeight: '600', color: '#666666', marginBottom: 4 }}>Khoảng cách chu kỳ nhắc lại (Số ngày):</Text>
                 <TextInput style={{ height: 40, borderWidth: 1, borderColor: '#dee2e6', borderRadius: 6, backgroundColor: '#ffffff', paddingHorizontal: 10, color: '#111111' }} value={inputDays} onChangeText={(txt) => setInputDays(txt.replace(/[^0-9]/g, ''))} placeholder="Ví dụ: 90 ngày (3 tháng)" keyboardType="number-pad" placeholderTextColor="#888888" />
               </View>
-            ) : (
+            )}
+
+            {loaiMocInput === "HEO_THIT" && (
+              <View style={{ backgroundColor: '#f3e5f5', padding: 10, borderRadius: 6, borderWidth: 0.5, borderColor: '#d1c4e9', marginBottom: 10 }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#6f42c1', marginBottom: 8 }}>CÀI LỊCH NHẮC VACXIN HEO THỊT:</Text>
+                <Text style={{ fontSize: 11, fontWeight: '600', color: '#666666', marginBottom: 4 }}>Nhắc lịch tiêm vào ngày tuổi thứ bao nhiêu (ngày):</Text>
+                <TextInput style={{ height: 40, borderWidth: 1, borderColor: '#dee2e6', borderRadius: 6, backgroundColor: '#ffffff', paddingHorizontal: 10, color: '#111111' }} value={inputDays} onChangeText={(txt) => setInputDays(txt.replace(/[^0-9]/g, ''))} placeholder="Ví dụ: 35 ngày tuổi (tương đương 5 tuần tuổi)..." keyboardType="number-pad" placeholderTextColor="#888888" />
+              </View>
+            )}
+
+            {loaiMocInput !== "DINH_KY" && loaiMocInput !== "HEO_THIT" && (
               <View style={{ backgroundColor: '#f0f4f8', padding: 10, borderRadius: 6, borderWidth: 0.5, borderColor: '#d0e1fd', marginBottom: 10 }}>
                 <Text style={{ fontSize: 11, fontWeight: '700', color: '#0056b3', marginBottom: 8 }}>{loaiMocInput === "SAU_NGAY_DE" ? "🍼 CẤU HÌNH THEO NGÀY ĐẺ:" : "🤰 CẤU HÌNH THEO NGÀY PHỐI:"}</Text>
                 <Text style={{ fontSize: 11, fontWeight: '600', color: '#666666', marginBottom: 4 }}>Sau mốc bao nhiêu ngày thì tiêm:</Text>
                 <TextInput style={{ height: 40, borderWidth: 1, borderColor: '#dee2e6', borderRadius: 6, backgroundColor: '#ffffff', paddingHorizontal: 10, color: '#111111' }} value={inputDays} onChangeText={(txt) => setInputDays(txt.replace(/[^0-9]/g, ''))} placeholder="Ví dụ: 14 ngày, 60 ngày..." keyboardType="number-pad" placeholderTextColor="#888888" />
               </View>
             )}
+
             
             <Text style={{ fontSize: 11, fontWeight: '600', color: '#666666', marginBottom: 4 }}>Ghi chú liều lượng (Không bắt buộc):</Text>
             <TextInput style={{ height: 40, borderWidth: 1, borderColor: '#dee2e6', borderRadius: 6, backgroundColor: '#ffffff', paddingHorizontal: 10, marginBottom: 14, color: '#111111' }} value={ghiChuVacXinInput} onChangeText={setGhiChuVacXinInput} placeholder="Ví dụ: Tiêm bắp 2ml..." placeholderTextColor="#888888" />
@@ -865,6 +908,26 @@ const [hienLichTrongModal, setHienLichTrongModal] = useState(false);
             )}
           </View>
 
+{/* 🆕 MỚI CHÈN: KHỐI HIỂN THỊ DANH MỤC QUY TRÌNH HEO THỊT ĐANG ÁP DỤNG TRONG TRẠI */}
+          <View style={{ marginBottom: 14, backgroundColor: '#fcfcfc', borderRadius: 8, borderWidth: 1, borderColor: '#d6c4ff', padding: 8 }}>
+            <Text style={{ fontSize: 11.5, fontWeight: 'bold', color: '#5227a3', marginBottom: 8 }}>🐷 Nhóm Quy Trình Vaccine Heo Thịt Thương Phẩm</Text>
+            {Array.isArray(danhSachCauHinhVacXin) && danhSachCauHinhVacXin.filter(i => i.loaiHanhDong?.includes("HEO_THIT")).length === 0 ? (
+              <Text style={{ fontSize: 11, color: '#999999', fontStyle: 'italic', paddingLeft: 8 }}>Chưa cấu hình quy trình nào cho lợn thịt.</Text>
+            ) : (
+              danhSachCauHinhVacXin.filter(i => i.loaiHanhDong?.includes("HEO_THIT")).map((item, idx) => (
+                <View key={`vht_${item.id || idx}`} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 10, backgroundColor: '#ffffff', borderRadius: 6, marginBottom: 6, borderWidth: 0.5, borderColor: '#dee2e6' }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 12.5, fontWeight: '700', color: '#111111' }}>• {item.tenNhiemVu?.toString().toUpperCase()}</Text>
+                    <Text style={{ fontSize: 11, color: '#6f42c1', fontWeight: 'bold', marginTop: 2 }}>Lịch tiêm nhắc: Ngày tuổi thứ {item.soNgay} {item.ghiChu ? `(${item.ghiChu})` : ''}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 4 }}>
+                    <TouchableOpacity onPress={() => { setEditingConfigId(item.id); setInputDays(item.soNgay?.toString() || ""); if (typeof setInputName === 'function') setInputName(item.tenNhiemVu || ""); setGhiChuVacXinInput(item.ghiChu || ""); setLoaiMocInput("HEO_THIT"); setNgayTiemTruocLocal(""); setIsEditModalVisible(true); }} style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#f1f3f9', borderRadius: 4 }}><Text style={{ fontSize: 10.5, fontWeight: 'bold' }}>Sửa</Text></TouchableOpacity>
+                    <TouchableOpacity onPress={() => { setDanhSachCauHinhVacXin(prev => prev.filter(i => i.id !== item.id)); if (typeof xuLyMangCauHinhVacXin === 'function') xuLyMangCauHinhVacXin("delete_cauhinh", { id: item.id }); }} style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#fdf2f2', borderRadius: 4 }}><Text style={{ fontSize: 10.5, fontWeight: 'bold', color: '#dc3545' }}>Xóa</Text></TouchableOpacity>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
         </ScrollView>
       )}
 
@@ -930,7 +993,7 @@ const [hienLichTrongModal, setHienLichTrongModal] = useState(false);
 
                 <Text style={{ fontSize: 11, fontWeight: '600', color: '#666666', marginBottom: 4 }}>Nội dung:</Text>
                 <TextInput 
-                  style={{ height: 60, borderWidth: 1, borderColor: '#dee2e6', borderRadius: 6, backgroundColor: '#ffffff', paddingHorizontal: 10, marginBottom: 10, color: '#111111', textAlignVertical: 'top', paddingTop: 8 }} 
+                  style={{ minHeight: 50, borderWidth: 1, borderColor: '#dee2e6', borderRadius: 6, backgroundColor: '#ffffff', paddingHorizontal: 10, marginBottom: 10, color: '#111111', textAlignVertical: 'top', paddingTop: 8 }} 
                   value={ghiChuVacXinInput} 
                   onChangeText={setGhiChuVacXinInput} 
                   multiline={true}
@@ -946,37 +1009,65 @@ const [hienLichTrongModal, setHienLichTrongModal] = useState(false);
                   placeholder="Chăm Sóc, Cám, Thuốc, Khác..." 
                   placeholderTextColor="#888888" 
                 />
+                {/* 🎯 KHỐI NÚT BẤM ĐỒNG BỘ MỚI: TỰ ĐỘNG CHÈN NÚT HỦY KHI ĐANG TRONG CHẾ ĐỘ SỬA */}
+                <View style={{ flexDirection: 'row', gap: 8, width: '100%' }}>
+                  
+                  {/* NẾU ĐANG SỬA, HIỂN THỊ THÊM NÚT HỦY SỬA MÀU XÁM BÊN TRÁI */}
+                  {!!editingSoTayId && (
+                    <TouchableOpacity 
+                      activeOpacity={0.7}
+                      style={{ flex: 0.35, backgroundColor: '#6c757d', paddingVertical: 11, borderRadius: 6, alignItems: 'center', justifyContent: 'center' }}
+                      onPress={() => {
+                        setInputName(""); 
+                        setGhiChuVacXinInput(""); 
+                        setInputDays("");
+                        setEditingSoTayId(null);
+                        setHienLichTrongModal(false); // Đóng sập khay nhập liệu lại cho gọn app
+                      }}
+                    >
+                      <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 13 }}>HỦY SỬA</Text>
+                    </TouchableOpacity>
+                  )}
 
-                <TouchableOpacity 
-                  style={{ backgroundColor: '#28a745', paddingVertical: 11, borderRadius: 6, alignItems: 'center' }}
-                  onPress={() => {
-                    if (!inputName.trim() || !ghiChuVacXinInput.trim()) return Alert.alert("Thông báo", "Vui lòng điền tiêu đề và nội dung!");
-                    
-                    if (typeof xuLyMangCauHinhVacXin === 'function') {
-                      const ngayHienTai = new Date().toLocaleDateString('vi-VN');
-                      xuLyMangCauHinhVacXin("insert_sotay", {
-                        id: `ST_${Date.now()}`,
-                        userEmail: userEmail,
-                        ngayTao: ngayHienTai,
-                        tieuDe: inputName.trim(),
-                        noiDung: ghiChuVacXinInput.trim(),
-                        danhMuc: inputDays.trim() || "Chung",
-                        trangThai: "Mới"
-                      });
-                      Alert.alert("Thành công", "Đã gửi yêu cầu thêm ghi chú lên hệ thống!");
-                    }
-                    
-                    // Xóa trắng form sau khi thêm và tự động đóng sập khung nhập lại cho gọn gàng
-                    setInputName(""); setGhiChuVacXinInput(""); setInputDays("");
-                    setHienLichTrongModal(false);
-                  }}
-                >
-                  <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 13 }}>💾 Lưu Vào Sổ Tay Cá Nhân</Text>
-                </TouchableOpacity>
+                  {/* NÚT LƯU HOẶC CẬP NHẬT CHÍNH (TỰ ĐỘNG CO GIÃN TỶ LỆ THEO HÀNG NGANG) */}
+                  <TouchableOpacity 
+                    activeOpacity={0.7}
+                    style={{ flex: 1, backgroundColor: editingSoTayId ? '#e65100' : '#28a745', paddingVertical: 11, borderRadius: 6, alignItems: 'center', justifyContent: 'center' }}
+                    onPress={() => {
+                      if (!inputName.trim() || !ghiChuVacXinInput.trim()) return Alert.alert("Thông báo", "Vui lòng điền tiêu đề và nội dung!");
+                      
+                      if (typeof xuLyMangCauHinhVacXin === 'function') {
+                        const ngayHienTai = new Date().toLocaleDateString('vi-VN');
+                        const idHienTaiST = editingSoTayId || `ST_${Date.now()}`;
+                        
+                        xuLyMangCauHinhVacXin(editingSoTayId ? "update_sotay" : "insert_sotay", {
+                          id: idHienTaiST,
+                          userEmail: userEmail,
+                          ngayTao: ngayHienTai,
+                          tieuDe: inputName.trim(),
+                          noiDung: ghiChuVacXinInput.trim(),
+                          danhMuc: inputDays.trim() || "Chung",
+                          trangThai: "Mới"
+                        });
+                        Alert.alert("Thành công", editingSoTayId ? "Đã cập nhật ghi chú!" : "Đã thêm ghi chú!");
+                      }
+                      
+                      setInputName(""); setGhiChuVacXinInput(""); setInputDays("");
+                      setEditingSoTayId(null);
+                      setHienLichTrongModal(false);
+                    }}
+                  >
+                    <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 13 }}>
+                      {editingSoTayId ? "💾 CẬP NHẬT" : "💾 LƯU SỔ TAY CÁ NHÂN"}
+                    </Text>
+                  </TouchableOpacity>
+
+                </View>
               </View>
             )}
 
           </View>
+
 
 
         {/* Block 2: KHO HIỂN THỊ DANH SÁCH SỔ TAY */}
@@ -995,18 +1086,37 @@ const [hienLichTrongModal, setHienLichTrongModal] = useState(false);
         </View>
       </View>
       <Text style={{ fontSize: 12, color: '#444444', marginBottom: 8 }}>{item.noiDung || ""}</Text>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 0.5, borderTopColor: '#f1f2f6', paddingTop: 6 }}>
+     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 0.5, borderTopColor: '#f1f2f6', paddingTop: 6 }}>
         <Text style={{ fontSize: 10, color: '#888888' }}>📅 Ngày tạo: {item.ngayTao || "---"}</Text>
-        <TouchableOpacity 
-          onPress={() => {
-            if (typeof xuLyMangCauHinhVacXin === 'function') {
-              xuLyMangCauHinhVacXin("delete_sotay", { id: item.id });
-            }
-          }} 
-          style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#fdf2f2', borderRadius: 4 }}
-        >
-          <Text style={{ fontSize: 10.5, fontWeight: 'bold', color: '#dc3545' }}>Xóa</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 6 }}>
+          {/* 🎯 NÚT SỬA SỔ TAY CÁ NHÂN MỚI TÍCH HỢP */}
+          <TouchableOpacity 
+            onPress={() => {
+              setEditingSoTayId(item.id);               // Nạp ID dòng đang sửa vào RAM gác cổng
+              if (typeof setInputName === 'function') setInputName(item.tieuDe || ""); // Đẩy tiêu đề cũ lên ô gõ chữ
+              setGhiChuVacXinInput(item.noiDung || ""); // Đẩy nội dung cũ lên ô gõ chữ
+              setInputDays(item.danhMuc || "");         // Đẩy phân loại cũ lên ô gõ chữ
+              setHienLichTrongModal(true);              // Ép bung mở khay nhập liệu ra lập tức để sửa số liệu
+            }} 
+            style={{ paddingHorizontal: 10, paddingVertical: 4, backgroundColor: '#fff3cd', borderRadius: 4, borderWidth: 0.5, borderColor: '#ffeeba' }}
+          >
+            <Text style={{ fontSize: 10.5, fontWeight: 'bold', color: '#b58100' }}>Sửa</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            onPress={() => {
+              if (typeof xuLyMangCauHinhVacXin === 'function') {
+                xuLyMangCauHinhVacXin("delete_sotay", { id: item.id });
+                if (editingSoTayId === item.id) { // Nếu lỡ tay xóa đúng con đang mở sửa, dọn sạch form nhập liệu luôn
+                  setInputName(""); setGhiChuVacXinInput(""); setInputDays(""); setEditingSoTayId(null);
+                }
+              }
+            }} 
+            style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#fdf2f2', borderRadius: 4 }}
+          >
+            <Text style={{ fontSize: 10.5, fontWeight: 'bold', color: '#dc3545' }}>Xóa</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   ))
@@ -1037,8 +1147,7 @@ const [hienLichTrongModal, setHienLichTrongModal] = useState(false);
               
               {/* Tiêu đề Pop-up */}
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#f1f2f6', paddingBottom: 10, marginBottom: 12 }}>
-                <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#e65100' }}>
-                  ✏️ CẬP NHẬT QUY TRÌNH: {loaiMocInput === "SAU_PHOI" ? "SAU PHỐI" : loaiMocInput === "SAU_NGAY_DE" ? "SAU NGÀY ĐẺ" : "ĐỊNH KỲ TỔNG ĐÀN"}
+                <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#e65100' }}> ✏️ CẬP NHẬT QUY TRÌNH: {loaiMocInput === "SAU_PHOI" ? "SAU PHỐI" : loaiMocInput === "SAU_NGAY_DE" ? "SAU NGÀY ĐẺ" : loaiMocInput === "HEO_THIT" ? "HEO THỊT THƯƠNG PHẨM" : "ĐỊNH KỲ TỔNG ĐÀN"}
                 </Text>
                 <TouchableOpacity onPress={() => { setIsEditModalVisible(false); setEditingConfigId(null); setInputDays(""); if (typeof setInputName === 'function') setInputName(""); setGhiChuVacXinInput(""); setHienLichTrongModal(false); }}>
                   <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#999999', paddingHorizontal: 6 }}>✕</Text>

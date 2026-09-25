@@ -1,8 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import FarmMapSubTab from './FarmMapSubTab';
 
-const PigMeatTab = ({ currentTab, styles, formatVNDate, dataHeoThit, danhSachLichSu, lichSuHeoThit, lichSuHeo, historyData, dataLichSu, openGiaiDoan, setOpenGiaiDoan, handleMoModalHeoThit, handleMoSuaHeoThit, handleXoaXoaNhatKyChuDong, handleXoaNhatKyChuDong }) => {
+const PigMeatTab = ({ currentTab, styles, formatVNDate, dataHeoThit, danhSachLichSu, lichSuHeoThit, lichSuHeo, historyData, dataLichSu, openGiaiDoan, setOpenGiaiDoan, handleMoModalHeoThit, handleMoSuaHeoThit, handleXoaXoaNhatKyChuDong, handleXoaNhatKyChuDong,danhSachChuongThit, 
+  setDanhSachChuongThit, 
+  WEB_APP_URL, 
+  userEmail, 
+  setDongBoStatus,
+  cauHinhVacXinLoc, nutCapNhat }) => {
   if (currentTab !== 'heo_thit') return null;
+  const [subTabChon, setSubTabChon] = useState("BAN_CO"); 
 
   // 🧠 BỘ NÃO GOM MẢNG TOÀN CỤC: Đặt ở đỉnh file để nuôi sống khay hiển thị Nhật ký
   const mangLichSuGocRealTime = Array.isArray(danhSachLichSu) ? danhSachLichSu : 
@@ -12,16 +19,55 @@ const PigMeatTab = ({ currentTab, styles, formatVNDate, dataHeoThit, danhSachLic
                                 (Array.isArray(dataLichSu) ? dataLichSu : []))));
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: '#ffffff' }} contentContainerStyle={{ padding: 12, paddingBottom: 120 }}>
-      {/* 📊 KHỐI THIẾT KẾ BỘ 3 NÚT BIẾN ĐỘNG */}
-      <View style={{ marginBottom: 12, backgroundColor: '#fafbfc', borderWidth: 1, borderColor: '#eef2f5', padding: 10, borderRadius: 12 }}>
-        <Text style={{ fontSize: 11.5, color: '#555555', fontWeight: 'bold', marginBottom: 8, letterSpacing: 0.3 }}>Nhập chính xác ngày thực hiện, Hệ thống sẽ tự động tính theo thời gian.</Text>
-        <View style={{ flexDirection: 'row', gap: 6 }}>
-          <TouchableOpacity activeOpacity={0.6} onPress={() => handleMoModalHeoThit('Nhập Đàn')} style={{ flex: 1, backgroundColor: '#007bff', paddingVertical: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 12.5 }}>Nhập Đàn</Text></TouchableOpacity>
-          <TouchableOpacity activeOpacity={0.6} onPress={() => handleMoModalHeoThit('Hao Hụt')} style={{ flex: 1, backgroundColor: '#dc3545', paddingVertical: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 12.5 }}>Hao Hụt</Text></TouchableOpacity>
-          <TouchableOpacity activeOpacity={0.6} onPress={() => handleMoModalHeoThit('Bán')} style={{ flex: 1, backgroundColor: '#28a745', paddingVertical: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 12.5 }}>Bán Heo</Text></TouchableOpacity>
-        </View>
+    <ScrollView 
+    style={{ flex: 1, backgroundColor: '#ffffff' }} 
+    contentContainerStyle={{ padding: 12, paddingBottom: 200 }} // 🎯 Đã tăng khoảng đệm an toàn đáy chuồng thương phẩm
+    keyboardShouldPersistTaps="handled"
+    showsVerticalScrollIndicator={true}
+  >  
+      {/* 🧭 BỘ NÚT CÔNG TẮC LẬT SUB-TAB PHẲNG MỊN MỚI CHÈN */}
+      <View style={{ flexDirection: 'row', backgroundColor: '#f1f3f5', padding: 4, borderRadius: 8, marginBottom: 12, gap: 4 }}>
+        <TouchableOpacity 
+          activeOpacity={0.7}
+          onPress={() => setSubTabChon("BAN_CO")}
+          style={{ flex: 1, paddingVertical: 8, borderRadius: 6, alignItems: 'center', backgroundColor: subTabChon === "BAN_CO" ? '#ffffff' : 'transparent', shadowColor: "#000", shadowOffset: { width: 0, height: subTabChon === "BAN_CO" ? 1 : 0 }, shadowOpacity: 0.1, shadowRadius: 1, elevation: subTabChon === "BAN_CO" ? 1 : 0 }}
+        >
+          <Text style={{ fontSize: 12, fontWeight: 'bold', color: subTabChon === "BAN_CO" ? '#e65100' : '#495057' }}>📊 Quản Lý Heo Theo Mẹ</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          activeOpacity={0.7}
+          onPress={() => setSubTabChon("SO_DO")}
+          style={{ flex: 1, paddingVertical: 8, borderRadius: 6, alignItems: 'center', backgroundColor: subTabChon === "SO_DO" ? '#ffffff' : 'transparent', shadowColor: "#000", shadowOffset: { width: 0, height: subTabChon === "SO_DO" ? 1 : 0 }, shadowOpacity: 0.1, shadowRadius: 1, elevation: subTabChon === "SO_DO" ? 1 : 0 }}
+        >
+          <Text style={{ fontSize: 12, fontWeight: 'bold', color: subTabChon === "SO_DO" ? '#e65100' : '#495057' }}>Quản Lý Theo Ô Chuồng</Text>
+        </TouchableOpacity>
       </View>
+
+     {/* RẼ NHÁNH ĐIỀU HƯỚNG HIỂN THỊ TRỰC QUAN CHUẨN VÁCH */}
+      {subTabChon === "SO_DO" ? (
+        <FarmMapSubTab 
+          danhSachChuongThit={danhSachChuongThit}
+          setDanhSachChuongThit={setDanhSachChuongThit}
+          WEB_APP_URL={WEB_APP_URL}
+          userEmail={userEmail}
+          setDongBoStatus={setDongBoStatus}
+            cauHinhVacXinLoc={cauHinhVacXinLoc} 
+
+        />
+      ) : (
+        <View style={{ width: '100%' }}>
+          
+          {/* 📊 KHỐI THIẾT KẾ BỘ 3 NÚT BIẾN ĐỘNG CHO KHÂU HEO THỊT TỔNG (ĐÃ ĐƯA VÀO ĐÚNG KHU VỰC HIỂN THỊ) */}
+          <View style={{ marginBottom: 12, backgroundColor: '#fafbfc', borderWidth: 1, borderColor: '#eef2f5', padding: 10, borderRadius: 12 }}>
+            <Text style={{ fontSize: 11.5, color: '#555555', fontWeight: 'bold', marginBottom: 8, letterSpacing: 0.3 }}>Nhập chính xác ngày thực hiện, Hệ thống sẽ tự động tính theo thời gian.</Text>
+            <View style={{ flexDirection: 'row', gap: 6 }}>
+              <TouchableOpacity activeOpacity={0.6} onPress={() => handleMoModalHeoThit('Nhập Đàn')} style={{ flex: 1, backgroundColor: '#007bff', paddingVertical: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 12.5 }}>Nhập Đàn</Text></TouchableOpacity>
+              <TouchableOpacity activeOpacity={0.6} onPress={() => handleMoModalHeoThit('Hao Hụt')} style={{ flex: 1, backgroundColor: '#dc3545', paddingVertical: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 12.5 }}>Hao Hụt</Text></TouchableOpacity>
+              <TouchableOpacity activeOpacity={0.6} onPress={() => handleMoModalHeoThit('Bán')} style={{ flex: 1, backgroundColor: '#28a745', paddingVertical: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 12.5 }}>Bán Heo</Text></TouchableOpacity>
+            </View>
+          </View>
+
       {dataHeoThit ? (() => {
         const laySoTho = (val) => (!val || isNaN(val.toString().trim()) || val.toString().trim() === "") ? 0 : Number(val.toString().trim());
 
@@ -29,8 +75,8 @@ const PigMeatTab = ({ currentTab, styles, formatVNDate, dataHeoThit, danhSachLic
         const khoRealTime = {};
         
         // Găm cứng ô Cai Sữa 4 Tuần theo đúng giá trị thô gốc từ Server đổ về (Sẽ ăn chuẩn số 6 của Phương, 144 của Vinh)
-        khoRealTime["4 Tuần"] = laySoTho(dataHeoThit.caiSua) || laySoTho(dataHeoThit["4 Tuần"]) || 0; 
-
+         khoRealTime["3 Tuần"] = laySoTho(dataHeoThit["3 Tuần"]) || 0; 
+        khoRealTime["4 Tuần"] = laySoTho(dataHeoThit["4 Tuần"]) || 0; 
         // Khởi tạo và nạp tăm tắp quân số cho 26 ô tuần lẻ bằng phông chữ viết hoa khớp 100% Apps Script
         khoRealTime["5 Tuần"] = laySoTho(dataHeoThit["5 Tuần"]);
         khoRealTime["6 Tuần"] = laySoTho(dataHeoThit["6 Tuần"]);
@@ -92,7 +138,7 @@ const PigMeatTab = ({ currentTab, styles, formatVNDate, dataHeoThit, danhSachLic
                   {" "}
                   {dataHeoThit.tongHeoThitSauBuTruRealTime !== undefined 
                     ? String(dataHeoThit.tongHeoThitSauBuTruRealTime) 
-                    : String(soHeoTheoMeGoc + khoRealTime["4 Tuần"] + tGd3 + tGd4 + tGd5 + tGd6 + tGd7)} con
+                    : String(soHeoTheoMeGoc + khoRealTime["3 Tuần"] + khoRealTime["4 Tuần"]  + tGd3 + tGd4 + tGd5 + tGd6 + tGd7)} con
                 </Text>
               </View>
               <Text style={{ fontSize: 11, color: '#6c757d', fontStyle: 'italic', marginTop: 4, fontWeight: '500' }}>
@@ -107,9 +153,49 @@ const PigMeatTab = ({ currentTab, styles, formatVNDate, dataHeoThit, danhSachLic
                 <Text style={{ fontSize: 15, fontWeight: 'bold' }}>{soHeoTheoMeGoc} con</Text>
               </View>
 
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fdfdfd', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#dee2e6' }}>
-                <Text style={{ fontWeight: 'bold', fontSize: 14 }}>2. Giai đoạn Cai Sữa (4 Tuần)</Text>
-                <Text style={{ fontSize: 15, fontWeight: 'bold' }}>{khoRealTime["4 Tuần"]} con</Text>
+                  {/* 🎯 GIAI ĐOẠN 2: Tích hợp nút bấm ẩn hiện gập xòe mượt mà cho chuồng Cai Sữa */}
+              <View style={{ backgroundColor: '#ffffff', borderRadius: 8, borderWidth: 1, borderColor: '#dee2e6', padding: 10 }}>
+                
+                {/* THANH ĐẦU KHỐI: Chạm vào để đảo cờ gập xòe sử dụng luôn bộ nhớ openGiaiDoan gác cổng */}
+                <TouchableOpacity 
+                  activeOpacity={0.7}
+                  onPress={() => setOpenGiaiDoan(prev => ({ ...prev, gd2: !prev.gd2 }))} 
+                  style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                >
+                  <View style={{ flex: 1, paddingRight: 6 }}>
+                    <Text style={{ fontWeight: 'bold', fontSize: 14, color: '#212529' }}>2. Giai đoạn Cai Sữa</Text>
+                  </View>
+                  
+                  {/* CỤM HIỂN THỊ SỐ TỔNG GIAI ĐOẠN VÀ MŨI TÊN CHỈ HƯỚNG */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={{ color: '#007bff', fontSize: 15, fontWeight: 'bold' }}>
+                      {laySoTho(dataHeoThit.caiSua) || (laySoTho(dataHeoThit["3 Tuần"]) + laySoTho(dataHeoThit["4 Tuần"]))} con
+                    </Text>
+                    <Text style={{ color: '#212529', fontSize: 11, fontWeight: 'bold' }}>
+                      {openGiaiDoan.gd2 ? "▲" : "▼"}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* KHAY LƯỚI Ô VUÔNG: CHỈ BUNG RA KHI CÔNG NHÂN BẤM MỞ (openGiaiDoan.gd2 === true) */}
+                {openGiaiDoan.gd2 && (
+                  <View style={{ flexDirection: 'row', gap: 5, marginTop: 10, borderTopWidth: 0.5, borderTopColor: '#f1f2f6', paddingTop: 8 }}>
+                    
+                    {/* Ô vuông 3 Tuần */}
+                    <View style={{ width: '23.8%', height: 42, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#dee2e6', borderRadius: 6, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ fontSize: 11, fontWeight: '900' }}>3 Tuần</Text>
+                      <Text style={{ fontSize: 9.5, fontWeight: 'bold', color: khoRealTime["3 Tuần"] > 0 ? '#137333' : '#a0a0a0' }}>{khoRealTime["3 Tuần"]} Con</Text>
+                    </View>
+
+                    {/* Ô vuông 4 Tuần */}
+                    <View style={{ width: '23.8%', height: 42, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#dee2e6', borderRadius: 6, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ fontSize: 11, fontWeight: '900' }}>4 Tuần</Text>
+                      <Text style={{ fontSize: 9.5, fontWeight: 'bold', color: khoRealTime["4 Tuần"] > 0 ? '#137333' : '#a0a0a0' }}>{khoRealTime["4 Tuần"]} Con</Text>
+                    </View>
+
+                  </View>
+                )}
+
               </View>
 
                            {/* 3. Giai đoạn 10 - 30kg (BỔ SUNG MŨI TÊN ĐÓNG MỞ) */}
@@ -193,6 +279,12 @@ const PigMeatTab = ({ currentTab, styles, formatVNDate, dataHeoThit, danhSachLic
 
 
             </View>
+
+            {/* 🔄 NÚT CẬP NHẬT HEO THỊT: nằm ngay dưới Giai đoạn 7 (130kg - Xuất Chuồng) */}
+            
+            {nutCapNhat}
+            
+
             {/* 📜 KHỐI NHẬT KÝ BIẾN ĐỘNG CHUỒNG HEO THỊT TĨNH PHẲNG */}
             <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e9ecef' }}>
               <Text style={{ fontSize: 13, color: '#1a1f23', fontWeight: '900', marginBottom: 10, letterSpacing: 0.3 }}>📜 NHẬT KÝ BIẾN ĐỘNG CHUỒNG HEO THỊT</Text>
@@ -268,7 +360,7 @@ const PigMeatTab = ({ currentTab, styles, formatVNDate, dataHeoThit, danhSachLic
                   }
 
                   let nhanTuan = item.tuanBan !== undefined ? String(item.tuanBan).trim() : "";
-                  nhanTuan = (nhanTuan === "3" || nhanTuan === "theoMe") ? "Theo Mẹ" : ((nhanTuan === "4" || nhanTuan === "caiSua") ? "Cai Sữa" : (nhanTuan !== "" ? `Tuần ${nhanTuan}` : "Lô Tổng"));
+                  nhanTuan = (nhanTuan === "theoMe") ? "Theo Mẹ" : (nhanTuan === "3") ? "Cai Sữa 3T" : (nhanTuan === "4" || nhanTuan === "caiSua") ? "Cai Sữa 4T" : (nhanTuan !== "" ? `Tuần ${nhanTuan}` : "Lô Tổng"); // 🎯 Phân định rõ dòng nhật ký 3T và 4T
 
                   return (
                     <View key={`ht_f_${item.id || idx}`} style={{ backgroundColor: '#ffffff', borderWidth: 1, borderColor: item.syncStatus === "waiting" ? '#ffb74d' : '#e9ecef', borderRadius: 10, padding: 12, marginBottom: 8 }}>
@@ -337,7 +429,16 @@ const PigMeatTab = ({ currentTab, styles, formatVNDate, dataHeoThit, danhSachLic
             </View>
           </View>
         );
-      })() : <Text style={styles.emptyText}>Trại này hiện tại chưa có dữ liệu phân tích số liệu Heo Thịt trên Server.</Text>}
+      })() : (
+        <View>
+          <Text style={styles.emptyText}>Trại này hiện tại chưa có dữ liệu phân tích số liệu Heo Thịt trên Server.</Text>
+          {nutCapNhat}
+        </View>
+      )}
+        
+        </View>
+      )}
+      
     </ScrollView>
   );
 };

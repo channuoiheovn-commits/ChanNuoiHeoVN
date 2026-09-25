@@ -19,7 +19,7 @@ const EditPigMeatModal = ({
   
   suaHeoThitNgay, setSuaHeoThitNgay,
   suaHeoThitTuanChon, setSuaHeoThitTuanChon,
-  suaHeoThitSoLuong, setSuaHeoThitSoCon,
+  suaHeoThitSoLuong, setSuaHeoThitSoCon, // Giữ nguyên hàm gán gốc chạy tốt của bạn
   suaHeoThitGhiChu, setSuaHeoThitGhiChu,
   suaHeoThitActionType,
   
@@ -63,12 +63,13 @@ const EditPigMeatModal = ({
               </TouchableOpacity>
             </View>
 
+            {/* SỬA ĐỒNG BỘ: Sử dụng thuộc tính chuẩn onValueChange để triệt tiêu hoàn toàn chữ cảnh báo vàng */}
             <DateTimePickerModal 
               isVisible={typeof isSuaHeoThitDatePickerVisible !== 'undefined' ? isSuaHeoThitDatePickerVisible : (typeof isSuaHeoThitDatePickerVisibility !== 'undefined' ? isSuaHeoThitDatePickerVisibility : false)} 
               mode="date" 
               display={Platform.OS === 'ios' ? 'inline' : 'default'}
               locale="vi_VN"
-              onConfirm={(d) => { 
+              onValueChange={(d) => { 
                 setSuaHeoThitNgay(formatVNDate(d)); 
                 if (typeof setSuaHeoThitDatePickerVisible === 'function') setSuaHeoThitDatePickerVisible(false);
                 if (typeof setSuaHeoThitDatePickerVisibility === 'function') setSuaHeoThitDatePickerVisibility(false);
@@ -91,8 +92,10 @@ const EditPigMeatModal = ({
                 };
 
                 const khoTuanPopupEditRealTime = {};
+                
+                // MẢNG ĐỒNG BỘ: Đọc phẳng chuỗi ký tự thô trùng khớp 100% với trục Database mới
                 const danhSachTatCaCacTuan = [
-                  "4 Tuần ( Cai Sữa )", "5 Tuần", "6 Tuần", "7 Tuần", "8 Tuần", "9 Tuần",
+                  "3 Tuần", "4 Tuần", "5 Tuần", "6 Tuần", "7 Tuần", "8 Tuần", "9 Tuần",
                   "10 Tuần", "11 Tuần", "12 Tuần", "13 Tuần", "14 Tuần", "15 Tuần",
                   "16 Tuần", "17 Tuần", "18 Tuần", "19 Tuần", "20 Tuần",
                   "21 Tuần", "22 Tuần", "23 Tuần", "24 Tuần", "25 Tuần",
@@ -102,10 +105,6 @@ const EditPigMeatModal = ({
                 danhSachTatCaCacTuan.forEach(k => {
                   khoTuanPopupEditRealTime[k] = laySoTho(dataHeoThit ? dataHeoThit[k] : 0);
                 });
-
-                if (dataHeoThit && khoTuanPopupEditRealTime["4 Tuần ( Cai Sữa )"] === 0) {
-                  khoTuanPopupEditRealTime["4 Tuần ( Cai Sữa )"] = laySoTho(dataHeoThit.caiSua) || laySoTho(dataHeoThit["Cai Sữa"]);
-                }
 
                 let mangLichSuSong = [];
                 if (typeof danhSachLichSu !== 'undefined' && Array.isArray(danhSachLichSu)) {
@@ -124,8 +123,8 @@ const EditPigMeatModal = ({
                       const mangSoTho = chuoiSuKien.match(/\d+/);
                       const soTuanSoHoc = mangSoTho ? parseInt(mangSoTho, 10) : 0;
 
-                      if (soTuanSoHoc >= 4 && soTuanSoHoc <= 30) {
-                        const khoaDinhDanh = soTuanSoHoc === 4 ? "4 Tuần ( Cai Sữa )" : `${soTuanSoHoc} Tuần`;
+                      if (soTuanSoHoc >= 3 && soTuanSoHoc <= 30) {
+                        const khoaDinhDanh = `${soTuanSoHoc} Tuần`;
                         if (loaiHanhDong === "Nhập Đàn") {
                           khoTuanPopupEditRealTime[khoaDinhDanh] += sCon;
                         } else {
@@ -141,10 +140,10 @@ const EditPigMeatModal = ({
                 if (suaHeoThitActionType === 'Bán') mauChuChuongCap = '#28a745';
 
                 const veNutOChonSua = (idTim, laDo) => {
-                  const khoaKey = idTim === "4" ? "4 Tuần ( Cai Sữa )" : `${idTim} Tuần`;
+                  const khoaKey = `${idTim} Tuần`;
                   const soConHienTai = khoTuanPopupEditRealTime[khoaKey] !== undefined ? khoTuanPopupEditRealTime[khoaKey] : 0;
 
-                  let chuHienThiNut = idTim === "4" ? "Cai Sữa" : `Tuần ${idTim}`;
+                  let chuHienThiNut = `Tuần ${idTim}`;
                   const laOThuocCheck = suaHeoThitTuanChon === idTim;
                   const coHeoThucTe = Number(soConHienTai) > 0;
 
@@ -186,16 +185,18 @@ const EditPigMeatModal = ({
                     </TouchableOpacity>
                   );
                 };
-
                 return (
                   <View style={{ gap: 10, width: '100%' }}>
+                    
+                    {/* GIAI ĐOẠN 2: Bộ đôi ô vuông Cai Sữa 3 Tuần và 4 Tuần liền kề đối xứng */}
                     <View style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 8, borderWidth: 1, borderColor: '#dee2e6' }}>
                       <Text style={{ fontSize: 11, fontWeight: '800', color: '#e65100', marginBottom: 6, paddingLeft: 2 }}>
-                        Giai đoạn 2. Heo Cai Sữa (4 tuần)
+                        Giai đoạn 2. Heo Cai Sữa
                       </Text>
                       <View style={{ flexDirection: 'row', gap: 5 }}>
+                        {veNutOChonSua("3", false)}
                         {veNutOChonSua("4", false)}
-                        <View style={{ flex: 1 }} /><View style={{ flex: 1 }} />
+                        <View style={{ flex: 1 }} />
                       </View>
                     </View>
 
@@ -236,6 +237,7 @@ const EditPigMeatModal = ({
                         <View style={{ flex: 1 }} />
                       </View>
                     </View>
+
                     <View style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 8, borderWidth: 1, borderColor: '#f5c6cb' }}>
                       <Text style={{ fontSize: 11, fontWeight: '800', color: '#c82333', marginBottom: 6, paddingLeft: 2 }}>
                         Giai đoạn 6. Từ 100kg - 130kg (Tuần 21-25)
@@ -266,7 +268,7 @@ const EditPigMeatModal = ({
               })()}
             </View>
 
-            {/* 3. Ô nhập Số lượng con heo tác động */}
+            {/* 3. Ô nhập Số lượng con heo tác động - ĐÃ VÁ: Đồng bộ hàm gán gốc ăn phím gõ số mượt mà */}
             <View style={{ marginBottom: 10, width: '100%', marginTop: 12 }}>
               <Text style={{ fontWeight: 'bold', marginBottom: 4, fontSize: 12.5, color: '#333333' }}>🔢 Số lượng con heo tác động:</Text>
               <TextInput 
@@ -287,7 +289,7 @@ const EditPigMeatModal = ({
               />
             </View>
 
-            {/* 5. Cụm hai nút điều khiển */}
+            {/* 5. Cụm hai nút điều khiển hành động */}
             <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
               <TouchableOpacity 
                 activeOpacity={0.6} onPress={onClose}
