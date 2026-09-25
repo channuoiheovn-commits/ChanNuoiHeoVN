@@ -13,7 +13,7 @@
     "@react-native-community/datetimepicker": "9.1.0",
     "@react-native-picker/picker": "2.11.4",
     "dayjs": "^1.11.20",
-    "expo": "~57.0.24",
+    "expo": "~57.0.25",
     "expo-status-bar": "~57.0.1",
     "firebase": "^12.17.0",
     "react": "19.2.3",
