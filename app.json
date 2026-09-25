@@ -2,7 +2,7 @@
   "expo": {
     "name": "ChanNuoiHeoVN",
     "slug": "channuoiheovs6",
-    "version": "1.0.6",
+    "version": "5.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -12,14 +12,16 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "buildNumber": "5.0"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.channuoiheovn.appnhapheo"
+      "package": "com.channuoiheovn.appnhapheo",
+      "versionCode": 50
     },
     "web": {
       "favicon": "./assets/favicon.png"
