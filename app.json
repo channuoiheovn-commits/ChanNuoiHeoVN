@@ -21,7 +21,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.channuoiheovn.appnhapheo",
-      "versionCode": 50
+      "versionCode": 12
     },
     "web": {
       "favicon": "./assets/favicon.png"
