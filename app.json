@@ -2,14 +2,14 @@
   "expo": {
     "name": "PigVN",
     "slug": "channuoiheovs6",
-    "version": "5.0",
+    "version": "6.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.channuoiheovn.appnhapheo",
-      "buildNumber": "12",
+      "buildNumber": "13",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
