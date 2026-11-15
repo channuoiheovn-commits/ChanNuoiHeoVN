@@ -13,6 +13,14 @@ import {
 
 // BẢNG CHỌN LỊCH TRỰC QUAN ĐỒNG BỘ TRẠI
 import DateTimePickerModal from "react-native-modal-datetime-picker";
+import { duocSuaXoa, chanNeuKhongDuQuyen, NhanNguoiNhap } from './nguoiNhap'; // 🔐 quyền + ✍️ người tạo
+
+// 🗑 Hỏi lại trước khi xóa (lịch vắc xin / sổ tay cá nhân) — tránh lỡ tay bấm nhầm
+const hoiTruocKhiXoa = (ten, xoa) => Alert.alert(
+  'Xóa?',
+  `Bạn có chắc muốn xóa "${String(ten || '').trim() || 'mục này'}" không? Đã xóa thì không lấy lại được.`,
+  [{ text: 'Hủy', style: 'cancel' }, { text: 'Xóa', style: 'destructive', onPress: xoa }]
+);
 
 const TasksTab = ({
   currentTab,
@@ -767,6 +775,7 @@ const mangVacXinCauHinh = cauHinhVacXinLoc || danhSachCauHinhVacXin || [];
             <TouchableOpacity 
               style={{ backgroundColor: editingConfigId ? '#e65100' : '#28a745', paddingVertical: 11, borderRadius: 6, alignItems: 'center' }}
               onPress={() => {
+                if (editingConfigId ? chanNeuKhongDuQuyen('sua', (Array.isArray(danhSachCauHinhVacXin) ? danhSachCauHinhVacXin : []).find(i => i && i.id === editingConfigId)) : chanNeuKhongDuQuyen('them')) return; // 🔐
                 if (!inputDays.trim() || !inputName.trim()) return Alert.alert("Thông báo", "Vui lòng điền đầy đủ số ngày và tên thuốc!");
                 const chuoiGopMoc = `VACXIN_${loaiMocInput || "SAU_PHOI"}`;
                 const ngayTiemTruocLuu = loaiMocInput === "DINH_KY" ? ngayTiemTruocLocal : "";
@@ -810,7 +819,7 @@ const mangVacXinCauHinh = cauHinhVacXinLoc || danhSachCauHinhVacXin || [];
                     <Text style={{ fontSize: 12.5, fontWeight: '700', color: '#111111' }}>• {item.tenNhiemVu?.toString().toUpperCase()}</Text>
                     <Text style={{ fontSize: 11, color: '#666666', marginTop: 2 }}>Thời điểm tiêm: Sau phối {item.soNgay} ngày {item.ghiChu ? `(${item.ghiChu})` : ''}</Text>
                   </View>
-                  <View style={{ flexDirection: 'row', gap: 4 }}>
+                  <View style={{ flexDirection: 'row', gap: 4 }}>{duocSuaXoa(item) && (<>
 <TouchableOpacity 
   onPress={() => { 
     setEditingConfigId(item.id); 
@@ -825,7 +834,8 @@ const mangVacXinCauHinh = cauHinhVacXinLoc || danhSachCauHinhVacXin || [];
 >
   <Text style={{ fontSize: 10.5, fontWeight: 'bold' }}>Sửa</Text>
 </TouchableOpacity>
-                    <TouchableOpacity onPress={() => { setDanhSachCauHinhVacXin(prev => prev.filter(i => i.id !== item.id)); if (typeof xuLyMangCauHinhVacXin === 'function') xuLyMangCauHinhVacXin("delete_cauhinh", { id: item.id }); }} style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#fdf2f2', borderRadius: 4 }}><Text style={{ fontSize: 10.5, fontWeight: 'bold', color: '#dc3545' }}>Xóa</Text></TouchableOpacity>
+                    <TouchableOpacity onPress={() => hoiTruocKhiXoa(item.tenNhiemVu, () => { setDanhSachCauHinhVacXin(prev => prev.filter(i => i.id !== item.id)); if (typeof xuLyMangCauHinhVacXin === 'function') xuLyMangCauHinhVacXin("delete_cauhinh", { id: item.id }); })} style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#fdf2f2', borderRadius: 4 }}><Text style={{ fontSize: 10.5, fontWeight: 'bold', color: '#dc3545' }}>Xóa</Text></TouchableOpacity>
+</>)}
                   </View>
                 </View>
               ))
@@ -844,7 +854,7 @@ const mangVacXinCauHinh = cauHinhVacXinLoc || danhSachCauHinhVacXin || [];
                     <Text style={{ fontSize: 12.5, fontWeight: '700', color: '#111111' }}>• {item.tenNhiemVu?.toString().toUpperCase()}</Text>
                     <Text style={{ fontSize: 11, color: '#666666', marginTop: 2 }}>Thời điểm tiêm: Sau đẻ {item.soNgay} ngày {item.ghiChu ? `(${item.ghiChu})` : ''}</Text>
                   </View>
-                  <View style={{ flexDirection: 'row', gap: 4 }}>
+                  <View style={{ flexDirection: 'row', gap: 4 }}>{duocSuaXoa(item) && (<>
 <TouchableOpacity 
   onPress={() => { 
     setEditingConfigId(item.id); 
@@ -859,7 +869,8 @@ const mangVacXinCauHinh = cauHinhVacXinLoc || danhSachCauHinhVacXin || [];
 >
   <Text style={{ fontSize: 10.5, fontWeight: 'bold' }}>Sửa</Text>
 </TouchableOpacity>
-                    <TouchableOpacity onPress={() => { setDanhSachCauHinhVacXin(prev => prev.filter(i => i.id !== item.id)); if (typeof xuLyMangCauHinhVacXin === 'function') xuLyMangCauHinhVacXin("delete_cauhinh", { id: item.id }); }} style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#fdf2f2', borderRadius: 4 }}><Text style={{ fontSize: 10.5, fontWeight: 'bold', color: '#dc3545' }}>Xóa</Text></TouchableOpacity>
+                    <TouchableOpacity onPress={() => hoiTruocKhiXoa(item.tenNhiemVu, () => { setDanhSachCauHinhVacXin(prev => prev.filter(i => i.id !== item.id)); if (typeof xuLyMangCauHinhVacXin === 'function') xuLyMangCauHinhVacXin("delete_cauhinh", { id: item.id }); })} style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#fdf2f2', borderRadius: 4 }}><Text style={{ fontSize: 10.5, fontWeight: 'bold', color: '#dc3545' }}>Xóa</Text></TouchableOpacity>
+</>)}
                   </View>
                 </View>
               ))
@@ -883,7 +894,7 @@ const mangVacXinCauHinh = cauHinhVacXinLoc || danhSachCauHinhVacXin || [];
                       <Text style={{ fontSize: 10.5, color: '#888888', fontStyle: 'italic' }}>🔄 Chu kỳ cuốn chiếu tự động</Text>
                     )}
                   </View>
-                  <View style={{ flexDirection: 'row', gap: 4 }}>
+                  <View style={{ flexDirection: 'row', gap: 4 }}>{duocSuaXoa(item) && (<>
 <TouchableOpacity 
   onPress={() => { 
     setEditingConfigId(item.id); 
@@ -901,7 +912,8 @@ const mangVacXinCauHinh = cauHinhVacXinLoc || danhSachCauHinhVacXin || [];
 >
   <Text style={{ fontSize: 10.5, fontWeight: 'bold' }}>Sửa</Text>
 </TouchableOpacity>
-                    <TouchableOpacity onPress={() => { setDanhSachCauHinhVacXin(prev => prev.filter(i => i.id !== item.id)); if (typeof xuLyMangCauHinhVacXin === 'function') xuLyMangCauHinhVacXin("delete_cauhinh", { id: item.id }); }} style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#fdf2f2', borderRadius: 4 }}><Text style={{ fontSize: 10.5, fontWeight: 'bold', color: '#dc3545' }}>Xóa</Text></TouchableOpacity>
+                    <TouchableOpacity onPress={() => hoiTruocKhiXoa(item.tenNhiemVu, () => { setDanhSachCauHinhVacXin(prev => prev.filter(i => i.id !== item.id)); if (typeof xuLyMangCauHinhVacXin === 'function') xuLyMangCauHinhVacXin("delete_cauhinh", { id: item.id }); })} style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#fdf2f2', borderRadius: 4 }}><Text style={{ fontSize: 10.5, fontWeight: 'bold', color: '#dc3545' }}>Xóa</Text></TouchableOpacity>
+</>)}
                   </View>
                 </View>
               ))
@@ -920,9 +932,10 @@ const mangVacXinCauHinh = cauHinhVacXinLoc || danhSachCauHinhVacXin || [];
                     <Text style={{ fontSize: 12.5, fontWeight: '700', color: '#111111' }}>• {item.tenNhiemVu?.toString().toUpperCase()}</Text>
                     <Text style={{ fontSize: 11, color: '#6f42c1', fontWeight: 'bold', marginTop: 2 }}>Lịch tiêm nhắc: Ngày tuổi thứ {item.soNgay} {item.ghiChu ? `(${item.ghiChu})` : ''}</Text>
                   </View>
-                  <View style={{ flexDirection: 'row', gap: 4 }}>
+                  <View style={{ flexDirection: 'row', gap: 4 }}>{duocSuaXoa(item) && (<>
                     <TouchableOpacity onPress={() => { setEditingConfigId(item.id); setInputDays(item.soNgay?.toString() || ""); if (typeof setInputName === 'function') setInputName(item.tenNhiemVu || ""); setGhiChuVacXinInput(item.ghiChu || ""); setLoaiMocInput("HEO_THIT"); setNgayTiemTruocLocal(""); setIsEditModalVisible(true); }} style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#f1f3f9', borderRadius: 4 }}><Text style={{ fontSize: 10.5, fontWeight: 'bold' }}>Sửa</Text></TouchableOpacity>
-                    <TouchableOpacity onPress={() => { setDanhSachCauHinhVacXin(prev => prev.filter(i => i.id !== item.id)); if (typeof xuLyMangCauHinhVacXin === 'function') xuLyMangCauHinhVacXin("delete_cauhinh", { id: item.id }); }} style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#fdf2f2', borderRadius: 4 }}><Text style={{ fontSize: 10.5, fontWeight: 'bold', color: '#dc3545' }}>Xóa</Text></TouchableOpacity>
+                    <TouchableOpacity onPress={() => hoiTruocKhiXoa(item.tenNhiemVu, () => { setDanhSachCauHinhVacXin(prev => prev.filter(i => i.id !== item.id)); if (typeof xuLyMangCauHinhVacXin === 'function') xuLyMangCauHinhVacXin("delete_cauhinh", { id: item.id }); })} style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#fdf2f2', borderRadius: 4 }}><Text style={{ fontSize: 10.5, fontWeight: 'bold', color: '#dc3545' }}>Xóa</Text></TouchableOpacity>
+</>)}
                   </View>
                 </View>
               ))
@@ -1034,6 +1047,7 @@ const mangVacXinCauHinh = cauHinhVacXinLoc || danhSachCauHinhVacXin || [];
                     activeOpacity={0.7}
                     style={{ flex: 1, backgroundColor: editingSoTayId ? '#e65100' : '#28a745', paddingVertical: 11, borderRadius: 6, alignItems: 'center', justifyContent: 'center' }}
                     onPress={() => {
+                      if (editingSoTayId ? chanNeuKhongDuQuyen('sua', (Array.isArray(danhSachSoTay) ? danhSachSoTay : []).find(i => i && i.id === editingSoTayId)) : chanNeuKhongDuQuyen('them')) return; // 🔐
                       if (!inputName.trim() || !ghiChuVacXinInput.trim()) return Alert.alert("Thông báo", "Vui lòng điền tiêu đề và nội dung!");
                       
                       if (typeof xuLyMangCauHinhVacXin === 'function') {
@@ -1085,10 +1099,11 @@ const mangVacXinCauHinh = cauHinhVacXinLoc || danhSachCauHinhVacXin || [];
           <Text style={{ fontSize: 10, color: '#e65100', fontWeight: 'bold' }}>{item.danhMuc || "Chung"}</Text>
         </View>
       </View>
-      <Text style={{ fontSize: 12, color: '#444444', marginBottom: 8 }}>{item.noiDung || ""}</Text>
+      <Text style={{ fontSize: 12, color: '#444444', marginBottom: item.nguoiNhap ? 2 : 8 }}>{item.noiDung || ""}</Text>
+      <NhanNguoiNhap item={item} nhan="Người tạo" style={{ marginTop: 0, marginBottom: 8 }} />
      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 0.5, borderTopColor: '#f1f2f6', paddingTop: 6 }}>
         <Text style={{ fontSize: 10, color: '#888888' }}>📅 Ngày tạo: {item.ngayTao || "---"}</Text>
-        <View style={{ flexDirection: 'row', gap: 6 }}>
+        <View style={{ flexDirection: 'row', gap: 6 }}>{duocSuaXoa(item) && (<>
           {/* 🎯 NÚT SỬA SỔ TAY CÁ NHÂN MỚI TÍCH HỢP */}
           <TouchableOpacity 
             onPress={() => {
@@ -1104,18 +1119,19 @@ const mangVacXinCauHinh = cauHinhVacXinLoc || danhSachCauHinhVacXin || [];
           </TouchableOpacity>
 
           <TouchableOpacity 
-            onPress={() => {
+            onPress={() => hoiTruocKhiXoa(item.tenNhiemVu || 'ghi chú này', () => {
               if (typeof xuLyMangCauHinhVacXin === 'function') {
                 xuLyMangCauHinhVacXin("delete_sotay", { id: item.id });
                 if (editingSoTayId === item.id) { // Nếu lỡ tay xóa đúng con đang mở sửa, dọn sạch form nhập liệu luôn
                   setInputName(""); setGhiChuVacXinInput(""); setInputDays(""); setEditingSoTayId(null);
                 }
               }
-            }} 
+            })} 
             style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#fdf2f2', borderRadius: 4 }}
           >
             <Text style={{ fontSize: 10.5, fontWeight: 'bold', color: '#dc3545' }}>Xóa</Text>
           </TouchableOpacity>
+</>)}
         </View>
       </View>
     </View>
@@ -1191,6 +1207,7 @@ const mangVacXinCauHinh = cauHinhVacXinLoc || danhSachCauHinhVacXin || [];
                 <TouchableOpacity 
                   style={{ backgroundColor: '#e65100', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 6 }}
                   onPress={() => {
+                    if (chanNeuKhongDuQuyen('sua', (Array.isArray(danhSachCauHinhVacXin) ? danhSachCauHinhVacXin : []).find(i => i && i.id === editingConfigId))) return; // 🔐
                     if (!inputDays.trim() || !inputName.trim()) return Alert.alert("Thông báo", "Vui lòng điền đầy đủ số ngày và tên thuốc!");
                     const chuoiGopMoc = `VACXIN_${loaiMocInput || "SAU_PHOI"}`;
                     const ngayTiemTruocLuu = loaiMocInput === "DINH_KY" ? ngayTiemTruocLocal : "";

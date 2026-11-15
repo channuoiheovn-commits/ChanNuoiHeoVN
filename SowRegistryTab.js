@@ -1,5 +1,51 @@
 import React from 'react';
 import { View, Text, TextInput, FlatList, TouchableOpacity, ScrollView, Alert, Keyboard } from 'react-native';
+import { tinhDanhGiaNai } from './DanhGiaNai'; // ⭐ điểm A/B/C/D cạnh số lứa
+import { NhanNguoiNhap, NhanChiXem, duocThem, duocSuaXoa, chanNeuKhongDuQuyen } from './nguoiNhap'; // 🔐 quyền + ✍️ người nhập
+
+// 🆕 Mã tai được TẠO HÔM NAY: chỉ dựa vào thời gian tạo, không cần cờ "vừa nhập" nào khác.
+// Thứ tự dò: thoiGianNhap ("dd/mm/yyyy hh:mm:ss") -> taoLuc (giờ máy chủ) -> mã id "MTSK_<thời điểm tạo>"
+const msTaoMaTai = (heo) => {
+  if (!heo) return 0;
+  const tg = heo.thoiGianNhap;
+  if (typeof tg === 'string') {
+    const m = tg.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+    if (m) return new Date(+m[3], +m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0)).getTime();
+  }
+  const tl = heo.taoLuc;
+  if (tl && typeof tl.toDate === 'function') return tl.toDate().getTime();
+  if (tl && typeof tl.seconds === 'number') return tl.seconds * 1000;
+  const id = String(heo.id || '').match(/^MTSK_(\d{13})/);
+  return id ? Number(id[1]) : 0;
+};
+const laTaoHomNay = (heo) => {
+  const ms = msTaoMaTai(heo);
+  if (!ms) return false;
+  const a = new Date(ms), b = new Date();
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+};
+
+// ⭐ Xếp loại của mọi nái, tính 1 lần cho mỗi lần nhật ký thay đổi (không tính lại cho từng dòng khi cuộn)
+let boNhoXepLoai = { nguon: null, kq: {} };
+const layXepLoaiNai = (danhSachLichSu, maTai, luaGoc, parseToDateObject) => {
+  if (boNhoXepLoai.nguon !== danhSachLichSu) {
+    // Gom nhật ký theo mã tai 1 lần
+    const theoMa = {};
+    (Array.isArray(danhSachLichSu) ? danhSachLichSu : []).forEach((e) => {
+      if (!e || !e.maTai) return;
+      const m = String(e.maTai).trim().toUpperCase();
+      (theoMa[m] = theoMa[m] || []).push(e);
+    });
+    boNhoXepLoai = { nguon: danhSachLichSu, theoMa, kq: {} };
+  }
+  const m = String(maTai || '').trim().toUpperCase();
+  const khoa = `${m}|${luaGoc || ''}`;
+  if (!(khoa in boNhoXepLoai.kq)) {
+    const ds = boNhoXepLoai.theoMa[m];
+    boNhoXepLoai.kq[khoa] = ds ? (tinhDanhGiaNai(ds, m, luaGoc, parseToDateObject).xepLoai || null) : null;
+  }
+  return boNhoXepLoai.kq[khoa];
+};
 
 const SowRegistryTab = ({
   currentTab, styles, parseToDateObject, formatStringtoVN, formatVNDate, WEB_APP_URL, userEmail,
@@ -241,16 +287,23 @@ const SowRegistryTab = ({
                     );
                   })()}
 
+                  {duocThem() ? (<>
                   <TouchableOpacity onPress={handleSaveMaTai} activeOpacity={0.5} style={{ backgroundColor: '#e65100', paddingVertical: 9, borderRadius: 6, alignItems: 'center', marginTop: 10 }}>
                     <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 14 }}>THÊM MÃ TAI MỚI VÀO SỔ</Text>
                   </TouchableOpacity>
+                  </>) : <NhanChiXem style={{ marginTop: 4, marginBottom: 0 }} />}
                 </View>
 
-{Array.isArray(danhSachMaTai) && danhSachMaTai.some(i => i && idsMoiTaoGanDay && idsMoiTaoGanDay[i.id]) && (                  <View style={{ paddingHorizontal: 15, marginTop: 5, marginBottom: 5 }}>
+{(() => {
+  const maTaiHomNay = (Array.isArray(danhSachMaTai) ? danhSachMaTai : [])
+    .filter(i => i && i.maTai && i.actionType !== 'mt_delete' && i.syncStatus !== 'delete' && laTaoHomNay(i))
+    .sort((a, b) => msTaoMaTai(b) - msTaoMaTai(a));
+  if (maTaiHomNay.length === 0) return null;
+  return (                  <View style={{ paddingHorizontal: 15, marginTop: 5, marginBottom: 5 }}>
                     <Text style={{ fontSize: 12, color: '#e65100', fontWeight: 'bold', marginBottom: 4 }}>
-                      🎉 Thêm mã số tai vào sổ thành công!
+                      🆕 Mã tai vừa thêm hôm nay ({maTaiHomNay.length})
                     </Text>
-{danhSachMaTai.filter(i => i && idsMoiTaoGanDay && idsMoiTaoGanDay[i.id]).map((naiVuaThem, idx) => (                      <View key={`vuanhap_${naiVuaThem.id || idx}`} style={[{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fffdf6', borderColor: '#fbc48c', opacity: naiVuaThem.syncStatus === "waiting" ? 0.45 : 1 }, styles.historyCard, { marginHorizontal: 0, marginTop: 4, padding: 10 }]}>
+{maTaiHomNay.map((naiVuaThem, idx) => (                      <View key={`vuanhap_${naiVuaThem.id || idx}`} style={[{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fffdf6', borderColor: '#fbc48c', opacity: naiVuaThem.syncStatus === "waiting" ? 0.45 : 1 }, styles.historyCard, { marginHorizontal: 0, marginTop: 4, padding: 10 }]}>
                         <View style={{ flex: 1 }}>
                           {naiVuaThem.syncStatus === "waiting" && <Text style={{ fontSize: 10, color: '#e65100', fontStyle: 'italic', marginBottom: 4 }}>Đang xử lý dữ liệu...</Text>}
                           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
@@ -266,7 +319,8 @@ const SowRegistryTab = ({
                       </View>
                     ))}
                   </View>
-                )}
+  );
+})()}
               </View>
             ) : null}
             <View style={{ flexDirection: 'row', paddingHorizontal: 15, marginTop: 8, marginBottom: 10, gap: 5 }}>
@@ -373,13 +427,13 @@ const SowRegistryTab = ({
                         {item.syncStatus === "waiting" ? (
                           <Text style={{ fontSize: 11, color: '#e65100', fontWeight: '600', fontStyle: 'italic' }}>Đang tạo...</Text>
                         ) : (
-(idsMoiTaoGanDay && idsMoiTaoGanDay[item.id]) ? <Text style={{ fontSize: 11, color: '#28a745', fontWeight: '600' }}>Đã vào sổ</Text> : null                        )}
+laTaoHomNay(item) ? <Text style={{ fontSize: 11, color: '#28a745', fontWeight: '600' }}>Đã vào sổ</Text> : null                        )}
                       </View>
                     </View>
                     
                     {/* Hàng 2: Giống và Lứa đẻ */}
                     <Text style={[styles.cardBody, { color: '#333333', marginBottom: 4 }]} numberOfLines={1}>
-                      Giống: <Text style={{ fontWeight: '600' }}>{item.giong || "---"}</Text> | Lứa: <Text style={{ fontWeight: 'bold', color: '#e83e8c' }}>{item.luaHienThiThongMinh || item.lua || "---"}</Text>
+                      Giống: <Text style={{ fontWeight: '600' }}>{item.giong || "---"}</Text> | Lứa: <Text style={{ fontWeight: 'bold', color: '#e83e8c' }}>{item.luaHienThiThongMinh || item.lua || "---"}</Text>{(() => { const xl = layXepLoaiNai(danhSachLichSu, item.maTai, item.luaGoc || item.nhom, parseToDateObject); return xl ? <Text style={{ fontWeight: '900', color: xl.mau }}>{` (${xl.ma})`}</Text> : null; })()}
                     </Text>
                     
                     {/* ⚠️ NHẮC NHỞ: nái này đang mang thai/nuôi con nhưng vừa được đánh dấu Theo Dõi trong nhật ký gần nhất */}
@@ -576,7 +630,7 @@ const SowRegistryTab = ({
                 {/* Đóng vách độc lập của Cột trái 1.1 */}
 
                 {/* 1.2 CỘT PHẢI: CỤM NÚT BẤM SỬA VÀ XÓA CỐ ĐỊNH LỀ PHẢI CHỐNG XÔ LỆCH ĐÈ CHỮ */}
-                <View style={{ flexDirection: 'column', gap: 6, minWidth: 60, justifyContent: 'center' }}>
+                <View style={{ flexDirection: 'column', gap: 6, minWidth: 60, justifyContent: 'center' }}>{duocSuaXoa(item) && (<>
                   <TouchableOpacity onPress={() => handleMtEditClick(item)} style={{ backgroundColor: '#ffc107', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 5, alignItems: 'center' }}>
                     <Text style={{ color: '#000000', fontWeight: 'bold', fontSize: 12 }}>Sửa</Text>
                   </TouchableOpacity>
@@ -587,6 +641,7 @@ const SowRegistryTab = ({
                         { 
                           text: "Xóa", 
                           onPress: async () => {
+                            if (chanNeuKhongDuQuyen('xoa', item)) return; // 🔐
                             setDongBoStatus(`⏳ Đang xóa tai: ${item.maTai}...`);
                             setDanhSachMaTai(prev => prev.filter(i => i.id !== item.id));
                             const { db } = require('./FirebaseConfig');
@@ -606,6 +661,7 @@ const SowRegistryTab = ({
                   >
                     <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 12 }}>Xóa</Text>
                   </TouchableOpacity>
+</>)}
                 </View>
 
               </View>

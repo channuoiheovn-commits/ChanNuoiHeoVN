@@ -14,7 +14,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { Image } from 'react-native';
 
 import { auth } from './FirebaseConfig';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
 // 🛰️ ĐẤU NỐI THÔNG MẠCH FIRESTORE EXPO (DÁN ĐỈNH FILE APP.JS)
 import { db } from './FirebaseConfig'; // Trỏ đúng đường dẫn đến file firebase.js của bạn
 import { doc, setDoc, deleteDoc, collection, query, where, onSnapshot, getDoc } from 'firebase/firestore';
@@ -40,6 +40,11 @@ import FarrowingTab from './FarrowingTab';         // [Phân hệ Tab 4] Danh s�
 import StatisticsTab from './StatisticsTab';       // [Phân hệ Tab 6] Báo cáo Thống Kê tổng hợp, đếm tuần thai & Dự kiến sản lượng cám
 import DataEntryTab from './DataEntryTab';         // [Phân hệ Tab 1] Form Nhập Liệu nhật ký sinh sản hàng ngày cho trại
 import SowRegistryTab from './SowRegistryTab';     // [Phân hệ Tab 2] Danh Bạ Sổ Mã Tai, chia nhóm chuồng (Chờ phối, Mang thai, Nuôi con, Thải loại)
+import CongPhienBan from './CongPhienBan';
+import { ManHinhDangKy, ManHinhXacMinhEmail, damBaoCoTrai } from './ManHinhDangKy';
+import { tinhBaoCaoHeo } from './SoHeoThit'; // 🐷 Số heo thịt theo tuần tuổi tính ngay trên app
+import { datPhienGhi, dauTao, dauSua, boDauTao, chanNeuKhongDuQuyen } from './nguoiNhap'; // ✍️ Dấu ai nhập / ai sửa
+import { ManHinhQuanLyThanhVien, dangNhapThanhVien, layPhienDangNhap, theoDoiTaiKhoanThanhVien, TEN_VAI_TRO, KHOA_GHI_NHO } from './QuanLyThanhVien'; // 👥 Thành viên trại // 📝 Đăng ký trại mới + xác minh email // 🔐 BƯỚC 0: Chặn bản app quá cũ, yêu cầu cập nhật
 import { FarmProvider, useSow, useTask, useMeat } from './FarmContext'; // 🎯 ĐẤU NỐI 3 KÊNH SÓNG PHÂN RÃ CHUYÊN BIỆT
 
 
@@ -360,7 +365,7 @@ const {
   // 🌐 CẤU HÌNH MẢNG CỔNG LINK WEB APP PHÂN TẢI CHỐNG NGHẼN SERVER TRẠI
   // 🎯 BẢN VÁ XOAY VÒNG ĐỘNG TỐI CAO: CHÈN ĐỦ 4 LINK VÀ TỰ ĐỔI LINK LIÊN TỤC TRÊN MỖI LỆNH FETCH
    const MANG_LINKS_WEB_APP = [
-    'https://script.google.com/macros/s/AKfycbx8r2AtFPSh230ybRpYLQlJ7qua1zoxMkm-GGRP41DG6XIU90NtilR3lTlzfGc8DdFczg/exec' // Mail chính - Link 1
+    'https://script.google.com/macros/s/AKfycbw_0GPgH_tCNQ3Zy-9BODOR7HMY6Zq4WtUsIpDM1SThIY22bUZFCtVnQQk69pkMnFn7/exec' // 🧪 LINK SHEET TEST - nhớ đổi lại link thật trước khi build lên store
      ];
 const WEB_APP_URL = useMemo(() => {
     const chiSoNgauNhien = Math.floor(Math.random() * MANG_LINKS_WEB_APP.length);
@@ -383,6 +388,16 @@ const WEB_APP_URL = useMemo(() => {
   const [typedPassword, setTypedPassword] = useState('');
   const [isAuthLoading, setIsAuthLoading] = useState(false); 
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  // 📝 Màn hình ngoài: 'dangNhap' | 'dangKy' | 'xacMinh'
+  const [manHinhDangNhap, setManHinhDangNhap] = useState('dangNhap');
+  // 📝 Tăng số này để chạy lại luồng khởi động (nạp dữ liệu) sau khi xác minh email xong
+  const [demVaoApp, setDemVaoApp] = useState(0);
+  // 👥 Ô "Mã thành viên" ở màn hình đăng nhập (bỏ trống = chủ trại)
+  const [typedMaThanhVien, setTypedMaThanhVien] = useState('');
+  // 👥 Phiên đăng nhập hiện tại: { vaiTro, maTrai, maThanhVien, emailChuTrai }
+  const [phienDangNhap, setPhienDangNhap] = useState(null);
+  const [hienQuanLyThanhVien, setHienQuanLyThanhVien] = useState(false);
+
   const unsubscribeRefs = React.useRef({ lichSu: null, maTai: null, chuongThit: null, cauHinhVacXin: null, soTay: null });
 
     // ========================================================
@@ -488,14 +503,65 @@ const [loaiMocInput, setLoaiMocInput] = useState("SAU_PHOI");
     // ========================================================
   // 🚀 BẢN VÁ TỐI CAO: BẮN EMAIL TRỰC TIẾP ĐỂ PHÁ BẦY CẤM VẬN MẠNG KHI KHỞI ĐỘNG
   // ========================================================
+  // 🔐 BƯỚC 0: Đợi Firebase đọc xong phiên đăng nhập đã lưu trong máy (chạy được cả khi mất mạng).
+  // Trả về user nếu còn đăng nhập, null nếu không.
+  const choFirebaseXacNhan = () => new Promise((resolve) => {
+    const huyNghe = onAuthStateChanged(auth, (user) => {
+      huyNghe();
+      resolve(user);
+    });
+  });
+
    useEffect(() => {
     const khoiDongLuuDemAnToan = async () => {
       try {
         // 1. Đọc nhanh email găm trong chip ổ cứng điện thoại lên trước
         const emailDaLuu = await AsyncStorage.getItem('userEmail');
-        
-        if (emailDaLuu && emailDaLuu.trim() !== "") {
+
+        // 👥 Điền sẵn email chủ trại + mã thành viên của lần đăng nhập trước
+        try {
+          const ghiNho = JSON.parse((await AsyncStorage.getItem(KHOA_GHI_NHO)) || 'null');
+          if (ghiNho) {
+            setTypedEmail((cu) => cu || ghiNho.email || '');
+            setTypedMaThanhVien((cu) => cu || ghiNho.maThanhVien || '');
+          }
+        } catch (e) {}
+
+        // 🔐 BƯỚC 0: Chờ Firebase khôi phục phiên đăng nhập thật từ máy.
+        // Không tin email trong AsyncStorage nữa nếu Firebase không xác nhận.
+        const nguoiDungFirebase = await choFirebaseXacNhan();
+
+        if (emailDaLuu && emailDaLuu.trim() !== "" && !nguoiDungFirebase) {
+          // Khách vừa cập nhật từ bản cũ (bản cũ không lưu phiên Firebase):
+          // điền sẵn email, yêu cầu nhập lại mật khẩu đúng 1 lần.
+          setTypedEmail(emailDaLuu.toLowerCase().trim());
+          setIsLoggedIn(false);
+          setIsInitialLoading(false);
+          setDongBoStatus('🔐 Vui lòng nhập lại mật khẩu');
+          Alert.alert(
+            "Xác nhận đăng nhập",
+            "Ứng dụng vừa được nâng cấp bảo mật. Bạn vui lòng nhập lại mật khẩu một lần, các lần sau sẽ tự đăng nhập như bình thường."
+          );
+          return;
+        }
+
+        // 📝 Tài khoản còn phiên nhưng CHƯA xác minh email -> đưa về màn hình xác minh
+        if (nguoiDungFirebase && nguoiDungFirebase.email && !nguoiDungFirebase.emailVerified) {
+          setTypedEmail((nguoiDungFirebase.email || '').toLowerCase().trim());
+          setManHinhDangNhap('xacMinh');
+          setIsLoggedIn(false);
+          setIsInitialLoading(false);
+          return;
+        }
+
+        if (emailDaLuu && emailDaLuu.trim() !== "" && nguoiDungFirebase) {
           const emailChuan = emailDaLuu.toLowerCase().trim();
+
+          // 📝 Tài khoản tự đăng ký đã xác minh nhưng chưa có trại (vd: xác minh xong rồi tắt app) -> tạo bù
+          // 👥 Sau đó đọc vai trò (chủ trại / kỹ thuật / công nhân) từ vé đăng nhập
+          damBaoCoTrai()
+            .catch((e) => console.log('Chưa tạo được trại, sẽ thử lại lần sau:', e))
+            .finally(() => layPhienDangNhap().then(setPhienDangNhap));
           
           setIsLoggedIn(true); 
           setUserEmail(emailChuan);
@@ -571,7 +637,7 @@ const [loaiMocInput, setLoaiMocInput] = useState("SAU_PHOI");
     };
 
     khoiDongLuuDemAnToan();
-  }, [vuaBamLoginTay]);
+  }, [vuaBamLoginTay, demVaoApp]);
 
 
 
@@ -913,9 +979,50 @@ const [dataHeoThit, setDataHeoThit] = useState(null);
   );
 });
   // ========================================================
+  // 👥 Thành viên bị chủ trại khóa hoặc xóa -> đăng xuất ngay
+  useEffect(() => {
+    if (!phienDangNhap || !phienDangNhap.maThanhVien) return;
+    const huy = theoDoiTaiKhoanThanhVien(phienDangNhap, (lyDo) => {
+      Alert.alert("Phiên đăng nhập kết thúc", lyDo);
+      handleLogOut();
+    });
+    return () => huy();
+  }, [phienDangNhap]);
+
+  // 👥 ĐĂNG NHẬP THÀNH VIÊN: email chủ trại + mã thành viên + PIN
+  // Thành viên dùng chung dữ liệu với chủ trại -> userEmail = email chủ trại
+  const handleDangNhapThanhVien = async () => {
+    const pin = typedPassword.trim();
+    if (!/^\d{6}$/.test(pin)) return Alert.alert("Thông báo", "Thành viên đăng nhập bằng mã PIN 6 chữ số.");
+    setIsAuthLoading(true);
+    setDongBoStatus('⏳ Đang xác thực thành viên...');
+    try {
+      const kq = await dangNhapThanhVien(typedEmail, typedMaThanhVien, pin);
+      await AsyncStorage.setItem('userEmail', kq.emailChuTrai);
+      await AsyncStorage.setItem(KHOA_GHI_NHO, JSON.stringify({ email: kq.emailChuTrai, maThanhVien: kq.maThanhVien }));
+      setIsAuthLoading(false);
+      setTypedPassword('');
+      setDemVaoApp((d) => d + 1); // Chạy luồng khởi động để nạp dữ liệu trại
+    } catch (e) {
+      setIsAuthLoading(false);
+      setDongBoStatus('🔴 Đăng nhập thành viên thất bại');
+      Alert.alert("Không đăng nhập được", e.message);
+    }
+  };
+
+  // 📝 Xác minh email xong -> lưu email như đăng nhập thường rồi chạy lại luồng khởi động để nạp dữ liệu
+  const vaoAppSauXacMinh = async (emailDaXacMinh) => {
+    await AsyncStorage.setItem('userEmail', emailDaXacMinh);
+    setTypedPassword('');
+    setManHinhDangNhap('dangNhap');
+    setDemVaoApp((d) => d + 1);
+  };
+
      // 🎯 KHÔI PHỤC HÀM ĐĂNG NHẬP NGUYÊN BẢN 100% - CHẤP MỌI KIỂU CHỮ HOA/THƯỜNG - ĐỌC JSON SẠCH
     const handleLoginSubmit = () => {
     if (!typedEmail.trim()) return Alert.alert("Thông báo", "Vui lòng nhập Số tài khoản (Email)!");
+    // 👥 Có nhập mã thành viên -> đăng nhập kiểu thành viên (PIN 6 số)
+    if (typedMaThanhVien.trim()) return handleDangNhapThanhVien();
     if (!typedPassword.trim()) return Alert.alert("Thông báo", "Vui lòng nhập Mật mã truy cập!");
 
     setIsAuthLoading(true);
@@ -924,6 +1031,19 @@ const [dataHeoThit, setDataHeoThit] = useState(null);
     // 1. Kích hoạt cổng xác thực Firebase đám mây
     signInWithEmailAndPassword(auth, typedEmail.toLowerCase().trim(), typedPassword)
       .then(async (userCredential) => {
+        // 📝 Chưa xác minh email -> chưa cho vào app, chuyển sang màn hình xác minh
+        if (!userCredential.user.emailVerified) {
+          setIsAuthLoading(false);
+          setTypedEmail(userCredential.user.email.toLowerCase().trim());
+          setManHinhDangNhap('xacMinh');
+          setDongBoStatus('📧 Vui lòng xác minh email');
+          return;
+        }
+        // 📝 Đã xác minh nhưng chưa có trại -> tạo bù (không chặn việc vào app), rồi đọc vai trò
+        damBaoCoTrai()
+          .catch((e) => console.log('Chưa tạo được trại, sẽ thử lại lần sau:', e))
+          .finally(() => layPhienDangNhap().then(setPhienDangNhap));
+        AsyncStorage.setItem(KHOA_GHI_NHO, JSON.stringify({ email: userCredential.user.email.toLowerCase().trim(), maThanhVien: '' })).catch(() => {});
         const emailKhachStandard = userCredential.user.email.toLowerCase().trim();
         setUserEmail(emailKhachStandard);
 
@@ -1003,7 +1123,13 @@ const batDauLangNgheFirestore = (emailChuan) => {
   unsubscribeRefs.current.lichSu = onSnapshot(qLichSu, (snapshot) => {
     if (!snapshot.empty) {
       // 🎯 BẢN VÁ TỐI CAO: Bắt buộc phải gộp d.id vào Object để nuôi sống keyExtractor và bộ lọc so sánh
-      const ds = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      // 🎯 Mã dòng PHẢI là mã tài liệu Firestore (d.id). Có dòng cũ mang trường 'id' khác bên trong dữ liệu,
+      // nếu để trường đó đè lên thì Xóa / Sửa sẽ nhắm sai tài liệu (xóa không mất, sửa sinh dòng trùng).
+      const ds = snapshot.docs.map(d => {
+        const x = { ...d.data(), id: d.id };
+        if (x.syncStatus === 'waiting' && !d.metadata.hasPendingWrites) x.syncStatus = 'synced'; // không để dòng mờ mãi
+        return x;
+      });
       console.log(`✅ [FIRESTORE] Đã cập nhật ngầm thành công ${ds.length} dòng dữ liệu Nhật ký!`);
       setDanhSachLichSu(ds);
     } else {
@@ -1016,7 +1142,12 @@ const batDauLangNgheFirestore = (emailChuan) => {
   const qMaTai = query(collection(db, "Danh_Sach_Ma_Tai"), where("userEmail", "==", emailChuanQuet));
   unsubscribeRefs.current.maTai = onSnapshot(qMaTai, (snapshot) => {
     if (!snapshot.empty) {
-      const ds = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      // Mã tai cũ lỡ lưu nhãn "waiting" lên máy chủ: đã nằm trên máy chủ rồi thì coi là xong, không làm mờ nữa
+      const ds = snapshot.docs.map(d => {
+        const x = { ...d.data(), id: d.id };
+        if (x.syncStatus === 'waiting' && !d.metadata.hasPendingWrites) x.syncStatus = 'synced';
+        return x;
+      });
       console.log(`✅ [FIRESTORE] Đã cập nhật ngầm thành công ${ds.length} dòng Sổ mã tai nái!`);
       
       // 🧠 THUẬT TOÁN GÁC CỔNG FIRESTORE: Sắp xếp tìm ra con heo có mã ID lớn nhất (tức là con vừa gõ mới nhất lán trại)
@@ -1098,8 +1229,15 @@ if (unsubscribeRefs.current.maTai) unsubscribeRefs.current.maTai();
     if (unsubscribeRefs.current.cauHinhVacXin) unsubscribeRefs.current.cauHinhVacXin();
     if (unsubscribeRefs.current.soTay) unsubscribeRefs.current.soTay();
     try {
-      // Xóa sạch bộ nhớ tạm thời trên ổ cứng điện thoại
+      // 🔐 BƯỚC 0: Đăng xuất hẳn khỏi Firebase (trước đây chỉ xóa bộ nhớ máy)
+      try { await signOut(auth); } catch (e) {}
+
+      // Xóa sạch bộ nhớ tạm thời trên ổ cứng điện thoại (giữ lại email + mã thành viên để lần sau khỏi gõ)
+      const ghiNhoDangNhap = await AsyncStorage.getItem(KHOA_GHI_NHO);
       await AsyncStorage.clear();
+      if (ghiNhoDangNhap) await AsyncStorage.setItem(KHOA_GHI_NHO, ghiNhoDangNhap);
+      setPhienDangNhap(null);
+      setHienQuanLyThanhVien(false);
 
       // Đánh sập toàn bộ các mảng dữ liệu tạm thời trên RAM để bảo mật thông tin tài khoản cũ
       setIsLoggedIn(false);
@@ -1168,16 +1306,8 @@ const handleXemChiTietHeo = (item) => {
 
 
 
-    // 4. Vẫn phát lệnh gọi mạng kéo thêm danh sách các lứa đẻ cũ trong lịch sử như bình thường
-fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().trim()}&maTai=${item.maTai}`, { method: 'GET', redirect: 'follow' })
-      .then(res => res.json())
-      .then(result => {
-        setLoadingLichSuDe(false);
-        if (result.status === 'success' && result.data) {
-          setMangLichSuDeCuaTai(result.data);
-        }
-      })
-      .catch(() => setLoadingLichSuDe(false));
+    // 4. Lịch sử các lứa đẻ giờ tính ngay trên máy từ nhật ký nhập liệu (SowDetailModal), không gọi Google Sheet nữa
+    setLoadingLichSuDe(false);
   };
 
   // 🚀 BẢN VÁ TỐI CAO: DIỆT TẬN GỐC LỖI TRUYỀN EVENT OBJECT TRÊN BUTTON TẠO CHUỖI RÁC
@@ -1458,6 +1588,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
   // 🚀 BẢN VÁ TỐI CAO: BỔ SUNG HÀM PHÁT LỆNH GHI NGẦM TRÊN BACKGROUND VacXin
   // ========================================================
  const xuLyMangCauHinhVacXin = (loaiHanhDongMang, dataBody) => {
+    if (chanNeuKhongDuQuyen('them')) return; // 🔐 Công nhân không được ghi sổ tay / quy trình (kỹ thuật: nút đã lọc theo quyền ở TasksTab)
     const emailChuan = userEmail ? userEmail.toLowerCase().trim() : "";
     const laSoTay = loaiHanhDongMang.includes("sotay");
     const laXoa = loaiHanhDongMang === "delete_sotay" || loaiHanhDongMang === "delete_cauhinh";
@@ -1482,7 +1613,8 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
         tieuDe: String(dataBody.tieuDe || ""),
         noiDung: String(dataBody.noiDung || ""),
         danhMuc: String(dataBody.danhMuc || "Chung"),
-        trangThai: String(dataBody.trangThai || "Mới")
+        trangThai: String(dataBody.trangThai || "Mới"),
+        ...(loaiHanhDongMang.startsWith("insert") ? dauTao() : dauSua()) // ✍️
       }, { merge: true });
     } else {
       tacVuGhi = setDoc(thamChieuDoc, {
@@ -1492,7 +1624,8 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
         soNgay: String(Number(dataBody.soNgay) || 0), // Lưu dạng chuỗi cho khớp dữ liệu cũ đã chuyển lên
         tenNhiemVu: String(dataBody.tenNhiemVu || ""),
         ghiChu: String(dataBody.ghiChu || ""),
-        ngayTiemTruoc: String(dataBody.ngayTiemTruoc || "")
+        ngayTiemTruoc: String(dataBody.ngayTiemTruoc || ""),
+        ...(loaiHanhDongMang.startsWith("insert") ? dauTao() : dauSua()) // ✍️
       }, { merge: true });
     }
 
@@ -1513,8 +1646,11 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
   // 🚀 BẢN VÁ TỐI CAO TAB 1: TỰ ĐỘNG ĐỔI TRẠNG THÁI THỰC TẾ CHO KHAY GHIM TAB 2 LẬP TỨC
   // ========================================================
   const handleSaveNew = () => {
+    if (chanNeuKhongDuQuyen('them')) return; // 🔐
     if (!maTai.trim()) return Alert.alert("Thông báo", "Vui lòng nhập Mã Tai!");
     if (canNhapSoHeo && !soHeo.trim()) return Alert.alert("Thông báo", "Vui lòng nhập Số Heo!");
+    // 🟢 Sự kiện Đẻ: BẮT BUỘC nhập Chọn nuôi (được nhập 0) — số này dùng cho báo cáo heo theo mẹ và đánh giá nái
+    if (suKien === "Đẻ" && String(chonNuoi ?? '').trim() === '') return Alert.alert("Thiếu Chọn nuôi", "Vui lòng nhập Số heo Chọn nuôi (nếu không nuôi con nào thì nhập 0).");
 
     const maTaiChuanQuet = maTai ? maTai.toString().trim().toUpperCase() : "";
     const suKienHienTaiChuan = suKien ? suKien.toString().trim().normalize("NFC") : "";
@@ -1684,7 +1820,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
     setDongBoStatus(`⏳ Đang lưu...`);
 
     // 🚀 PHÓNG THẲNG LÊN KHO FIRESTORE EXPO REAL-TIME: Mất đúng 0.001 giây ngoài RAM phẳng!
-    setDoc(doc(db, "Du_Lieu_Goc", idSuKienMoi), dongMoi)
+    setDoc(doc(db, "Du_Lieu_Goc", idSuKienMoi), { ...dongMoi, ...dauTao() }) // ✍️
       .then(() => {
         // Khi đám mây ghi nhận thành công, gỡ bỏ mác waiting để ghim cứng dòng ở đỉnh hiển thị vĩnh viễn
         setDongBoStatus('✅ Đã Lưu Thành Công');
@@ -1759,6 +1895,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
   };
 
     const handleEditClick = (item) => {
+    if (chanNeuKhongDuQuyen('sua', item)) return; // 🔐
     setEditingId(item.id); 
     setEditMaTai(item.maTai); 
     setEditSuKien(item.suKien); 
@@ -1801,6 +1938,10 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
   // 🎯 BẢN VÁ SỬA TỨC THÌ: GHI ĐÈ THẲNG FIRESTORE, TUYỆT DIỆT QUAY VÒNG CHỜ MẠNG
   // ========================================================
   const handleSaveEdit = async () => {
+    if (chanNeuKhongDuQuyen('sua', Array.isArray(danhSachLichSu) ? danhSachLichSu.find(i => i && i.id === editingId) : null)) return; // 🔐
+    if (editSuKien === "Đẻ" && String(editChonNuoi ?? '').trim() === '') {
+      return Alert.alert("Thiếu Chọn nuôi", "Vui lòng nhập Số heo Chọn nuôi (nếu không nuôi con nào thì nhập 0).");
+    }
     if (!editSoHeo.trim() && editCanNhapSoHeo && editSuKien !== "Đẻ") {
       return Alert.alert("Thông báo", "Vui lòng nhập Số Lượng heo!");
     }
@@ -1844,7 +1985,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
 
     // 🎯 PHÓNG LỆNH GHI ĐÈ LÊN CLOUD FIRESTORE TỐC ĐỘ SIÊU TỐC
     const { doc, setDoc } = require('firebase/firestore');
-    setDoc(doc(db, "Du_Lieu_Goc", editingId), dongCapNhatMoi, { merge: true })
+    setDoc(doc(db, "Du_Lieu_Goc", editingId), { ...boDauTao(dongCapNhatMoi), ...dauSua() }, { merge: true }) // ✍️
       .then(async () => {
         setDongBoStatus("✅ Đã cập nhật sửa đổi thành công!");
          // ========================================================
@@ -1918,6 +2059,7 @@ fetch(`${WEB_APP_URL}?action=get_lich_su_de&userEmail=${userEmail.toLowerCase().
   // 🎯 BẢN VÁ XÓA TỨC THÌ: BĂM THẲNG VÀO FIRESTORE, TUYỆT DIỆT MỜ DÒNG CHỜ MẠNG
   // ========================================================
   const handleXoaNhatKyChuDong = async (item) => {
+    if (chanNeuKhongDuQuyen('xoa', item)) return; // 🔐
     if (!item || !item.id) return;
 
     // Khai báo thư viện xóa của Firestore trực tiếp trong hàm
@@ -2065,7 +2207,8 @@ else if (checkSuKien === "đẻ" || checkSuKien === "de" || checkSuKien === "cai
       await deleteDoc(doc(db, "Du_Lieu_Goc", item.id));
       setDongBoStatus('✅ Đã xoá dữ liệu vĩnh viễn!');
       
-      // Cập nhật ngầm bộ nhớ đệm Cache ổ cứng của máy khách
+      // Cập nhật ngầm bộ nhớ đệm: xếp hàng từng lượt, để 2 lần xóa liền nhau không ghi đè lên nhau
+      global.__hangDoiCacheXoa = (global.__hangDoiCacheXoa || Promise.resolve()).then(async () => {
       const emailChuoiSach = userEmail ? userEmail.toString().toLowerCase().trim() : "";
       const khoaDemTongHop = `cache_tonghop_pigvn_${emailChuoiSach}`;
       const dataDemTho = await AsyncStorage.getItem(khoaDemTongHop);
@@ -2081,9 +2224,14 @@ else if (checkSuKien === "đẻ" || checkSuKien === "de" || checkSuKien === "cai
         }
         await AsyncStorage.setItem(khoaDemTongHop, JSON.stringify(resultChuan));
       }
+      }).catch(e => console.log('Không cập nhật được bộ nhớ đệm:', e));
+      await global.__hangDoiCacheXoa;
     } catch (errorRef) {
       console.error("❌ Lỗi xóa thực tế:", errorRef);
-      setDongBoStatus('⚠️ Lưu trạng thái ngoại tuyến');
+      // Máy chủ không cho xóa -> trả dòng về lại màn hình và báo rõ, không để dòng 'biến mất giả'
+      setDanhSachLichSu(prev => (prev.some(i => i && i.id === item.id) ? prev : [...prev, item]));
+      setDongBoStatus('⚠️ Chưa xóa được dòng này');
+      Alert.alert('Chưa xóa được', 'Dòng này chưa xóa được trên máy chủ, vui lòng thử lại.\n\n' + String((errorRef && (errorRef.code || errorRef.message)) || ''));
     }
   };
 
@@ -2142,6 +2290,7 @@ else if (checkSuKien === "đẻ" || checkSuKien === "de" || checkSuKien === "cai
   };
 
    const handleLuuCaiSuaNhanhTaiChuong = () => {
+    if (chanNeuKhongDuQuyen('them')) return; // 🔐
     if (!caiSuaHeoItem) return;
     const maTaiInHoa = caiSuaHeoItem.maTai ? caiSuaHeoItem.maTai.toUpperCase().trim() : "";
     if (!maTaiInHoa) return;
@@ -2174,7 +2323,7 @@ else if (checkSuKien === "đẻ" || checkSuKien === "de" || checkSuKien === "cai
 
     // 🚀 PHÓNG THẲNG LÊN KHO FIRESTORE EXPO REAL-TIME: Rút hoàn toàn khỏi Apps Script cũ!
     const { doc, setDoc } = require('firebase/firestore');
-    setDoc(doc(db, "Du_Lieu_Goc", idSuKienCaiSua), dongMoiCaiSua)
+    setDoc(doc(db, "Du_Lieu_Goc", idSuKienCaiSua), { ...dongMoiCaiSua, ...dauTao() }) // ✍️
       .then(() => {
         setDongBoStatus(`✅ Nái ${maTaiInHoa} đã lưu ${dongMoiCaiSua.soHeo} con thành công!`);
         // Khi Firestore ghi nhận xong, đổi mác sang synced để màng lọc Tab 4 nhận diện và ẩn heo đi lập tức
@@ -2238,6 +2387,7 @@ else if (checkSuKien === "đẻ" || checkSuKien === "de" || checkSuKien === "cai
   // 🟢 HÀM LƯU BIẾN ĐỘNG HEO THỊT THEO LÔ TUẦN TUỔI (TAB 5)
   // ========================================================
   const handleMoModalHeoThit = (loaiHanhDong) => {
+    if (chanNeuKhongDuQuyen('them')) return; // 🔐
     setHeoThitActionType(loaiHanhDong);
     setHeoThitNgay(formatVNDate(new Date()));
     setHeoThitSoCon('');
@@ -2253,6 +2403,7 @@ else if (checkSuKien === "đẻ" || checkSuKien === "de" || checkSuKien === "cai
     // 🎯 BẢN VÁ ĐÁNH LỪA NGƯỜI DÙNG TỨC THÌ V13: NHẢY QUÂN SỐ TRÊN RAM TRONG 0.01 GIÂY NGAY KHI BẤM NÚT
     // 🐷 BẢN VÁ TỐI CAO: CHUYỂN HEO THỊT SANG FIRESTORE CHUẨN XỊN 100%
   const handleLuuHanhDongHeoThit = () => {
+    if (chanNeuKhongDuQuyen('them')) return; // 🔐
     const oTuanChonChuan = heoThitTuanChon ? heoThitTuanChon.toString().trim() : "";
     if (oTuanChonChuan === "" || oTuanChonChuan === "CHON_TUAN" || oTuanChonChuan.toLowerCase().includes("chon")) {
       return Alert.alert(
@@ -2352,7 +2503,7 @@ if (oTuanChonChuan === "theoMe" || oTuanChonChuan === "Theo Mẹ") {
 
     // 🌟 BƯỚC 3: Kích nổ lệnh mạng chọc trực tiếp lên kho dữ liệu mây Firestore NoSQL
     const { doc, setDoc } = require('firebase/firestore');
-    setDoc(doc(db, "Du_Lieu_Goc", idHeoThitMoi), dongMoiHeoThit)
+    setDoc(doc(db, "Du_Lieu_Goc", idHeoThitMoi), { ...dongMoiHeoThit, ...dauTao() }) // ✍️
       .then(() => {
         setDongBoStatus(`✅ Đã Lưu số heo Tuần ${oTuanChonChuan}!`);
         // Gỡ bỏ trạng thái chờ mạng để ghim cứng dòng ở đỉnh hiển thị vĩnh viễn
@@ -2383,6 +2534,7 @@ if (oTuanChonChuan === "theoMe" || oTuanChonChuan === "Theo Mẹ") {
   // 🟢 HÀM MỞ POP-UP SỬA HEO THỊT - ĐÃ VÁ ĐỊNH DẠNG NGÀY dd/mm/yyyy
   // ========================================================
   const handleMoSuaHeoThit = (item) => {
+    if (chanNeuKhongDuQuyen('sua', item)) return; // 🔐
     if (!item) return;
     setSuaHeoThitId(item.id);
     setSuaHeoThitActionType(item.suKien || 'Hao Hụt');
@@ -2417,6 +2569,7 @@ if (oTuanChonChuan === "theoMe" || oTuanChonChuan === "Theo Mẹ") {
   // ========================================================
    // 🎯 BẢN VÁ LƯU SỬA HEO THỊT VẬN HÀNH SIÊU TỐC V16: KHÔNG BIẾN TIẾNG VIỆT, TỰ ĐỘNG CẬP NHẬT TỔNG ĐÀN
   const handleLuuSuaHeoThit = () => {
+    if (chanNeuKhongDuQuyen('sua', Array.isArray(danhSachLichSu) ? danhSachLichSu.find(i => i && i.id === suaHeoThitId) : null)) return; // 🔐
     if (!suaHeoThitTuanChon || suaHeoThitTuanChon === "CHON_TUAN" || suaHeoThitTuanChon.trim() === "") {
       return Alert.alert("⚠️ Thiếu Số Liệu Lô", "Vui lòng chọn số Tuần Tuổi của lô heo thịt!");
     }
@@ -2517,7 +2670,7 @@ else if (newWeekStr === "4" || newWeekStr === "caiSua") newTargetKey = "4 Tuần
     });
 
     const { doc, setDoc } = require('firebase/firestore');
-    setDoc(doc(db, "Du_Lieu_Goc", suaHeoThitId), dongCapNhatMoi, { merge: true })
+    setDoc(doc(db, "Du_Lieu_Goc", suaHeoThitId), { ...boDauTao(dongCapNhatMoi), ...dauSua() }, { merge: true }) // ✍️
       .then(async () => {
         setDongBoStatus("✅ Đã cập nhật sửa đổi thành công!");
         
@@ -2549,6 +2702,7 @@ else if (newWeekStr === "4" || newWeekStr === "caiSua") newTargetKey = "4 Tuần
   // 🚀 KHỐI 3/4: HÀM THÊM NHANH MODAL MINI - GIỮ CỨNG MÃ TAI NGOÀI KHAY CHÍNH
   // ========================================================
   const handleQuickSaveHeoMoi = () => {
+    if (chanNeuKhongDuQuyen('them')) return; // 🔐
     if (isQuickSaving) return;
 
     setIsQuickSaving(true);
@@ -2583,7 +2737,6 @@ else if (newWeekStr === "4" || newWeekStr === "caiSua") newTargetKey = "4 Tuần
       trangThaiCotH: "Chờ Phối",
       
       ghiChu: "Them nhanh tu o go mini",
-      vuaNhapMoi: "chua_reload", // 🎯 VÁ CHÍ MẠNG 1: Trả lại đúng nhãn chuỗi chữ "chua_reload" để khớp 100% với hộp thông báo thành công của SowRegistryTab!
       syncStatus: "waiting", // Gá tạm nhãn waiting ngoài RAM để giao diện hiển thị nhấp nháy tiến độ mượt mà
       actionType: "firestore_hoan_thanh" // 🎯 VÁ CHÍ MẠNG 2: Đổi tên nhãn hành động để bộ não useEffect trung tâm chặn đứng hàm guiYeuCauMang chạy ẩn cắn ngược gây treo State!
     };
@@ -2591,20 +2744,21 @@ else if (newWeekStr === "4" || newWeekStr === "caiSua") newTargetKey = "4 Tuần
     // Chọc RAM cập nhật lập tức danh sách hiển thị ngoài màn hình chính lán trại trong 0.001s
     setDanhSachMaTai(prev => {
   if (!Array.isArray(prev)) return [dongMoiMaTai];
-  const mangCuDaDonDep = prev.map(heo => heo && heo.vuaNhapMoi === "chua_reload" ? { ...heo, vuaNhapMoi: false } : heo);
+  const mangCuDaDonDep = prev; // 🆕 'Mã tai vừa thêm hôm nay' dựa vào thời gian tạo, không cần cờ vuaNhapMoi
   return [dongMoiMaTai, ...mangCuDaDonDep];
 });
 
 if (global && Array.isArray(global.danhSachCapNhatTrangThai)) {
-  const mangGlobalCuDaDonDep = global.danhSachCapNhatTrangThai.map(heo => heo && heo.vuaNhapMoi === "chua_reload" ? { ...heo, vuaNhapMoi: false } : heo);
+  const mangGlobalCuDaDonDep = global.danhSachCapNhatTrangThai;
   global.danhSachCapNhatTrangThai = [dongMoiMaTai, ...mangGlobalCuDaDonDep];
 }
 
     // 🛰️ 3. Gọi trực tiếp thư viện ghi đè tài liệu Cloud Firestore NoSQL
     const { doc, setDoc } = require('firebase/firestore');
-        const { vuaNhapMoi: _boQuaCoTam1, ...dongMoiMaTaiGhiLenMay } = dongMoiMaTai;
+    // Nhãn tạm của màn hình (đang tạo / loại thao tác) KHÔNG ghi lên máy chủ, nếu không mã tai bị mờ mãi
+    const { vuaNhapMoi: _boQuaCoTam1, syncStatus: _bo1, actionType: _bo2, ...dongMoiMaTaiGhiLenMay } = dongMoiMaTai;
 
-    setDoc(doc(db, "Danh_Sach_Ma_Tai", idDocBanQuickAdd), dongMoiMaTai)
+    setDoc(doc(db, "Danh_Sach_Ma_Tai", idDocBanQuickAdd), { ...dongMoiMaTaiGhiLenMay, ...dauTao() }) // ✍️
       .then(async () => {
         setDongBoStatus('✅ Đã tạo mã tai thành công!'); 
         setIsQuickSaving(false);
@@ -2662,6 +2816,7 @@ if (global && Array.isArray(global.danhSachCapNhatTrangThai)) {
   // 🚀 KHỐI 2/4: HÀM THÊM CHÍNH - PHẲNG SẠCH 100% TIẾNG VIỆT KHÔNG DẤU
   // ========================================================
   const handleSaveMaTai = () => {
+    if (chanNeuKhongDuQuyen('them')) return; // 🔐
     if (!mtMaTai.trim()) return Alert.alert("Thông báo", "Vui lòng nhập Mã Tai!");
 
     const maTaiGoc = mtMaTai.toUpperCase().trim();
@@ -2695,7 +2850,6 @@ if (mtLua && mtLua.toString().trim() !== "" && mtLua !== "OPEN_MENU_MT_LUA") {
       trangThai: "Chờ Phối",
       trangThaiCotH: "Chờ Phối",
       ghiChu: "Them mui truc tiep tu so nai",
-      vuaNhapMoi: "chua_reload", 
       syncStatus: "synced",
       actionType: "mt_create" 
     };
@@ -2703,12 +2857,12 @@ if (mtLua && mtLua.toString().trim() !== "" && mtLua !== "OPEN_MENU_MT_LUA") {
     // Chọc RAM lập tức hiển thị giao diện phẳng sạch
   setDanhSachMaTai(prev => {
   if (!Array.isArray(prev)) return [dongMoi];
-  const mangCuDaDonDep = prev.map(heo => heo && heo.vuaNhapMoi === "chua_reload" ? { ...heo, vuaNhapMoi: false } : heo);
+  const mangCuDaDonDep = prev; // 🆕 'Mã tai vừa thêm hôm nay' dựa vào thời gian tạo, không cần cờ vuaNhapMoi
   return [dongMoi, ...mangCuDaDonDep];
 });
 
 if (global && Array.isArray(global.danhSachCapNhatTrangThai)) {
-  const mangGlobalCuDaDonDep = global.danhSachCapNhatTrangThai.map(heo => heo && heo.vuaNhapMoi === "chua_reload" ? { ...heo, vuaNhapMoi: false } : heo);
+  const mangGlobalCuDaDonDep = global.danhSachCapNhatTrangThai;
   global.danhSachCapNhatTrangThai = [dongMoi, ...mangGlobalCuDaDonDep];
 }
 
@@ -2719,8 +2873,8 @@ if (global && Array.isArray(global.danhSachCapNhatTrangThai)) {
 
     // 🛰️ PHÓNG THẲNG LÊN TẬP TIN CLOUD FIRESTORE BỎ QUA GUIYEUCAUMANG
     const { doc, setDoc } = require('firebase/firestore');
-    const { vuaNhapMoi: _boQuaCoTam2, ...dongMoiGhiLenMay } = dongMoi;
-    setDoc(doc(db, "Danh_Sach_Ma_Tai", idDocBanChinh), dongMoiGhiLenMay)
+    const { vuaNhapMoi: _boQuaCoTam2, syncStatus: _bo3, actionType: _bo4, ...dongMoiGhiLenMay } = dongMoi;
+    setDoc(doc(db, "Danh_Sach_Ma_Tai", idDocBanChinh), { ...dongMoiGhiLenMay, ...dauTao() }) // ✍️
       .then(async () => {
         setDongBoStatus('✅ Thêm Mã tai heo mới thành công');
         
@@ -2742,11 +2896,13 @@ if (global && Array.isArray(global.danhSachCapNhatTrangThai)) {
 
 
   const handleMtEditClick = (item) => {
+    if (chanNeuKhongDuQuyen('sua', item)) return; // 🔐
     setMtEditingId(item.id); setMtEditMaTai(item.maTai); setMtEditGiong(item.giong); setMtEditLua(item.lua);
     setIsMtEditModalVisible(true);
   };
 
   const handleSaveMtEdit = () => {
+    if (chanNeuKhongDuQuyen('sua', Array.isArray(danhSachMaTai) ? danhSachMaTai.find(i => i && i.id === mtEditingId) : null)) return; // 🔐
     // ⏱️ SINH LẠI THỜI GIAN NHẬP LÚC CHỈNH SỬA
     const thoiGianThucCuaMay = new Date();
     const chuoiGioNhap = `${String(thoiGianThucCuaMay.getDate()).padStart(2, '0')}/${String(thoiGianThucCuaMay.getMonth() + 1).padStart(2, '0')}/${thoiGianThucCuaMay.getFullYear()} ${String(thoiGianThucCuaMay.getHours()).padStart(2, '0')}:${String(thoiGianThucCuaMay.getMinutes()).padStart(2, '0')}:${String(thoiGianThucCuaMay.getSeconds()).padStart(2, '0')}`;
@@ -2772,7 +2928,7 @@ if (global && Array.isArray(global.danhSachCapNhatTrangThai)) {
 
     // 🎯 PHÓNG THẲNG LÊN CLOUD FIRESTORE BIẾN SỔ MÃ TAI
     const { doc, setDoc } = require('firebase/firestore');
-    setDoc(doc(db, "Danh_Sach_Ma_Tai", mtEditingId), dongMtSua, { merge: true })
+    setDoc(doc(db, "Danh_Sach_Ma_Tai", mtEditingId), { ...boDauTao(dongMtSua), ...dauSua() }, { merge: true }) // ✍️
       .then(async () => {
         setDongBoStatus('✅ Đã cập nhật Danh Bạ lên Cloud!');
         
@@ -2791,6 +2947,37 @@ if (global && Array.isArray(global.danhSachCapNhatTrangThai)) {
       });
   };
  // MÀN HÌNH KHÓA ĐĂNG NHẬP CLOUD FIREBASE
+
+  // ✍️🔐 Báo cho bộ ghi dữ liệu và bộ kiểm tra quyền biết ai đang thao tác.
+  // Gọi ngay trong lúc render (trước khi vẽ các tab) để nút ẩn/hiện luôn đúng vai trò.
+  datPhienGhi(phienDangNhap);
+
+  // 🐷 SỐ HEO THỊT THEO MẸ: tính ngay trên app từ nhật ký (đẻ, cai sữa, nhập đàn, bán, hao hụt),
+  // không còn lấy từ sheet So_Heo_Thit_Hien_Tai. Riêng 2 số dự kiến cám vẫn lấy từ Sheet (chưa chuyển).
+  // 📦 Báo cáo theo tuần tuổi (theo mẹ + lứa cai sữa + nhập/bán/hao hụt), kèm số đang nằm trong ô chuồng và chờ xếp chuồng
+  const dataHeoThitApp = React.useMemo(() => {
+    const soNai = (Array.isArray(global.danhSachCapNhatTrangThai) && global.danhSachCapNhatTrangThai.length) ? global.danhSachCapNhatTrangThai : danhSachMaTai;
+    const kq = tinhBaoCaoHeo({ danhSachLichSu, danhSachMaTai: soNai, danhSachChuongThit });
+    return { ...kq, camHeoThit: dataHeoThit ? dataHeoThit.camHeoThit : '0', camHeoNai: dataHeoThit ? dataHeoThit.camHeoNai : '0' };
+  }, [danhSachLichSu, danhSachMaTai, danhSachChuongThit, dataHeoThit, global.danhSachCapNhatTrangThai]);
+
+  if (!isLoggedIn && manHinhDangNhap === 'dangKy') {
+    return (
+      <ManHinhDangKy
+        onQuayLai={() => setManHinhDangNhap('dangNhap')}
+        onDangKyXong={(emailMoi) => { setTypedEmail(emailMoi); setManHinhDangNhap('xacMinh'); }}
+      />
+    );
+  }
+  if (!isLoggedIn && manHinhDangNhap === 'xacMinh') {
+    return (
+      <ManHinhXacMinhEmail
+        email={typedEmail}
+        onDaXacMinh={vaoAppSauXacMinh}
+        onDangXuat={() => { setTypedPassword(''); setManHinhDangNhap('dangNhap'); }}
+      />
+    );
+  }
   if (!isLoggedIn) {
     return (
       <KeyboardAvoidingView 
@@ -2816,7 +3003,7 @@ if (global && Array.isArray(global.danhSachCapNhatTrangThai)) {
           <Text style={{ fontWeight: '600', marginBottom: 4, fontSize: 13, color: '#333333' }}>Số tài khoản (Email):</Text>
           <TextInput 
             style={[styles.inputStandard, { borderColor: '#ffd3b6', height: 44, fontSize: 14, marginBottom: 15 }]} 
-            placeholder="Nhập số tài khoản (Email)" 
+            placeholder="Email chủ trại" 
             value={typedEmail} 
             onChangeText={setTypedEmail} 
             keyboardType="email-address" 
@@ -2825,7 +3012,21 @@ if (global && Array.isArray(global.danhSachCapNhatTrangThai)) {
             editable={!isAuthLoading} 
           />
 
-          <Text style={{ fontWeight: '600', marginBottom: 4, fontSize: 13, color: '#333333' }}>Mật mã truy cập:</Text>
+          {/* 👥 Ô MÃ THÀNH VIÊN: bỏ trống nếu là chủ trại */}
+          <Text style={{ fontWeight: '600', marginBottom: 4, fontSize: 13, color: '#333333' }}>Mã thành viên:</Text>
+          <TextInput
+            style={[styles.inputStandard, { borderColor: '#ffd3b6', height: 44, fontSize: 14, marginBottom: 15 }]}
+            placeholder="Bỏ trống nếu bạn là chủ trại"
+            value={typedMaThanhVien}
+            onChangeText={(t) => setTypedMaThanhVien(t.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10))}
+            autoCapitalize="characters"
+            placeholderTextColor="#888888"
+            editable={!isAuthLoading}
+          />
+
+          <Text style={{ fontWeight: '600', marginBottom: 4, fontSize: 13, color: '#333333' }}>
+            {typedMaThanhVien.trim() ? 'Mã PIN (6 số):' : 'Mật mã truy cập:'}
+          </Text>
           {/* Thanh bọc ô nhập mật mã và nút con mắt nằm chung hàng ngang phẳng sạch */}
           <View style={{ 
             flexDirection: 'row', 
@@ -2840,7 +3041,8 @@ if (global && Array.isArray(global.danhSachCapNhatTrangThai)) {
           }}>
             <TextInput 
               style={{ flex: 1, color: '#111111', fontSize: 14, paddingVertical: 0, height: '100%' }} 
-              placeholder="Nhập mật mã" 
+              placeholder={typedMaThanhVien.trim() ? "Nhập mã PIN 6 số" : "Nhập mật mã"}
+              keyboardType={typedMaThanhVien.trim() ? "number-pad" : "default"}
               value={typedPassword} 
               onChangeText={setTypedPassword} 
               secureTextEntry={!isPasswordVisible} // 🎯 Ẩn hiện dựa trên state
@@ -2872,6 +3074,18 @@ if (global && Array.isArray(global.danhSachCapNhatTrangThai)) {
               </TouchableOpacity>
             )}
           </View>
+
+          {/* 📝 NÚT ĐĂNG KÝ TRẠI MỚI */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => setManHinhDangNhap('dangKy')}
+            disabled={isAuthLoading}
+            style={{ marginTop: 18, alignItems: 'center' }}
+          >
+            <Text style={{ color: '#555555', fontSize: 14 }}>
+              Chưa có tài khoản? <Text style={{ color: '#e65100', fontWeight: 'bold' }}>Đăng ký trại mới</Text>
+            </Text>
+          </TouchableOpacity>
       
 
           {/* 🎯 BẢN VÁ THƯƠNG HIỆU TỐI GIẢN APPLE: KHÔNG LIÊN KẾT MẠNG - AN TOÀN TUYỆT ĐỐI */}
@@ -2897,13 +3111,10 @@ if (global && Array.isArray(global.danhSachCapNhatTrangThai)) {
 
             </View>
 
-            {/* Dòng chữ giải thích nghiệp vụ chìm nhã nhặn */}
-            <Text style={{ fontSize: 11, color: '#868e96', textAlign: 'center', marginTop: 4, paddingHorizontal: 12, lineHeight: 15 }}>
-              Vui lòng nhắn tin thông tin theo địa chỉ trên để được cấp tài khoản miễn phí.
-            </Text>
+          
 
             <Text style={{ fontSize: 10, color: '#adb5bd', marginTop: 5, fontWeight: '500' }}>
-              © 2026 PigVN • Phiên bản Heo Nái - Heo Thịt 5.0
+              © 2026 PigVN • Quản lý chăn nuôi Heo • Phiên bản 6.0
             </Text>
           </View>
 
@@ -2940,13 +3151,35 @@ if (global && Array.isArray(global.danhSachCapNhatTrangThai)) {
             
             {/* LỀ TRÁI: Danh tính Email tài khoản nái */}
             <Text style={{ fontSize: 13, color: '#333333', flex: 1, paddingRight: 10 }} numberOfLines={1}>
-              👤 <Text style={{ fontWeight: 'bold' }}>{userEmail}</Text>
+              👤 <Text style={{ fontWeight: 'bold' }}>
+                {phienDangNhap && phienDangNhap.maThanhVien
+                  ? `${phienDangNhap.maThanhVien} · ${TEN_VAI_TRO[phienDangNhap.vaiTro] || ''}`
+                  : userEmail}
+              </Text>
             </Text>
 
            {/* LỀ PHẢI BANNER: NÚT CHUÔNG ĐỌC THÔNG BÁO TỪ FIRESTORE CHUNG + NÚT ĐĂNG XUẤT */}
 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
   
  
+
+  {/* 👥 NÚT QUẢN LÝ THÀNH VIÊN - CHỈ CHỦ TRẠI THẤY */}
+  {phienDangNhap && phienDangNhap.vaiTro === 'CHU_TRAI' && (
+    <TouchableOpacity
+      activeOpacity={0.6} onPress={() => setHienQuanLyThanhVien(true)}
+      style={{ backgroundColor: '#fff0e6', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 15, borderWidth: 0.5, borderColor: '#ffd3b6' }}
+    >
+      <Text style={{ color: '#e65100', fontSize: 10.5, fontWeight: 'bold' }}>Thành viên 👥</Text>
+    </TouchableOpacity>
+  )}
+  {phienDangNhap && phienDangNhap.vaiTro === 'CHU_TRAI' && (
+    <ManHinhQuanLyThanhVien
+      visible={hienQuanLyThanhVien}
+      onClose={() => setHienQuanLyThanhVien(false)}
+      maTrai={phienDangNhap.maTrai}
+      emailChuTrai={phienDangNhap.emailChuTrai}
+    />
+  )}
 
   {/* NÚT ĐĂNG XUẤT NGUYÊN BẢN CỦA APP */}
   <TouchableOpacity 
@@ -2981,26 +3214,12 @@ if (global && Array.isArray(global.danhSachCapNhatTrangThai)) {
       </View>
     </TouchableOpacity>
 
-    <TouchableOpacity
-      activeOpacity={0.6}
-      onPress={xuLyBamNutNho}
-      disabled={trangThaiNutNho !== 'idle'}
-      style={{
-        width: 28, height: 28, borderRadius: 14,
-        backgroundColor: '#f0f3f4', borderWidth: 0.5, borderColor: '#bdc3c7',
-        alignItems: 'center', justifyContent: 'center'
-      }}
-    >
-      <Animated.Text style={{ fontSize: 13, transform: [{ rotate: gocXoayNoiSuy }] }}>
-        {trangThaiNutNho === 'success' ? '✅' : '🔄'}
-      </Animated.Text>
-    </TouchableOpacity>
-
+   
   </View>
 
   {/* LỀ PHẢI: Chữ phiên bản */}
   <Text style={{ fontSize: 9, fontWeight: '700', color: '#28a745', fontStyle: 'italic' }}>
-    Quản Lý Heo Nái - Heo Thịt PigVN 5.0
+    Quản lý chăn nuôi Heo PigVN • Phiên bản 6.0
   </Text>
 
 </View>
@@ -3123,7 +3342,7 @@ setGoiYMaTaiLoc={setGoiYMaTaiLoc}
   parseToDateObject={parseToDateObject}
   
   dataThongKe={dataThongKe}
-  dataHeoThit={dataHeoThit}
+  dataHeoThit={dataHeoThitApp}
   danhSachLichSu={danhSachLichSu}
     danhSachMaTai={danhSachMaTai} 
         handleXemChiTietHeo={handleXemChiTietHeo}
@@ -3153,7 +3372,7 @@ setGoiYMaTaiLoc={setGoiYMaTaiLoc}
   styles={styles}
   formatVNDate={formatVNDate}
   
-  dataHeoThit={dataHeoThit}
+  dataHeoThit={dataHeoThitApp}
   danhSachLichSu={danhSachLichSu}
   lichSuHeoThit={danhSachLichSu} // 🎯 Vá chí mạng: Ép các biến dự phòng dùng chung nguồn danhSachLichSu
   lichSuHeo={danhSachLichSu}
@@ -3408,7 +3627,7 @@ setGoiYMaTaiLoc={setGoiYMaTaiLoc}
               {/* Khối huy hiệu bốc trực tiếp số tổng sống sau khi đã được trạm useEffect xử lý bù trừ */}
               {/* <View style={{ backgroundColor: currentTab === 'heo_thit' ? '#e65100' : '#28a745', paddingHorizontal: 4, paddingVertical: 0.5, borderRadius: 4 }}>
                 <Text style={{ fontSize: 8.5, fontWeight: '900', color: '#ffffff' }}>
-                  {dataHeoThit && dataHeoThit.tongHeoThitSauBuTruRealTime !== undefined ? String(dataHeoThit.tongHeoThitSauBuTruRealTime) : (dataHeoThit?.tongHeoThit || "0")}
+                  {String(dataHeoThitApp.tongHeoThit)}
                 </Text>
               </View> */}
 
@@ -3476,7 +3695,7 @@ setGoiYMaTaiLoc={setGoiYMaTaiLoc}
   heoThitTuanChon={heoThitTuanChon} setHeoThitTuanChon={setHeoThitTuanChon}
   heoThitSoLuong={heoThitSoLuong} setHeoThitSoCon={setHeoThitSoCon}
   heoThitGhiChu={heoThitGhiChu} setHeoThitGhiChu={setHeoThitGhiChu}
-  dataHeoThit={typeof dataHeoThit !== 'undefined' ? dataHeoThit : null}
+  dataHeoThit={dataHeoThitApp}
   
   isHeoThitDatePickerVisible={typeof isHeoThitDatePickerVisible !== 'undefined' ? isHeoThitDatePickerVisible : false}
   setHeoThitDatePickerVisible={typeof setHeoThitDatePickerVisible !== 'undefined' ? setHeoThitDatePickerVisible : () => {}}
@@ -3500,7 +3719,7 @@ setGoiYMaTaiLoc={setGoiYMaTaiLoc}
   suaHeoThitGhiChu={suaHeoThitGhiChu} setSuaHeoThitGhiChu={setSuaHeoThitGhiChu}
   suaHeoThitActionType={typeof suaHeoThitActionType !== 'undefined' ? suaHeoThitActionType : ''}
   
-  dataHeoThit={typeof dataHeoThit !== 'undefined' ? dataHeoThit : null}
+  dataHeoThit={dataHeoThitApp}
   danhSachLichSu={typeof danhSachLichSu !== 'undefined' ? danhSachLichSu : []}
   lichSuHeoThit={typeof lichSuHeoThit !== 'undefined' ? lichSuHeoThit : []}
   
@@ -3712,7 +3931,9 @@ export default function App() {
     <SafeAreaProvider>
       <FarmProvider>
         <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()} accessible={false}>
-          <MainApp />
+          <CongPhienBan>
+            <MainApp />
+          </CongPhienBan>
         </TouchableWithoutFeedback>
       </FarmProvider>
     </SafeAreaProvider>

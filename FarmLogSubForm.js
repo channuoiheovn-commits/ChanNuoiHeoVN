@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { ghiDongMoi } from './chuongThitService';
+import ChonNgay from './ChonNgay'; // 📅 chọn ngày dạng cửa sổ
 
 const FarmLogSubForm = ({ 
   cauHinhVacXinLoc,
@@ -8,6 +9,7 @@ const FarmLogSubForm = ({
   setModalSubTab, 
   selectedChuongGop, 
   ngayNhapInput, 
+  setNgayNhapInput, 
   setIsCalendarOpen, 
   isCalendarOpen, 
   danhSachNgayTrongThangCalendar, 
@@ -99,20 +101,11 @@ const FarmLogSubForm = ({
         <TouchableOpacity onPress={() => { setModalSubTab("AN_FORM"); setInputSoLuong(""); setInputTenVatTu(""); }} style={{ backgroundColor: '#ffffff', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, borderWidth: 0.5, borderColor: '#ced4da' }}><Text style={{ fontSize: 10.5, fontWeight: 'bold', color: '#495057' }}>✕ Ẩn khay</Text></TouchableOpacity>
       </View>
 
-      <Text style={{ fontSize: 11, fontWeight: '600', color: '#666666', marginBottom: 4 }}>1. Chọn Ngày thực hiện nghiệp vụ:</Text>
-      <TouchableOpacity activeOpacity={0.7} onPress={() => setIsCalendarOpen(!isCalendarOpen)} style={{ height: 34, borderWidth: 1, borderColor: laCam ? '#e65100' : '#28a745', borderRadius: 5, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', marginBottom: 6, flexDirection: 'row', gap: 6 }}><Text style={{ color: laCam ? '#e65100' : '#28a745', fontSize: 12.5, fontWeight: '900' }}>📅 {ngayNhapInput}</Text><Text style={{ color: '#999999', fontSize: 10 }}>▼ Đổi ngày</Text></TouchableOpacity>
-
-      {isCalendarOpen && (
-        <View style={{ backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#ffe082', borderRadius: 6, padding: 6, marginBottom: 8 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}><TouchableOpacity onPress={() => { if (currentCalendarMonth === 0) { setCurrentCalendarMonth(11); setCurrentCalendarYear(currentCalendarYear - 1); } else { setCurrentCalendarMonth(currentCalendarMonth - 1); } }}><Text style={{ fontSize: 14, fontWeight: 'bold', color: '#e65100' }}>◀</Text></TouchableOpacity><Text style={{ fontSize: 11, fontWeight: '900' }}>Tháng {currentCalendarMonth + 1} - {currentCalendarYear}</Text><TouchableOpacity onPress={() => { if (currentCalendarMonth === 11) { setCurrentCalendarMonth(0); setCurrentCalendarYear(currentCalendarYear + 1); } else { setCurrentCalendarMonth(currentCalendarMonth + 1); } }}><Text style={{ fontSize: 14, fontWeight: 'bold', color: '#e65100' }}>▶</Text></TouchableOpacity></View>
-          <View style={{ flexDirection: 'row', marginBottom: 4 }}>{['T2','T3','T4','T5','T6','T7','CN'].map((t, idx) => (<View key={`cal_sub_t_${idx}`} style={{ flex: 1, alignItems: 'center' }}><Text style={{ fontSize: 9, fontWeight: '700', color: '#7f8c8d' }}>{t}</Text></View>))}</View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>{danhSachNgayTrongThangCalendar.map((itemNgay, nIdx) => { const chuoiNgayNode = formatVNDate(itemNgay.dateObj); const laChon = ngayNhapInput === chuoiNgayNode; return (<TouchableOpacity key={`cal_sub_n_${nIdx}`} activeOpacity={0.6} onPress={() => { setModalSubTab(modalSubTab); setIsCalendarOpen(false); }} style={{ width: '14.28%', paddingVertical: 5, alignItems: 'center', borderRadius: 4, backgroundColor: laChon ? '#e67e22' : 'transparent' }}><Text style={{ fontSize: 11, fontWeight: 'bold', color: laChon ? '#ffffff' : itemNgay.laThangChinh ? '#111111' : '#c0c0c0' }}>{itemNgay.dateObj.getDate()}</Text></TouchableOpacity>); })}</View>
-        </View>
-      )}
+      <ChonNgay value={ngayNhapInput} onChange={(d) => { if (typeof setNgayNhapInput === 'function') setNgayNhapInput(d); }} mau={laCam ? '#e65100' : '#28a745'} />
 
      
-      <Text style={{ fontSize: 11, fontWeight: '600', color: '#666666', marginBottom: 4 }}>{laCam ? "3. Nhập số lượng Cám nhập đợt này (Bao):" : "3. Nhập số liều tiêm đợt này (Liều):"}</Text>
-      <TextInput style={{ height: 36, borderWidth: 1, borderColor: '#ced4da', borderRadius: 5, backgroundColor: '#ffffff', paddingHorizontal: 10, marginBottom: 10, fontSize: 13, fontWeight: 'bold', textAlign: 'center' }} value={inputSoLuong} onChangeText={(txt) => setInputSoLuong(txt.replace(/[^0-9]/g, ''))} keyboardType="numeric" placeholder={laCam ? "Ví dụ: 50" : "Ví dụ: 100"} placeholderTextColor="#999999" />
+      <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#495057', marginBottom: 4 }}>{laCam ? "Số bao cám" : "Số liều thuốc"}</Text>
+      <TextInput style={{ height: 44, borderWidth: 1.5, borderRadius: 10, textAlign: 'center', fontSize: 16, fontWeight: '800', color: '#111111', borderColor: '#ced4da', backgroundColor: '#ffffff', marginBottom: 12 }} value={inputSoLuong} onChangeText={(txt) => setInputSoLuong(txt.replace(/[^0-9]/g, ''))} keyboardType="numeric" placeholder={laCam ? "Ví dụ: 50" : "Ví dụ: 100"} placeholderTextColor="#999999" />
 
  <Text style={{ fontSize: 11, fontWeight: '600', color: '#666666', marginBottom: 4 }}>{laCam ? "2. Gõ mã số / Tên nhãn hiệu Cám (Không bắt buộc):" : "2. Nhập chính xác tên loại Vaccine / Thuốc tiêm bệnh:"}</Text>
       <TextInput style={{ height: 36, borderWidth: 1, borderColor: '#ced4da', borderRadius: 5, backgroundColor: '#ffffff', paddingHorizontal: 10, marginBottom: 6, fontSize: 12 }} value={inputTenVatTu} onChangeText={setInputTenVatTu} placeholder={laCam ? "Ví dụ: cám thịt" : "Ví dụ: Dịch tả..."} placeholderTextColor="#999999" />

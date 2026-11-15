@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, TextInput, FlatList, TouchableOpacity, ScrollView, Alert, Platform, Modal } from 'react-native';
+import { View, Text, TextInput, FlatList, TouchableOpacity, ScrollView, Alert, Platform, Modal, Dimensions } from 'react-native';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
+import { NhanNguoiNhap, NhanChiXem, duocThem, duocSuaXoa } from './nguoiNhap'; // ✍️ Hiện "Nhập bởi" + 🔐 quyền
 
 const DataEntryTab = ({
   currentTab,
@@ -53,6 +54,7 @@ const refONhapInput = React.useRef(null);
       
      <FlatList 
  keyboardDismissMode="on-drag" // 🌟 VẠN NĂNG: Vuốt nhẹ màn hình là ẩn bàn phím ngay, cực mượt
+        automaticallyAdjustKeyboardInsets // iOS: bàn phím mở thì tự chừa chỗ, ô tra cứu không bị che
         keyboardShouldPersistTaps="handled" // 🌟 Giúp bấm các nút Sửa/Xóa nhạy bén kể cả khi bàn phím đang mở
         
           // Lọc sạch các dòng rác và dòng sự kiện heo thịt để thu về Nhật ký heo nái sạch
@@ -118,57 +120,23 @@ const refONhapInput = React.useRef(null);
         })()} 
         keyExtractor={(i) => i.id} 
         contentContainerStyle={{ paddingBottom: 80 }} 
+        // 🔍 CHỐNG NHẢY MÀN HÌNH KHI TRA CỨU: gõ mã tai làm danh sách ngắn lại -> nội dung tụt thấp hơn chỗ đang cuộn
+        // -> màn hình bị kéo giật lên. Khi đang tra cứu / lọc, chèn 1 khoảng trống cao bằng màn hình ở cuối danh sách
+        // để chiều cao luôn đủ, ô tìm kiếm đứng yên đúng chỗ.
+        ListFooterComponent={(searchTxtTab1 || (filterSuKienTab1 && filterSuKienTab1 !== 'ALL') || filterNgayTab1)
+          ? <View style={{ height: Dimensions.get('window').height }} />
+          : null}
 
         ListHeaderComponent={
     
             <View style={{ backgroundColor: '#ffffff', paddingBottom: 5 }}>
-              <View style={[styles.formFixedContainer, { backgroundColor: '#fffaf5', borderWidth: 1.2, borderColor: '#ffd3b6', borderRadius: 10, padding: 12, shadowColor: "#e65100", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 2, elevation: 1 }]}>
+              <View style={[styles.formFixedContainer, { backgroundColor: '#eefaf1', borderWidth: 1.5, borderColor: '#ff9f5a', borderBottomWidth: 1.5, borderBottomColor: '#ff9f5a', borderRadius: 14, padding: 12, paddingTop: 0, marginHorizontal: 8, marginTop: 8, overflow: 'hidden', shadowColor: "#e65100", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.14, shadowRadius: 6, elevation: 4 }]}>
                 
                 <View style={{ marginBottom: 14, width: '100%' }}>
-                  <View style={{ alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#ffe5d4', paddingBottom: 6, marginBottom: 8 }}>
-                    <Text style={{ fontSize: 13, color: '#e65100', fontWeight: 'bold', textAlign: 'center' }}>📝 HÔM NAY CÓ SỰ KIỆN GÌ MỚI? BẠN HÃY NHẬP Ở ĐÂY</Text>
+                  <View style={{ alignItems: 'center', backgroundColor: '#e65100', marginHorizontal: -12, paddingVertical: 9, marginBottom: 4 }}>
+                    <Text style={{ fontSize: 13, color: '#ffffff', fontWeight: '900', textAlign: 'center', letterSpacing: 0.3 }}>📝 HÔM NAY CÓ SỰ KIỆN GÌ MỚI? BẠN HÃY NHẬP Ở ĐÂY</Text>
                   </View>
 
-                  {ngayHienThi && ngayHienThi.toString().trim() !== "" && (
-                    <View style={{ backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#ffffff', borderLeftWidth: 4, borderLeftColor: '#28a745', borderRadius: 6, paddingVertical: 6, paddingHorizontal: 10, marginTop: 4, width: '100%' }}>
-                      {(() => {
-                        let chuoiTuanPhoiHienThi = "";
-                        try {
-                          const chuoiNgayForm = ngayHienThi ? ngayHienThi.toString().trim() : "";
-                          let d = 0, m = 0, y = 0;
-                          if (chuoiNgayForm.includes('/')) {
-                            const mangCat = chuoiNgayForm.split('/');
-                            if (mangCat.length === 3) { d = parseInt(mangCat[0], 10); m = parseInt(mangCat[1], 10); y = parseInt(mangCat[2], 10); }
-                          } else if (chuoiNgayForm.includes('-')) {
-                            const mangCat = chuoiNgayForm.substring(0, 10).split('-');
-                            if (mangCat.length === 3) { y = parseInt(mangCat[0], 10); m = parseInt(mangCat[1], 10); d = parseInt(mangCat[2], 10); }
-                          }
-                          if (d > 0 && m > 0 && y > 0) {
-                            const dateChonObj = new Date(y, m - 1, d);
-                            const ngayThuNamCuaTuan = new Date(dateChonObj.valueOf());
-                            const thuHienTai = dateChonObj.getDay();
-                            const thuChuanHienTai = thuHienTai === 0 ? 7 : thuHienTai;
-                            ngayThuNamCuaTuan.setDate(ngayThuNamCuaTuan.getDate() + 4 - thuChuanHienTai);
-                            const ngayDauNamObj = new Date(ngayThuNamCuaTuan.getFullYear(), 0, 1);
-                            const khoangCachMs = ngayThuNamCuaTuan.getTime() - ngayDauNamObj.getTime();
-                            const soNgayTroiQua = Math.floor(khoangCachMs / 86400000);
-                            const soTuanLich = Math.ceil((soNgayTroiQua + 1) / 7);
-                            if (soTuanLich > 0 && soTuanLich <= 54) chuoiTuanPhoiHienThi = `${soTuanLich}`;
-                          }
-                        } catch (err) { chuoiTuanPhoiHienThi = ""; }
-
-                        return (
-                          <Text style={{ fontSize: 12, color: '#155724', fontWeight: '700', lineHeight: 17 }}>
-                            Chọn ngày để tính nhanh ngày dự đẻ:{" "}
-                            <Text style={{ color: '#d35400', fontWeight: '900' }}>
-                              {tinhNgayDuKienDe(ngayHienThi)}
-                              {chuoiTuanPhoiHienThi !== "" ? ` • (Tuần Phối: ${chuoiTuanPhoiHienThi})` : ""}
-                            </Text>
-                          </Text>
-                        );
-                      })()}
-                    </View>
-                  )}
                 </View>
                <View style={[styles.rowInput, { marginBottom: 10 }]}>
                   <TouchableOpacity style={[styles.dateButton, { borderColor: '#ffd3b6', backgroundColor: '#ffffff', height: 42, justifyContent: 'center', paddingHorizontal: 10, zIndex: 10000 }]} onPress={() => setDatePickerVisibility(true)}>
@@ -257,6 +225,47 @@ const refONhapInput = React.useRef(null);
                   )}
                 </View>
 
+                {/* 🐣 Ngày dự đẻ: chỉ hiện khi chọn sự kiện Phối, ngay dưới ô lịch */}
+                  {String(suKien || "").normalize("NFC") === "Phối" && ngayHienThi && ngayHienThi.toString().trim() !== "" && (
+                    <View style={{ backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#ffffff', borderLeftWidth: 4, borderLeftColor: '#28a745', borderRadius: 6, paddingVertical: 6, paddingHorizontal: 10, marginTop: 0, marginBottom: 10, width: '100%' }}>
+                      {(() => {
+                        let chuoiTuanPhoiHienThi = "";
+                        try {
+                          const chuoiNgayForm = ngayHienThi ? ngayHienThi.toString().trim() : "";
+                          let d = 0, m = 0, y = 0;
+                          if (chuoiNgayForm.includes('/')) {
+                            const mangCat = chuoiNgayForm.split('/');
+                            if (mangCat.length === 3) { d = parseInt(mangCat[0], 10); m = parseInt(mangCat[1], 10); y = parseInt(mangCat[2], 10); }
+                          } else if (chuoiNgayForm.includes('-')) {
+                            const mangCat = chuoiNgayForm.substring(0, 10).split('-');
+                            if (mangCat.length === 3) { y = parseInt(mangCat[0], 10); m = parseInt(mangCat[1], 10); d = parseInt(mangCat[2], 10); }
+                          }
+                          if (d > 0 && m > 0 && y > 0) {
+                            const dateChonObj = new Date(y, m - 1, d);
+                            const ngayThuNamCuaTuan = new Date(dateChonObj.valueOf());
+                            const thuHienTai = dateChonObj.getDay();
+                            const thuChuanHienTai = thuHienTai === 0 ? 7 : thuHienTai;
+                            ngayThuNamCuaTuan.setDate(ngayThuNamCuaTuan.getDate() + 4 - thuChuanHienTai);
+                            const ngayDauNamObj = new Date(ngayThuNamCuaTuan.getFullYear(), 0, 1);
+                            const khoangCachMs = ngayThuNamCuaTuan.getTime() - ngayDauNamObj.getTime();
+                            const soNgayTroiQua = Math.floor(khoangCachMs / 86400000);
+                            const soTuanLich = Math.ceil((soNgayTroiQua + 1) / 7);
+                            if (soTuanLich > 0 && soTuanLich <= 54) chuoiTuanPhoiHienThi = `${soTuanLich}`;
+                          }
+                        } catch (err) { chuoiTuanPhoiHienThi = ""; }
+
+                        return (
+                          <Text style={{ fontSize: 12, color: '#155724', fontWeight: '700', lineHeight: 17 }}>
+                            Ngày dự đẻ:{" "}
+                            <Text style={{ color: '#d35400', fontWeight: '900' }}>
+                              {tinhNgayDuKienDe(ngayHienThi)}
+                              {chuoiTuanPhoiHienThi !== "" ? ` • (Tuần Phối: ${chuoiTuanPhoiHienThi})` : ""}
+                            </Text>
+                          </Text>
+                        );
+                      })()}
+                    </View>
+                  )}
                 <DateTimePickerModal isVisible={isDatePickerVisible} mode="date" display="inline" locale="vi" onConfirm={(d) => { setNgayHienThi(formatVNDate(d)); setDatePickerVisibility(false); }} onCancel={() => setDatePickerVisibility(false)} confirmTextConfirm="Xác nhận" cancelText="Hủy" />
                 
                 <View style={{ marginBottom: 10, borderWidth: 1.2, borderColor: '#ffd3b6', borderRadius: 8, backgroundColor: '#ffffff', justifyContent: 'center', minHeight: 44 }}>
@@ -291,7 +300,7 @@ const refONhapInput = React.useRef(null);
                         <TextInput style={[styles.inputStandard, { marginBottom: 0, height: 38, paddingVertical: 0, paddingHorizontal: 8, fontSize: 13, textAlign: 'center', color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6' }]} placeholder="Chết ngộp" keyboardType="numeric" placeholderTextColor="#777777" value={chetNgop} onChangeText={setChetNgop} />
                       </View>
                       <View style={{ flex: 0.48 }}>
-                        <TextInput style={[styles.inputStandard, { marginBottom: 0, height: 38, paddingVertical: 0, paddingHorizontal: 8, fontSize: 13, textAlign: 'center', color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6' }]} placeholder="Chọn nuôi" keyboardType="numeric" placeholderTextColor="#777777" value={chonNuoi} onChangeText={setChonNuoi} />
+                        <TextInput style={[styles.inputStandard, { marginBottom: 0, height: 38, paddingVertical: 0, paddingHorizontal: 8, fontSize: 13, textAlign: 'center', color: '#111111', backgroundColor: '#ffffff', borderColor: '#28a745', borderWidth: 1.5 }]} placeholder="Chọn nuôi *" keyboardType="numeric" placeholderTextColor="#777777" value={chonNuoi} onChangeText={setChonNuoi} />
                       </View>
                     </View>
                   </View>
@@ -302,9 +311,13 @@ const refONhapInput = React.useRef(null);
                 )}
                 
                 <TextInput style={[styles.inputStandard, { color: '#111111', backgroundColor: '#ffffff', borderColor: '#ffd3b6', marginBottom: 10, height: 42, fontSize: 14, paddingVertical: 0 }]} placeholder="Nhập Ghi chú (nếu có)" placeholderTextColor="#888888" value={ghiChu} onChangeText={setGhiChu} />
-                <TouchableOpacity onPress={handleSaveNew} activeOpacity={0.5} style={{ backgroundColor: '#e65100', paddingVertical: 9, borderRadius: 6, alignItems: 'center', marginTop: 4 }}><Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 14 }}>Thêm Mới Nhật Ký</Text></TouchableOpacity>
+                {duocThem() ? ( /* 🔐 Công nhân không thấy nút thêm */
+                <TouchableOpacity onPress={handleSaveNew} activeOpacity={0.5} style={{ backgroundColor: '#e65100', paddingVertical: 11, borderRadius: 8, alignItems: 'center', marginTop: 4 }}><Text style={{ color: '#ffffff', fontWeight: '900', fontSize: 14.5 }}>＋ Thêm Mới Nhật Ký</Text></TouchableOpacity>
+                ) : <NhanChiXem style={{ marginTop: 4, marginBottom: 0 }} />}
 
-   <View style={{ marginTop: 16, borderTopWidth: 1, borderTopColor: '#ffe5d4', paddingTop: 14 }}>
+              </View>
+              {/* ===== HẾT KHUNG THÊM MỚI · BÊN DƯỚI LÀ PHẦN TRA CỨU (tách riêng, nền xám nhẹ) ===== */}
+   <View style={{ marginTop: 18, marginHorizontal: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e9ecef' }}>
  
   <Text style={{ fontSize: 12.5, color: '#666666', fontWeight: 'bold', marginBottom: 6, marginLeft: 2 }}>
     🔍 TRA CỨU LỊCH SỬ NÁI TRONG SỔ:
@@ -415,7 +428,6 @@ const refONhapInput = React.useRef(null);
 </View>
 
              
-              </View>
               <View style={{ flexDirection: 'row', gap: 6, marginTop: 12, marginBottom: 4, width: '100%', paddingHorizontal: 4 }}>
                 <TouchableOpacity 
                   activeOpacity={0.7} 
@@ -529,9 +541,10 @@ const refONhapInput = React.useRef(null);
                 )}
 
                 {!!item.ghiChu && <Text style={{ fontSize: 12, color: '#e65100', fontStyle: 'italic', marginTop: 2 }}>📌 Ghi chú: {String(item.ghiChu)}</Text>}
+                <NhanNguoiNhap item={item} />
               </View>
 
-            <View style={styles.cardActions}>
+            <View style={styles.cardActions}>{duocSuaXoa(item) && (<>
                 <TouchableOpacity onPress={() => handleEditClick(item)} style={styles.editBtn}>
                   <Text style={styles.btnText}>Sửa</Text>
                 </TouchableOpacity>
@@ -550,6 +563,7 @@ const refONhapInput = React.useRef(null);
                 >
                   <Text style={styles.btnText}>Xóa</Text>
                 </TouchableOpacity>
+</>)}
               </View>
             </View>
           )

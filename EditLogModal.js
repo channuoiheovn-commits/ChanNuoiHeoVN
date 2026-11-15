@@ -176,7 +176,7 @@ const EditLogModal = ({
                 </View>
 
                 <View style={{ marginBottom: 10 }}>
-                  <Text style={{ fontSize: 11, color: '#28a745', fontWeight: '600', marginBottom: 4, paddingLeft: 2 }}>🟢 Số heo Chọn nuôi </Text>
+                  <Text style={{ fontSize: 11, color: '#28a745', fontWeight: '600', marginBottom: 4, paddingLeft: 2 }}>🟢 Số heo Chọn nuôi <Text style={{ color: '#dc3545' }}>*</Text></Text>
                   <TextInput style={[styles.popupInput, { fontSize: 14, height: 38, paddingVertical: 0, fontWeight: 'bold', borderColor: '#c3e6cb', backgroundColor: '#ffffff' }]} keyboardType="numeric" value={editChonNuoi} onChangeText={setEditChonNuoi} />
                 </View>
 

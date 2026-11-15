@@ -6,6 +6,8 @@ import {
   ScrollView, 
   TouchableOpacity 
 } from 'react-native';
+import { layCacLuaDeCuaNai } from './SoHeoThit';
+import DanhGiaNai from './DanhGiaNai'; // ⭐ tab đánh giá nái // 📜 lịch sử lứa đẻ lấy từ nhật ký nhập liệu
 
 const SowDetailModal = ({ 
   visible, 
@@ -82,7 +84,10 @@ const suKienGanNhatKhiTheoDoi = (() => {
               <Text style={{ fontSize: 12, fontWeight: 'bold', color: khayMenuPhu === 'HO_SO' ? '#e65100' : '#5c6770' }}>📋 Thẻ Nái</Text>
             </TouchableOpacity>
             <TouchableOpacity activeOpacity={0.7} onPress={() => setKhayMenuPhu('SUNG_KIEN')} style={{ flex: 1, backgroundColor: khayMenuPhu === 'SUNG_KIEN' ? '#ffffff' : 'transparent', paddingVertical: 8, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontSize: 12, fontWeight: 'bold', color: khayMenuPhu === 'SUNG_KIEN' ? '#e65100' : '#5c6770' }}>📝 Nhật Ký Sự Kiện</Text>
+              <Text style={{ fontSize: 12, fontWeight: 'bold', color: khayMenuPhu === 'SUNG_KIEN' ? '#e65100' : '#5c6770' }}>📝 Nhật Ký</Text>
+            </TouchableOpacity>
+            <TouchableOpacity activeOpacity={0.7} onPress={() => setKhayMenuPhu('DANH_GIA')} style={{ flex: 1, backgroundColor: khayMenuPhu === 'DANH_GIA' ? '#ffffff' : 'transparent', paddingVertical: 8, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontSize: 12, fontWeight: 'bold', color: khayMenuPhu === 'DANH_GIA' ? '#e65100' : '#5c6770' }}>⭐ Đánh Giá</Text>
             </TouchableOpacity>
           </View>
           
@@ -223,7 +228,7 @@ const suKienGanNhatKhiTheoDoi = (() => {
 
                 <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#495057', marginTop: 10, marginBottom: 8 }}>📜 LỊCH SỬ CÁC LỨA ĐÃ ĐẺ THÀNH CÔNG</Text>
                 {(() => {
-                  const lichSuDeGopOffline = danhSachDangDe.filter(heo => (heo.maTai || "").toString().toUpperCase().trim() === maTaiModal && maTaiModal !== "").sort((a, b) => Number(b.luaDe || 0) - Number(a.luaDe || 0));
+                  const lichSuDeGopOffline = layCacLuaDeCuaNai(danhSachLichSu, maTaiModal, selectedHeoDetail?.luaGoc || selectedHeoDetail?.nhom);
                   if (lichSuDeGopOffline.length === 0) { return <View style={{ padding: 12, backgroundColor: '#fcfcfc', borderRadius: 8, borderWidth: 1, borderColor: '#eaeaea' }}><Text style={{ fontSize: 12, color: '#95a5a6', textAlign: 'center', fontStyle: 'italic' }}>Chưa ghi nhận dữ liệu lịch sử lứa đẻ nào cho mã tai này.</Text></View>; }
                   return lichSuDeGopOffline.map((item, index) => (
                     <View key={`hist_farr_${index}`} style={{ backgroundColor: '#ffffff', borderRadius: 8, marginBottom: 10, borderWidth: 1, borderColor: '#eef2f5', flexDirection: 'row', overflow: 'hidden' }}>
@@ -335,6 +340,9 @@ const suKienGanNhatKhiTheoDoi = (() => {
                   });
                 })()}
               </View>
+            )}
+            {khayMenuPhu === 'DANH_GIA' && (
+              <DanhGiaNai danhSachLichSu={danhSachLichSu} maTai={maTaiModal} luaGoc={selectedHeoDetail?.luaGoc || selectedHeoDetail?.nhom} parseToDateObject={parseToDateObject} />
             )}
           </ScrollView>
 

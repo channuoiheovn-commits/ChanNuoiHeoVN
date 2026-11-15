@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Modal, Animated, Easing, Platform } from 'react-native';
+import ThongKeSinhSan from './ThongKeSinhSan'; // 🐖 Chỉ số sinh sản theo kỳ
 
 const StatisticsTab = ({
   currentTab, styles, parseToDateObject,
@@ -12,6 +13,13 @@ const StatisticsTab = ({
   const [danhSachNaiChiTietTuan, setDanhSachNaiChiTietTuan] = React.useState([]);
 const [tieuDeLuaChon, setTieuDeLuaChon] = React.useState('');
   const [mangNaiTheoLuaChon, setMangNaiTheoLuaChon] = React.useState([]);
+  // 🪟 Popup danh sách nái bầu tuần x: nền mờ dần + khung nổi nhẹ lên (giống các popup khác)
+  const animBau = React.useRef(new Animated.Value(0)).current;
+  const chayMoBau = () => Animated.timing(animBau, { toValue: 1, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  const dongPopupBau = (sau) => Animated.timing(animBau, { toValue: 0, duration: 150, easing: Easing.in(Easing.quad), useNativeDriver: true }).start(() => {
+    setTuanBauDangMoTab3(null);
+    if (typeof sau === 'function') setTimeout(sau, Platform.OS === 'ios' ? 250 : 0); // iOS cần đóng hẳn popup trước khi mở popup khác
+  });
   // 🌟 HÀM TRUNG TÂM PHÂN TÁCH SỐ LIỆU 52 TUẦN (ĐẶT NGOÀI LUỒNG RENDER CHỐNG LỖI DẤU)
  const khoDemXuyenNamHeThong = React.useMemo(() => {
     const khoDem = {};
@@ -200,6 +208,19 @@ const [tieuDeLuaChon, setTieuDeLuaChon] = React.useState('');
               </View>
             </View>
           </View>
+
+          {/* 🐖 CHỈ SỐ SINH SẢN THEO TUẦN / THÁNG / NĂM */}
+          <ThongKeSinhSan
+            danhSachLichSu={danhSachLichSu}
+            danhSachMaTai={danhSachMaTai}
+            onXemNai={(maTai) => {
+              // Mở đúng pop-up chi tiết nái như khi chạm vào nái ở các khối khác
+              const ma = String(maTai).toUpperCase().trim();
+              const timNai = Array.isArray(danhSachMaTai) ? danhSachMaTai.find(h => h && h.maTai && h.maTai.toString().toUpperCase().trim() === ma) : null;
+              if (typeof handleXemChiTietHeo === 'function') handleXemChiTietHeo(timNai || { maTai: ma });
+            }}
+          />
+
                  {/* 📊 KHỐI cơ cấu tổng đàn */}
 
   <View style={{ marginBottom: 8, width: '100%' }}>
@@ -382,7 +403,7 @@ const [tieuDeLuaChon, setTieuDeLuaChon] = React.useState('');
             <View style={{ borderBottomWidth: hienNaiBauTuan ? 1.5 : 0, borderBottomColor: '#f1f3f5', paddingBottom: hienNaiBauTuan ? 10 : 0, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: hienNaiBauTuan ? 12 : 0 }}>
               <View style={{ flex: 1, paddingRight: 10 }}>
                 <Text style={{ fontSize: 13.5, fontWeight: '800', color: '#1a1f23', letterSpacing: 0.2 }}>📊 THỐNG KÊ NÁI BẦU</Text>
-                <Text style={{ fontSize: 11, color: '#8a929a', marginTop: 3 }}>Theo dõi chu kỳ 18 tuần thai sản. Chạm ô tuần để rà soát mã tai</Text>
+                <Text style={{ fontSize: 11, color: '#8a929a', marginTop: 3 }}>Theo dõi chu kỳ 18 tuần thai sản. Chạm ô tuần để rà soát mã tai, chạm mã tai để xem lịch sử nái</Text>
               </View>
 
               <TouchableOpacity 
@@ -498,7 +519,7 @@ const [tieuDeLuaChon, setTieuDeLuaChon] = React.useState('');
                             <TouchableOpacity
                               key={`grid3_clean_cell_${hangIdx}_${colIdx}`}
                               activeOpacity={0.7}
-                              onPress={() => setTuanBauDangMoTab3(laOThuocCheck ? null : tuanKey)}
+                              onPress={() => { animBau.setValue(0); setTuanBauDangMoTab3(laOThuocCheck ? null : tuanKey); }}
                               style={{ flex: 1, height: 52, borderRadius: 7, borderWidth: laOThuocCheck ? 1.8 : 0.8, borderColor: mauVienLuoi, backgroundColor: mauNenLuoi, alignItems: 'center', justifyContent: 'center' }}
                             >
                               <Text style={{ fontSize: 11, fontWeight: '800', color: mauChuTuan }}>{iconNhacNho}{nhanTieuDeNut}</Text>
@@ -515,9 +536,12 @@ const [tieuDeLuaChon, setTieuDeLuaChon] = React.useState('');
             )}
           </View>
           {/* KHỐI HIỂN THỊ CHI TIẾT MÃ TAI KHI CHẠM VÀO Ô LƯỚI CHU KỲ */}
-          {tuanBauDangMoTab3 && (
-            <View style={{ backgroundColor: '#f8f9fa', borderWidth: 1, borderColor: '#e9ecef', borderRadius: 8, padding: 10, marginTop: 6, marginBottom: 15 }}>
-              {(() => {
+          <Modal visible={!!tuanBauDangMoTab3} transparent animationType="none" statusBarTranslucent onShow={chayMoBau} onRequestClose={() => dongPopupBau()}>
+            <Animated.View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.45)', opacity: animBau }} />
+            <TouchableOpacity activeOpacity={1} onPress={() => dongPopupBau()} style={{ flex: 1, justifyContent: 'center', padding: 18 }}>
+            <Animated.View style={{ maxHeight: '78%', opacity: animBau, transform: [{ scale: animBau.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) }, { translateY: animBau.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }}>
+            <TouchableOpacity activeOpacity={1} style={{ backgroundColor: '#ffffff', borderRadius: 14, padding: 14, flexShrink: 1 }}>
+              {tuanBauDangMoTab3 && (() => {
                 const soTuanHienTai = tuanBauDangMoTab3.replace('t', '').trim();
                 const laOThuocMoiPhoi = tuanBauDangMoTab3 === "t0";
 
@@ -605,16 +629,18 @@ const [tieuDeLuaChon, setTieuDeLuaChon] = React.useState('');
                 danhSachMaTaiBauTuanNay.sort((a, b) => (a.maTai || "").toString().toUpperCase().localeCompare((b.maTai || "").toString().toUpperCase()));
 
                 return (
-                  <View>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingBottom: 5, borderBottomWidth: 0.5, borderBottomColor: '#e9ecef' }}>
-                      <Text style={{ fontSize: 11.5, fontWeight: '800', color: '#1a1f23' }}>
-                        📋 {laOThuocMoiPhoi ? "DANH SÁCH HEO MỚI PHỐI" : `DANH SÁCH BẦU TUẦN THỨ ${soTuanHienTai}`}:
+                  <View style={{ flexShrink: 1 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                      <Text style={{ fontSize: 15, fontWeight: '900', color: '#1a1f23', flex: 1 }}>
+                        {laOThuocMoiPhoi ? "Heo mới phối" : `Nái bầu tuần thứ ${soTuanHienTai}`}
                       </Text>
-                      <TouchableOpacity onPress={() => setTuanBauDangMoTab3(null)} style={{ backgroundColor: '#6c757d', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 }}>
-                        <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: 'bold' }}>Đóng x</Text>
+                      <TouchableOpacity onPress={() => dongPopupBau()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                        <Text style={{ fontSize: 18, color: '#8a929a', fontWeight: 'bold' }}>✕</Text>
                       </TouchableOpacity>
                     </View>
+                    <Text style={{ fontSize: 10.5, color: '#8a929a', marginBottom: 8 }}>{danhSachMaTaiBauTuanNay.length} nái · chạm vào mã tai để xem chi tiết</Text>
 
+                    <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator={false}>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
                       {danhSachMaTaiBauTuanNay.length === 0 ? (
                         <Text style={{ fontSize: 11, color: '#868e96', fontStyle: 'italic', paddingVertical: 4 }}>
@@ -624,8 +650,15 @@ const [tieuDeLuaChon, setTieuDeLuaChon] = React.useState('');
                         danhSachMaTaiBauTuanNay.map((naiBau, nIdx) => {
                           const hienThiNgay = naiBau.soNgayBauTinhDuocOutside ?? 0;
                           return (
-                            <View 
+                            <TouchableOpacity 
                               key={`grid3_clean_tag_${nIdx}`}
+                              activeOpacity={0.6}
+                              onPress={() => {
+                                // 🐷 Chạm vào mã tai -> mở pop-up lịch sử nái (giống các khối khác trong tab)
+                                const ma = (naiBau.maTai || "").toString().toUpperCase().trim();
+                                const timNai = Array.isArray(danhSachMaTai) ? danhSachMaTai.find(h => h && h.maTai && h.maTai.toString().toUpperCase().trim() === ma) : null;
+                                dongPopupBau(() => { if (typeof handleXemChiTietHeo === 'function') handleXemChiTietHeo(timNai || { maTai: ma }); });
+                              }}
                               style={{ 
                                 backgroundColor: laOThuocMoiPhoi ? '#e7f4ea' : '#fff5eb', 
                                 borderWidth: 1, 
@@ -640,16 +673,22 @@ const [tieuDeLuaChon, setTieuDeLuaChon] = React.useState('');
                               <Text style={{ color: laOThuocMoiPhoi ? '#146c43' : '#e65100', fontSize: 9.5, fontWeight: '800', marginTop: 1 }}>
                                 {hienThiNgay === 0 ? "Mới Phối ✨" : `${hienThiNgay} Ngày`}
                               </Text>
-                            </View>
+                            </TouchableOpacity>
                           );
                         })
                       )}
                     </View>
+                    </ScrollView>
+                    <TouchableOpacity onPress={() => dongPopupBau()} style={{ marginTop: 12, paddingVertical: 10, borderRadius: 8, alignItems: 'center', backgroundColor: '#f1f3f5' }}>
+                      <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#495057' }}>Đóng</Text>
+                    </TouchableOpacity>
                   </View>
                 );
               })()}
-            </View>
-          )}
+            </TouchableOpacity>
+            </Animated.View>
+            </TouchableOpacity>
+          </Modal>
     {/* 📅 KHỐI THỐNG KÊ LƯỚI Ô VUÔNG LỊCH VẠN NIÊN PHẲNG 12 THÁNG (PREMIUM OPEN CALENDAR MATRIX) */}
           <View style={{ backgroundColor: '#ffffff', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#eef2f6', marginBottom: 18 }}>
             <View style={{ marginBottom: 16, borderBottomWidth: 1.5, borderBottomColor: '#f1f3f5', paddingBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -845,7 +884,7 @@ const [tieuDeLuaChon, setTieuDeLuaChon] = React.useState('');
           return null;
         })()}
 
-        <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#0056b3', marginBottom: 8, letterSpacing: 0.5 }}>🌾 DỰ KIẾN TIÊU THỤ CÁM THÁNG NÀY</Text>
+        <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#0056b3', marginBottom: 8, letterSpacing: 0.5 }}>🌾 DỰ KIẾN TIÊU THỤ CÁM THÁNG NÀY ( Đang Sửa và sẽ chuyển qua mục khác )</Text>
         <View style={{ backgroundColor: '#f8f9fa', borderRadius: 10, padding: 12, marginBottom: 20, borderWidth: 1, borderColor: '#e9ecef' }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#dee2e6' }}>
             <Text style={{ fontSize: 13, color: '#495057', fontWeight: '500' }}>Dự kiến cám Heo Thịt</Text>
@@ -867,4 +906,3 @@ const [tieuDeLuaChon, setTieuDeLuaChon] = React.useState('');
 };
 
 export default StatisticsTab;
-
