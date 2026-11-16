@@ -8,7 +8,7 @@
 // Không xếp cũng được, heo cứ nằm ở đây.
 // ========================================================
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Modal, ScrollView, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, Animated, Easing } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Modal, ScrollView, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, Animated, Easing, Keyboard } from 'react-native';
 import { formatVNDate, parseToDateObject } from './DateUtils';
 import { ghiDongMoi } from './chuongThitService';
 import { chanNeuKhongDuQuyen, duocThem } from './nguoiNhap';
@@ -83,7 +83,7 @@ export const OTuanChoXep = ({ nhom, chon, onPress }) => (
   </TouchableOpacity>
 );
 
-export function ModalThaoTacHeo({ nhung, visible, hanhDong, tuoiBanDau, choXepTheoTuoi, danhSachKhu, danhSachChuongThit, userEmail, onClose, onDaGhi, setDongBoStatus }) {
+export function ModalThaoTacHeo({ nhung, onThanhCong, visible, hanhDong, tuoiBanDau, choXepTheoTuoi, danhSachKhu, danhSachChuongThit, userEmail, onClose, onDaGhi, setDongBoStatus }) {
   const [tuoiChon, setTuoiChon] = useState(null);
   const [soCon, setSoCon] = useState('');
   const [chuongChon, setChuongChon] = useState(null); // { tenKhu, tenChuong }
@@ -97,6 +97,13 @@ export function ModalThaoTacHeo({ nhung, visible, hanhDong, tuoiBanDau, choXepTh
   const khu = Array.isArray(danhSachKhu) ? danhSachKhu : [];
   const nhomChon = ds.find((x) => x.tuoi === tuoiChon);
   const setMoModal = (mo) => { if (!mo && typeof onClose === 'function') onClose(); };
+  // ✅ Báo lưu thành công: KHÔNG bật Alert ngay lúc cửa sổ đang đổi / đóng
+  // (trên app thật bản cửa hàng, nhất là iPhone, Alert bật đúng lúc Modal chuyển cảnh làm app đứng hình).
+  // Trong Ô heo chưa sắp xếp: hiện dải xanh ngay trong cửa sổ. Chỗ khác: đợi cửa sổ đóng xong mới báo.
+  const baoThanhCong = (noiDung) => {
+    if (typeof onThanhCong === 'function') onThanhCong(noiDung);
+    else setTimeout(() => Alert.alert('Thành công 🎉', noiDung), 700);
+  };
 
   // Bán / Hao hụt mở từ Báo cáo theo tuần tuổi: cho chọn lấy heo từ Chờ xếp hay từ ô chuồng nào
   const laChonNoi = (hanhDong === 'BAN_HEO' || hanhDong === 'HAO_HUT' || hanhDong === 'XOA_HEO') && !!tuoiBanDau && Array.isArray(danhSachChuongThit);
@@ -122,6 +129,7 @@ export function ModalThaoTacHeo({ nhung, visible, hanhDong, tuoiBanDau, choXepTh
   };
 
   const luu = async () => {
+    Keyboard.dismiss(); // 🍏 iPhone: cất bàn phím trước khi đổi cửa sổ / báo, tránh kẹt màn hình
     const n = parseInt(soCon, 10) || 0;
     const ngayGhi = (ngayNhap || formatVNDate(new Date())).trim();
     if (!parseToDateObject(ngayGhi)) return Alert.alert('Thông báo', 'Ngày không đúng dạng ngày/tháng/năm.');
@@ -143,7 +151,7 @@ export function ModalThaoTacHeo({ nhung, visible, hanhDong, tuoiBanDau, choXepTh
         setDangLuu(false);
         if (typeof onDaGhi === 'function') onDaGhi(dong);
         setMoModal(false);
-        Alert.alert('Thành công 🎉', `Đã nhập ${n} con heo ${tuoi} tuần.`);
+        baoThanhCong(`Đã nhập ${n} con heo ${tuoi} tuần.`);
       } catch (e) {
         setDangLuu(false);
         Alert.alert('Lỗi', 'Không lưu được, vui lòng kiểm tra mạng và thử lại.');
@@ -174,7 +182,7 @@ export function ModalThaoTacHeo({ nhung, visible, hanhDong, tuoiBanDau, choXepTh
           if (typeof setDongBoStatus === 'function') setDongBoStatus('✅ Đã lưu');
           if (typeof onDaGhi === 'function') onDaGhi(dong);
           setMoModal(false);
-          Alert.alert('Thành công 🎉', `${TEN_HD[hanhDong]} ${n} con ${noi.tuoiThat} tuần ở ${noi.ten}.`);
+          baoThanhCong(`${TEN_HD[hanhDong]} ${n} con ${noi.tuoiThat} tuần ở ${noi.ten}.`);
         } catch (e) {
           setDangLuu(false);
           Alert.alert('Lỗi', 'Không lưu được, vui lòng kiểm tra mạng và thử lại.');
@@ -214,7 +222,7 @@ export function ModalThaoTacHeo({ nhung, visible, hanhDong, tuoiBanDau, choXepTh
       if (typeof setDongBoStatus === 'function') setDongBoStatus('✅ Đã lưu');
       if (typeof onDaGhi === 'function') onDaGhi(dong);
       setMoModal(false);
-      Alert.alert('Thành công 🎉', hanhDong === 'XEP'
+      baoThanhCong(hanhDong === 'XEP'
         ? `${n} con ${tuoi} tuần đã vào chuồng ${chuongChon.tenChuong} (${chuongChon.tenKhu}).`
         : `${TEN_HD[hanhDong]} ${n} con ${tuoi} tuần.`);
     } catch (e) {
@@ -339,7 +347,9 @@ const NUT_CHO_XEP = [
 export default function OChoXepChuong({ visible, tuoiChon, onClose, choXepTheoTuoi, danhSachKhu, danhSachChuongThit, userEmail, onDaGhi, setDongBoStatus, NutSuaXoa }) {
   const [hanhDong, setHanhDong] = useState(null); // thao tác đang mở (cửa sổ ô tạm ẩn, đóng thao tác thì quay lại)
   const [dongMo, setDongMo] = useState(null);
-  const [tuanChon, setTuanChon] = useState(null); // 📍 ô tuần đang chọn: các nút Bán / Hao hụt / Luân chuyển / Xóa tự chọn sẵn tuần này
+  const [tuanChon, setTuanChon] = useState(null);
+  const [thongBao, setThongBao] = useState(''); // ✅ dải xanh "đã lưu" trong cửa sổ, tự tắt sau vài giây
+  useEffect(() => { if (!thongBao) return undefined; const h = setTimeout(() => setThongBao(''), 3500); return () => clearTimeout(h); }, [thongBao]); // 📍 ô tuần đang chọn: các nút Bán / Hao hụt / Luân chuyển / Xóa tự chọn sẵn tuần này
 
   const ds = Array.isArray(choXepTheoTuoi) ? choXepTheoTuoi : [];
   const tong = ds.reduce((a, b) => a + b.soCon, 0);
@@ -392,9 +402,14 @@ export default function OChoXepChuong({ visible, tuoiChon, onClose, choXepTheoTu
         {hanhDong ? (
           <ModalThaoTacHeo nhung visible hanhDong={hanhDong} tuoiBanDau={hanhDong !== 'NHAP_HEO' && ds.some((x) => x.tuoi === tuanChon) ? tuanChon : null} choXepTheoTuoi={ds}
             danhSachKhu={danhSachKhu} userEmail={userEmail} setDongBoStatus={setDongBoStatus}
-            onClose={() => doiNoiDung(null)} onDaGhi={onDaGhi} />
+            onClose={() => doiNoiDung(null)} onDaGhi={onDaGhi} onThanhCong={(m) => setThongBao(m)} />
         ) : (
           <View style={{ backgroundColor: '#ffffff', borderRadius: 14, padding: 14, flexShrink: 1 }}>
+            {!!thongBao && (
+              <View style={{ backgroundColor: '#ecfdf3', borderWidth: 1, borderColor: '#a7e3bd', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 10, marginBottom: 10 }}>
+                <Text style={{ fontSize: 12.5, fontWeight: 'bold', color: '#16a34a' }}>✅ Đã lưu: {thongBao}</Text>
+              </View>
+            )}
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <View>

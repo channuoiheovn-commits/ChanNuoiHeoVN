@@ -32,6 +32,10 @@ const HIEN_ICON_NUT_CHUONG = true; // đổi thành false nếu muốn quay lạ
 
 const { width } = Dimensions.get('window');
 
+// 🍏 iPhone: Alert bật đúng lúc cửa sổ (Modal) đang đóng sẽ bị kẹt sau màn hình -> app như bị treo.
+// Đợi cửa sổ đóng xong (~0,65 giây) rồi mới báo thành công.
+const baoSauKhiDong = (tieuDe, noiDung) => setTimeout(() => Alert.alert(tieuDe, noiDung), 650);
+
 const FarmMapSubTab = ({ 
   danhSachChuongThit, 
   setDanhSachChuongThit, 
@@ -311,7 +315,7 @@ const [soDongNhatKyCam, setSoDongNhatKyCam] = useState(15);
     tacVuGhi.then(dongMoiDaGhi => {
       setIsSaving(false);
       if (typeof setDongBoStatus === 'function') setDongBoStatus("✅ Đã cập nhật chuồng trại!");
-      Alert.alert("Thành công 🎉");
+      baoSauKhiDong("Thành công 🎉");
 
       let mangMoiSauGhi = [];
       if (typeof setDanhSachChuongThit === 'function') {
@@ -417,7 +421,7 @@ const [soDongNhatKyCam, setSoDongNhatKyCam] = useState(15);
     ghiNhieuDong([dongTruGui, dongCongGui])
     .then(cacDongDaGhi => {
       setIsSaving(false);
-      Alert.alert("Thành công 🚚", `Đã luân chuyển ${soConChuyenGui} heo sang Ô ${chuongDichInput.trim()} Khu ${khuDichInput}.`);
+      baoSauKhiDong("Thành công 🚚", `Đã luân chuyển ${soConChuyenGui} heo sang Ô ${chuongDichInput.trim()} Khu ${khuDichInput}.`);
 
       if (typeof setDanhSachChuongThit === 'function') {
         setDanhSachChuongThit(prev => [...(Array.isArray(prev) ? prev : []), ...cacDongDaGhi]);
@@ -474,7 +478,7 @@ const [soDongNhatKyCam, setSoDongNhatKyCam] = useState(15);
     })
     .then(() => {
       setIsSaving(false);
-      Alert.alert("Thành công 🧹", thongBaoGiaoDien);
+      baoSauKhiDong("Thành công 🧹", thongBaoGiaoDien);
       if (typeof setDanhSachChuongThit === 'function') {
         setDanhSachChuongThit(prev => {
           const mTho = Array.isArray(prev) ? prev : [];
@@ -1357,7 +1361,7 @@ if (tuoiGhiSo < 1) {
                           tacVu.then(dongMoiHoanThien => {
                             setTongKgInput('');
                             setIsSaving(false);
-                            Alert.alert("Thành công 🎉");
+                            baoSauKhiDong("Thành công 🎉");
                             if (typeof setDanhSachChuongThit === 'function') { setDanhSachChuongThit(prev => [...(Array.isArray(prev) ? prev : []), dongMoiHoanThien]); }
                             setSoHeoInput(""); setTuanTuoiInput(""); setTenKhuInput(""); setGhiChuInput(""); setTuanChuyenDuocChon(""); setIsActionModalVisible(false); setSelectedChuongGop(null);
                           }).catch(() => { setIsSaving(false); Alert.alert("Lỗi", "Không thể lưu dữ liệu, vui lòng kiểm tra mạng và thử lại."); });
